@@ -1,0 +1,21 @@
+{
+  "name": "@ideamory/db",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1"
+  },
+  "devDependencies": {
+    "@ideamory/tsconfig": "workspace:*",
+    "typescript": "^5.7.3",
+    "rimraf": "^6.0.1"
+  }
+}
+
