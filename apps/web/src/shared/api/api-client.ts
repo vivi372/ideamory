@@ -12,9 +12,22 @@ export const apiClient = axios.create({
   timeout: 10000
 });
 
+/**
+ * W3C / Sentry 32자리 16진수 표준 Trace ID 생성기
+ */
+function generateTraceId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID().replace(/-/g, "");
+  }
+  return (
+    Math.random().toString(16).substring(2, 18) +
+    Math.random().toString(16).substring(2, 18)
+  ).padEnd(32, "0");
+}
+
 // 요청 인터셉터: X-Trace-Id 생성 및 전달
 apiClient.interceptors.request.use((config) => {
-  const traceId = Math.random().toString(16).substring(2, 8);
+  const traceId = generateTraceId();
   config.headers["X-Trace-Id"] = traceId;
   return config;
 });
