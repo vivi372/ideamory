@@ -19,10 +19,12 @@ export class TraceIdInterceptor implements NestInterceptor {
     const req = ctx.getRequest<Request>();
     const res = ctx.getResponse<Response>();
 
-    // W3C / Sentry 32자리 16진수 Trace ID 검증 및 상속/발급
+    // W3C / Sentry 32자리 16진수 Trace ID 검증 및 상속/발급 (All-Zero 무효화 포함)
     const rawTraceId = req.headers["x-trace-id"];
     let traceId =
-      typeof rawTraceId === "string" && /^[0-9a-fA-F]{32}$/.test(rawTraceId)
+      typeof rawTraceId === "string" &&
+      /^[0-9a-fA-F]{32}$/.test(rawTraceId) &&
+      !/^0{32}$/.test(rawTraceId)
         ? rawTraceId.toLowerCase()
         : randomUUID().replace(/-/g, "");
 
