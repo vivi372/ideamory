@@ -1,13 +1,17 @@
 "use client";
 
 import React from "react";
-import type { CreateMemoDto } from "@ideamory/api-spec";
+import type { MemoResponseDto } from "@ideamory/api-spec";
 
 export default function HomePage() {
   // 0단계 연결 검증용 DTO 타입 확인
-  const exampleMemo: CreateMemoDto = {
+  const exampleMemo: MemoResponseDto = {
+    id: "01931f6e-7000-7c3e-8f23-8c4c7a5b3e10",
     content: "Ideamory 0.1초 퀵 캡처 프로젝트 환경이 성공적으로 초기화되었습니다.",
-    categoryName: "온보딩"
+    categoryId: "01931f6e-7000-7c3e-8f23-8c4c7a5b3e11",
+    categoryName: "온보딩",
+    deletedAt: null,
+    createdAt: new Date().toISOString()
   };
 
   return (
