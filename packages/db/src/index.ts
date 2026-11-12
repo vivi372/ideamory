@@ -1,17 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-
 /**
- * Supabase 서버 클라이언트 팩토리 (백엔드 전용)
- * Supabase API Keys v2의 Secret Key 또는 레거시 service_role Key를 수용합니다.
+ * Ideamory 데이터베이스 패키지 메인 진입점
+ * Drizzle ORM 클라이언트, 스키마 및 TypeScript 타입 단일 진실 공급원(SSOT)
  */
-export function createSupabaseServiceClient(supabaseUrl: string, secretKey: string) {
-  return createClient(supabaseUrl, secretKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false
-    }
-  });
-}
-
-export type SupabaseServiceClient = ReturnType<typeof createSupabaseServiceClient>;
-
+export * from "./client";
+export * from "./schema";

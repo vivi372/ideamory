@@ -2,8 +2,8 @@
 
 > **프로젝트**: Ideamory (아이디모리) — 모바일 퍼스트 0.1초 퀵 캡처 & AI 하이브리드 지식 서재  
 > **아키텍처**: Monorepo (Turborepo + pnpm workspaces)  
-> **핵심 스택**: Next.js 15 (React 19) + NestJS + Supabase (PostgreSQL 17, pgvector) + Gemini AI  
-> **최근 업데이트**: 2026-11-10  
+> **핵심 스택**: Next.js 15 (React 19) + NestJS + PostgreSQL 17 (Drizzle ORM, postgres.js, pgvector) + Supabase Auth (jose ES256) + Gemini AI  
+> **최근 업데이트**: 2026-11-12 (Drizzle ORM 풀링 및 jose ECC P-256 아키텍처 개정 반영)  
 
 ---
 
@@ -12,14 +12,14 @@
 | 단계 | 구분 | 목표 및 핵심 영역 | 진행 상태 | 완료율 |
 | :---: | :--- | :--- | :---: | :---: |
 | **0단계** | **기반 환경** | Monorepo 구성 및 공통 Config 설정 | ✅ 완료 | `3 / 3` (100%) |
-| **1단계** | **공통 모듈** | Supabase DB 스키마, DTO, RPC, RLS 보안 | 🔄 진행중 | `2 / 7` (28.6%) |
-| **2단계** | **백엔드 API** | NestJS 코어 비즈니스, AI 임베딩, 검색, 캡처 | ⏳ 준비 | `0 / 10` (0%) |
+| **1단계** | **공통 모듈** | PostgreSQL DDL, Drizzle ORM 매핑, 인덱스, DTO 규격 | ✅ 완료 | `4 / 4` (100%) |
+| **2단계** | **백엔드 API** | NestJS 코어 비즈니스, AI 임베딩, 검색, 캡처 | ⏳ 준비 | `0 / 11` (0%) |
 | **3단계** | **프론트엔드** | Next.js 15 UI/UX, 썸존 퀵 캡처, 타임라인, 애니메이션 | ⏳ 준비 | `0 / 8` (0%) |
 | **4단계** | **E2E & 배포** | 3-Tier 통합 연동, 분산 트레이싱, 무결성 검증 | ⏳ 준비 | `0 / 3` (0%) |
-| **전체** | **Total** | **엔드투엔드 프로덕션 릴리스** | **진행중** | **`5 / 31` (16.1%)** |
+| **전체** | **Total** | **엔드투엔드 프로덕션 릴리스** | **진행중** | **`7 / 29` (24.1%)** |
 
 ```
-진행률: [========--------------------------------------] 16.1%
+진행률: [============----------------------------------] 24.1%
 ```
 
 ---
@@ -37,74 +37,72 @@
   - `packages/eslint-config`: ESLint + Prettier 통합 린팅 규칙 패키지
 - [x] **0-3. Apps 및 Packages 기본 스캐폴딩**
   - **Apps**: `apps/web` (Next.js 15), `apps/api` (NestJS)
-  - **Packages**: `packages/db` (Supabase 클라이언트/타입), `packages/api-spec` (Zod DTO)
+  - **Packages**: `packages/db` (Drizzle ORM + postgres.js 풀링/스키마), `packages/api-spec` (Zod DTO)
 
 ---
 
 ## 🗄️ 1단계: 공통 DB 및 DTO/명세 모듈 개발 (`packages/`)
 
-- **목표**: 백엔드와 프론트엔드가 공유할 강력한 타입 안전성(Zod)과 Supabase 데이터베이스 엔진을 구축합니다.
-- **주요 산출물**: `packages/api-spec` DTO, Supabase 마이그레이션 DDL, RPC 함수, RLS 보안 정책
+- **목표**: 백엔드와 프론트엔드가 공유할 강력한 타입 안전성(Zod)과 Drizzle ORM + PostgreSQL(pgvector) 데이터베이스 엔진을 구축합니다. (BaaS 종속적인 DB Stored Function/RPC 및 RLS를 배제하고 백엔드 서비스 쿼리로 일원화)
+- **주요 산출물**: `packages/api-spec` DTO, Drizzle ORM pgTable 스키마, SQL 마이그레이션 DDL, HNSW/GIN 인덱스
 
 - [x] **1-1. Zod 기반 전역 DTO 및 Validation 스키마 구성 (`packages/api-spec`)**
   - 메모 생성/수정, 카테고리, 검색 쿼리, 페이징 DTO 정의
+  - 32자리 W3C Trace ID 정규식(`/^[0-9a-fA-F]{32}$/`) 표준화 반영
   - OpenAPI(Swagger) 타입 자동 추론 및 클라이언트 유효성 검사 모듈
-- [x] **1-2. Supabase PostgreSQL 핵심 테이블 스키마 DDL 작성**
-  - `categories` (텍스트 전용 계층 구조)
-  - `memos` (UUID v7 PK, 본문, 메타데이터, 소프트 삭제 필드)
-  - `ogp_caches` (14일 TTL 메타데이터 캐시)
-- [ ] **1-3. pgvector 768차원 HNSW 인덱스 및 FTS(Full-Text Search) 설정**
-  - Gemini 임베딩 모델 규격(768차원)에 맞춘 HNSW 벡터 인덱스 (`vector_cosine_ops`)
-  - 한글/영문 전문 검색을 위한 PostgreSQL `tsvector` FTS 인덱스 구축
-- [ ] **1-4. 하이브리드 검색 및 연관 메모 1-Depth 검색 SQL RPC 구축**
-  - Vector 유사도 + FTS 가중치 결합 하이브리드 검색 함수 (`search_memos_hybrid`)
-  - 특정 메모 기준 연관 메모 1-Depth 추천 함수 (`get_related_memos`)
-- [ ] **1-5. 데이터 라이프사이클 관리 SQL RPC 구축**
-  - 게스트 데이터 원자적 초기화 및 회원탈퇴 Hard Delete 프로시저
-  - 만료된 OGP 캐시 일괄 삭제 루틴
-- [ ] **1-6. 온보딩 시드(Seed) 메모 생성 SQL RPC 구축**
-  - 최초 진입 사용자(게스트/신규 회원) 대상 튜토리얼 안내 메모 3종 자동 생성
-- [ ] **1-7. PostgreSQL Row Level Security (RLS) 보안 정책 완비**
-  - 세션 사용자(`auth.uid()`) 및 익명 게스트 세션별 격리 정책 수립
-  - `supabase-postgres-best-practices` 지침에 따른 외래키 인덱스 및 보안 감사 통과
+- [x] **1-2. PostgreSQL 핵심 테이블 스키마 DDL 작성 (`packages/db`)**
+  - `categories` (선발급 UUID v7, 정규화 부분 유니크 인덱스, 글자수/소유권 CHECK 제약)
+  - `ogp_caches` (14일 TTL 메타데이터 캐시, URL 유니크 인덱스)
+  - `memos` (UUID v7 PK, 768차원 vector, 배타적 소유권 CHECK, 타임라인 인덱스)
+  - 외래키 정책(CASCADE, RESTRICT, SET NULL) 및 제약조건 100% 검증 통과
+- [x] **1-3. Drizzle ORM 매핑 및 postgres.js 경량 풀링 구축 (`packages/db`)**
+  - `drizzle.config.ts` 마이그레이션 설정 및 Drizzle `pgTable` 스키마 4종 완비
+  - `postgres(DATABASE_URL, { max: 10, idle_timeout: 20 })` 기반 Always-On 단일 인스턴스 인프로세스 풀링
+  - Drizzle `db`, `client`, 전체 `schema` 단일 진실 공급원(SSOT) 익스포트
+- [x] **1-4. pgvector 768차원 HNSW 인덱스 및 FTS(Full-Text Search) 설정 (`packages/db`)**
+  - Gemini 임베딩 모델 규격(768차원)에 맞춘 HNSW 벡터 인덱스 (`vector_cosine_ops`, `m = 16, ef_construction = 64`)
+  - 한글/영문 전문 검색을 위한 PostgreSQL `tsvector` FTS GIN 인덱스 구축 및 Drizzle 스키마 인덱스 완비
 
 ---
 
 ## ⚡ 2단계: NestJS 백엔드 핵심 기능 개발 (`apps/api/`)
 
-- **목표**: 0.1초 반응성을 보장하는 고성능 비동기 API 및 Gemini AI 파이프라인을 구축합니다.
-- **주요 산출물**: REST API 엔드포인트, Swagger UI, 분산 트레이싱, AI 비동기 워커
+- **목표**: 0.1초 반응성을 보장하는 고성능 비동기 API, jose 오프라인 인증 및 Gemini AI 파이프라인을 구축합니다.
+- **주요 산출물**: REST API 엔드포인트, Swagger UI, W3C 32자리 분산 트레이싱, jose ECC P-256 AuthGuard, Drizzle SQL 하이브리드 검색, AI 비동기 워커
 
-- [ ] **2-1. 분산 트레이싱 및 마스킹 로깅 미들웨어**
-  - `X-Trace-Id` 발급 및 모든 요청/응답 헤더 전파
-  - 민감 개인정보 자동 마스킹 및 구조화된 JSON 로그 출력
-- [ ] **2-2. 공통 예외 처리 필터 및 표준 응답 규격**
+- [ ] **2-1. W3C 32자리 분산 트레이싱 및 CORS 노출 인터셉터**
+  - 32자리 Hex `X-Trace-Id` 발급/전파 및 All-Zero 무효화 처리
+  - CORS `Access-Control-Expose-Headers: X-Trace-Id` 등록 및 콘솔 앞 8자리 축약 로깅
+- [ ] **2-2. jose 기반 최신 Supabase Auth (ECC Curve P-256 / ES256) JWT 로컬 인증 가드**
+  - `createRemoteJWKSet` 기반 공개키 셋 캐싱 및 0ms 오프라인 비대칭키 서명 검증
+  - `payload.sub` 추출 후 `request.user.id` 바인딩
+- [ ] **2-3. 공통 예외 처리 필터 및 표준 응답 규격**
   - `BusinessException` 및 UX 태그(토스트 레벨, 모달 레벨) 기반 `ErrorResponseDto`
   - 전역 유효성 검사 파이프(`ZodValidationPipe`) 연결
-- [ ] **2-3. Vercel CORS 설정 및 Swagger UI 구축**
+- [ ] **2-4. Vercel CORS 설정 및 Swagger UI 구축**
   - 웹 클라이언트 도메인 전용 안전한 CORS 정책
   - `/api/docs`를 통한 대화형 API 문서화
-- [ ] **2-4. 익명 게스트 세션 및 시드 데이터 발급**
-  - 게스트 UUID 발급 및 1단계 온보딩 시드 RPC 연동
-- [ ] **2-5. 데이터 초기화 및 소셜 계정 데이터 이관/회원탈퇴**
+- [ ] **2-5. 익명 게스트 세션 및 시드 데이터 발급 (Drizzle 트랜잭션)**
+  - 게스트 UUID 발급 및 튜토리얼 안내 메모 3종 원자적 생성(`db.transaction()`)
+- [ ] **2-6. 데이터 초기화 및 소셜 계정 데이터 이관/회원탈퇴 (Drizzle 트랜잭션)**
   - 게스트 세션 데이터 ➔ 소셜 계정 승격(마이그레이션) 원자적 트랜잭션
   - 계정 삭제 및 데이터 클린업
-- [ ] **2-6. 0.1초 퀵 캡처 API 기능 개발 (Core)**
+- [ ] **2-7. 0.1초 퀵 캡처 API 기능 개발 (Core)**
   - UUID v7 즉시 선발급을 통한 선응답(초고속 반환)
   - 인라인 `@카테고리` 태그 자동 파싱
   - Gemini 768차원 임베딩 생성 백그라운드 비동기 큐/이벤트 처리
-- [ ] **2-7. 메모 타임라인 조회, 소프트 삭제 및 원클릭 복구**
+- [ ] **2-8. 메모 타임라인 조회, 소프트 삭제 및 원클릭 복구 (Drizzle 쿼리)**
   - 커서 기반 페이지네이션 타임라인 API
   - 실수 방지를 위한 소프트 삭제(`deleted_at`) 및 원클릭 복구 API
-- [ ] **2-8. FTS + Vector 하이브리드 검색 및 연관 메모 API**
-  - 키워드 + 의미 기반 복합 검색 API
-  - 메모 상세/카드별 연관 메모 1-Depth 필터링 엔드포인트
-- [ ] **2-9. 카테고리 CRUD 및 AI 유사 카테고리 통합 API**
+- [ ] **2-9. FTS + Vector 하이브리드 검색 및 연관 메모 1-Depth 검색 API**
+  - Drizzle Raw SQL 기반 키워드(0.4) + 의미 벡터(0.6) 가중치 결합 하이브리드 검색 쿼리
+  - 특정 메모 기준 코사인 거리 기반 연관 메모 1-Depth 필터링 엔드포인트
+- [ ] **2-10. 카테고리 CRUD 및 AI 유사 카테고리 통합 API**
   - 텍스트 전용 카테고리 생성/수정/삭제
   - AI 유사도 기반 중복/유사 카테고리 탐지 및 원클릭 병합 기능
-- [ ] **2-10. OGP 메타데이터 크롤러 및 TTL 캐싱 스케줄러**
+- [ ] **2-11. OGP 메타데이터 크롤러 및 TTL 캐싱 스케줄러**
   - 링크 포함 시 비동기 메타태그(제목, 설명, 썸네일) 파싱
-  - 14일 TTL 검증 및 주기적 정리 크론(Scheduler)
+  - 14일 TTL 검증 및 만료 캐시 자동 삭제 주기적 정리 크론(Scheduler)
 
 ---
 
