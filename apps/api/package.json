@@ -6,6 +6,7 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
+    "test": "node --test dist/**/*.spec.js",
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist"
   },
