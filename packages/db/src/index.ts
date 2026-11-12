@@ -1,16 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-
 /**
- * Supabase 클라이언트 팩토리 (백엔드 전용)
+ * Ideamory 데이터베이스 패키지 메인 진입점
+ * Drizzle ORM 클라이언트, 스키마 및 TypeScript 타입 단일 진실 공급원(SSOT)
  */
-export function createSupabaseServiceClient(supabaseUrl: string, serviceRoleKey: string) {
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false
-    }
-  });
-}
-
-export type SupabaseServiceClient = ReturnType<typeof createSupabaseServiceClient>;
-
+export * from "./client";
+export * from "./schema";

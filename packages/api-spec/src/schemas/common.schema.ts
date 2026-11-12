@@ -16,7 +16,7 @@ export const UuidV7Schema = z
  */
 export const TraceIdSchema = z
   .string()
-  .regex(/^[0-9a-fA-F]{32}$/, "Trace ID는 32자리 16진수 문자열이어야 합니다.");
+  .regex(/^[0-9a-fA-F]{32}$/, "유효한 32자리 Hex Trace ID여야 합니다.");
 
 /**
  * UX 태그 에러 자동 분류 규격
