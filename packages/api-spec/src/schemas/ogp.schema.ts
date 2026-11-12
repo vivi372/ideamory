@@ -5,7 +5,10 @@ import { UuidV7Schema } from "./common.schema";
  * POST /api/ogp/parse (대표 URL 메타데이터 파싱 요청)
  */
 export const ParseOgpSchema = z.object({
-  url: z.string().url("올바른 URL 형식이어야 합니다."),
+  url: z
+    .string()
+    .url("올바른 URL 형식이어야 합니다.")
+    .regex(/^https?:\/\//i, "http 또는 https 프로토콜만 지원합니다."),
 });
 
 export type ParseOgpDto = z.infer<typeof ParseOgpSchema>;
