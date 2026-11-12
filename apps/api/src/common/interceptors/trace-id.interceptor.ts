@@ -58,12 +58,26 @@ export class TraceIdInterceptor implements NestInterceptor {
     res.setHeader("X-Trace-Id", traceId);
 
     // 2. CORS 환경에서 프론트엔드가 X-Trace-Id 헤더를 읽을 수 있도록 Expose-Headers 등록
+    // 소문자 유입, 배열 형태 및 부분 일치 오탐을 방지하기 위해 콤마 단위 토큰 정규화 검사 수행
     const existingExpose = res.getHeader("Access-Control-Expose-Headers");
     if (existingExpose) {
-      if (!String(existingExpose).includes("X-Trace-Id")) {
+      const exposeTokens = (
+        Array.isArray(existingExpose)
+          ? existingExpose.join(",")
+          : String(existingExpose)
+      )
+        .split(",")
+        .map((header) => header.trim())
+        .filter((header) => header.length > 0);
+
+      const hasTraceId = exposeTokens.some(
+        (header) => header.toLowerCase() === "x-trace-id"
+      );
+
+      if (!hasTraceId) {
         res.setHeader(
           "Access-Control-Expose-Headers",
-          `${existingExpose}, X-Trace-Id`
+          [...exposeTokens, "X-Trace-Id"].join(", ")
         );
       }
     } else {
@@ -98,24 +112,50 @@ export class TraceIdInterceptor implements NestInterceptor {
 
   /**
    * 객체 내 민감 정보 필드를 [MASKED]로 안전하게 치환합니다.
+   * WeakSet 기반 순환 참조 감지, Date/RegExp 특수 객체 원형 보존 및 최대 10-Depth 제어로 스택 오버플로를 방어합니다.
    * @param data 마스킹 처리할 데이터 객체
+   * @param visited 순환 참조 탐지용 WeakSet
+   * @param depth 현재 재귀 깊이
    */
-  public maskSensitiveData(data: any): any {
+  public maskSensitiveData(
+    data: any,
+    visited = new WeakSet<object>(),
+    depth = 0
+  ): any {
+    // 1. 원시 타입 또는 null/undefined 즉시 반환
     if (!data || typeof data !== "object") {
       return data;
     }
 
-    if (Array.isArray(data)) {
-      return data.map((item) => this.maskSensitiveData(item));
+    // 2. 최대 재귀 깊이(10-Depth) 초과 시 안전 중단 (CPU DoS 방어)
+    if (depth > 10) {
+      return "[MAX_DEPTH_EXCEEDED]";
     }
 
+    // 3. Date, RegExp 등 특수 객체는 분해하지 않고 원형 보존
+    if (data instanceof Date || data instanceof RegExp) {
+      return data;
+    }
+
+    // 4. 순환 참조(Circular Reference) 감지 시 무한 루프 차단
+    if (visited.has(data)) {
+      return "[CIRCULAR]";
+    }
+    visited.add(data);
+
+    // 5. 배열 재귀 탐색
+    if (Array.isArray(data)) {
+      return data.map((item) => this.maskSensitiveData(item, visited, depth + 1));
+    }
+
+    // 6. 객체 키-값 재귀 탐색
     const masked: Record<string, any> = {};
     for (const [key, value] of Object.entries(data)) {
       const lowerKey = key.toLowerCase();
       if (this.sensitiveKeys.has(lowerKey)) {
         masked[key] = "[MASKED]";
       } else if (typeof value === "object" && value !== null) {
-        masked[key] = this.maskSensitiveData(value);
+        masked[key] = this.maskSensitiveData(value, visited, depth + 1);
       } else {
         masked[key] = value;
       }
