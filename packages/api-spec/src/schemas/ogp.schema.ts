@@ -7,6 +7,7 @@ import { UuidV7Schema } from "./common.schema";
 export const ParseOgpSchema = z.object({
   url: z
     .string()
+    .trim()
     .url("올바른 URL 형식이어야 합니다.")
     .regex(/^https?:\/\//i, "http 또는 https 프로토콜만 지원합니다."),
 });
