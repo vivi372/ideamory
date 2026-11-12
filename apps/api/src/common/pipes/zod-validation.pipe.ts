@@ -5,6 +5,7 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { ZodSchema, ZodError } from "zod";
+import { getErrorCodeFromZodIssue } from "@ideamory/api-spec";
 import { BusinessException } from "../exceptions/business.exception";
 
 /**
@@ -31,47 +32,14 @@ export class ZodValidationPipe implements PipeTransform {
     if (!result.success) {
       const error: ZodError = result.error;
       const firstIssue = error.issues[0];
-      const fieldPath = firstIssue.path.join(".") || "field";
       const message = firstIssue.message || "입력값이 유효하지 않습니다.";
 
-      // 3. 에러 코드 [도메인]_FIELD_[상세원인] 구성
-      // 필드명 기반 추론 (예: content -> MEMO_FIELD_REQUIRED, name -> CATEGORY_FIELD_INVALID)
-      const errorCode = this.deriveErrorCode(fieldPath, firstIssue.code);
+      // 3. @ideamory/api-spec 중앙 파서를 통해 표준 에러 코드 도출 (SSOT)
+      const errorCode = getErrorCodeFromZodIssue(firstIssue);
 
       throw new BusinessException(message, errorCode, HttpStatus.BAD_REQUEST);
     }
 
     return result.data;
   }
-
-  /**
-   * Zod Issue를 분석하여 [도메인]_FIELD_[원인] 규격의 에러 코드를 도출합니다.
-   */
-  private deriveErrorCode(field: string, issueCode: string): string {
-    const upperField = field.toUpperCase().replace(/[^A-Z0-9]/g, "_");
-    let reason = "INVALID";
-
-    if (issueCode === "too_small") {
-      reason = "REQUIRED";
-    } else if (issueCode === "too_big") {
-      reason = "EXCEEDED";
-    } else if (issueCode === "invalid_string") {
-      reason = "FORMAT";
-    } else if (issueCode === "invalid_type") {
-      reason = "TYPE";
-    }
-
-    if (upperField.includes("MEMO") || upperField.includes("CONTENT")) {
-      return `MEMO_FIELD_${reason}`;
-    }
-    if (upperField.includes("CATEGORY") || upperField.includes("NAME")) {
-      return `CATEGORY_FIELD_${reason}`;
-    }
-    if (upperField.includes("TOKEN") || upperField.includes("AUTH")) {
-      return `AUTH_FIELD_${reason}`;
-    }
-
-    return `COMMON_FIELD_${reason}`;
-  }
 }
-

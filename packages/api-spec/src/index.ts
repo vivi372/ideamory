@@ -4,6 +4,10 @@
  * Zod DTO 스키마 및 z.infer 정적 타입 정의 전역 Barrel Export
  */
 
+// 전역 에러 코드 상수 및 유틸리티 (SSOT)
+export * from "./constants/error-code.constant";
+export * from "./utils/error.util";
+
 // 공통 도메인 스키마 및 타입
 export * from "./schemas/common.schema";
 
@@ -18,3 +22,6 @@ export * from "./schemas/category.schema";
 
 // 인증 및 계정 세션 도메인 스키마 및 타입
 export * from "./schemas/auth.schema";
+
+// Zod 핵심 객체 및 타입 리익스포트
+export { z, ZodSchema, ZodError, type ZodIssue } from "zod";

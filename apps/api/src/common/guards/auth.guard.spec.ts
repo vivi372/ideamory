@@ -2,7 +2,8 @@ import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 import { ExecutionContext, HttpStatus } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { generateKeyPair, SignJWT, exportJWK } from "jose";
+import { generateKeyPair, SignJWT } from "jose";
+import { ERROR_CODES } from "@ideamory/api-spec";
 import { AuthGuard, AuthenticatedRequest } from "./auth.guard";
 import { BusinessException } from "../exceptions/business.exception";
 
@@ -13,7 +14,11 @@ describe("AuthGuard (jose ES256 오프라인 JWT & 게스트 세션 검증)", ()
   let validPublicKey: any;
   let invalidPrivateKey: any;
 
+  const testSupabaseUrl = "https://test.supabase.co";
+
   before(async () => {
+    process.env.SUPABASE_URL = testSupabaseUrl;
+
     // 1. 테스트용 ES256 (ECC Curve P-256) 비대칭키 쌍 동적 생성
     const validKeyPair = await generateKeyPair("ES256");
     validPrivateKey = validKeyPair.privateKey;
@@ -57,19 +62,20 @@ describe("AuthGuard (jose ES256 오프라인 JWT & 게스트 세션 검증)", ()
       getClass: () => ({}),
     } as any;
 
-    // Reflector가 isPublic 여부를 반환하도록 stub
     reflector.getAllAndOverride = () => isPublic;
 
     return { context, request };
   }
 
-  it("시나리오 1: 정상 서명된 Supabase Auth ES256 JWT 유입 시 payload.sub가 request.user.id에 바인딩되고 통과해야 한다", async () => {
+  it("시나리오 1: 정상 서명 및 올바른 iss/aud 클레임을 가진 Supabase Auth ES256 JWT 유입 시 payload.sub가 request.user.id에 바인딩되고 통과해야 한다", async () => {
     const token = await new SignJWT({
       sub: "123e4567-e89b-12d3-a456-426614174000",
       email: "user@ideamory.com",
       role: "authenticated",
     })
       .setProtectedHeader({ alg: "ES256" })
+      .setIssuer(`${testSupabaseUrl}/auth/v1`)
+      .setAudience("authenticated")
       .setIssuedAt()
       .setExpirationTime("2h")
       .sign(validPrivateKey);
@@ -84,6 +90,7 @@ describe("AuthGuard (jose ES256 오프라인 JWT & 게스트 세션 검증)", ()
     assert.ok(request.user);
     assert.equal(request.user.id, "123e4567-e89b-12d3-a456-426614174000");
     assert.equal(request.user.email, "user@ideamory.com");
+    assert.equal(request.guestToken, undefined);
   });
 
   it("시나리오 2-A: 비대칭키 서명이 위변조되었거나 다른 키로 서명된 JWT는 401 AUTH_ALERT_UNAUTHORIZED로 즉시 차단해야 한다", async () => {
@@ -92,9 +99,11 @@ describe("AuthGuard (jose ES256 오프라인 JWT & 게스트 세션 검증)", ()
       email: "attacker@fake.com",
     })
       .setProtectedHeader({ alg: "ES256" })
+      .setIssuer(`${testSupabaseUrl}/auth/v1`)
+      .setAudience("authenticated")
       .setIssuedAt()
       .setExpirationTime("2h")
-      .sign(invalidPrivateKey); // 잘못된 비대칭키로 서명
+      .sign(invalidPrivateKey);
 
     const { context } = createMockContext({
       authorization: `Bearer ${invalidToken}`,
@@ -107,7 +116,7 @@ describe("AuthGuard (jose ES256 오프라인 JWT & 게스트 세션 검증)", ()
       (err: any) => {
         assert.ok(err instanceof BusinessException);
         assert.equal(err.getStatus(), HttpStatus.UNAUTHORIZED);
-        assert.equal(err.errorCode, "AUTH_ALERT_UNAUTHORIZED");
+        assert.equal(err.errorCode, ERROR_CODES.AUTH_ALERT_UNAUTHORIZED);
         return true;
       }
     );
@@ -118,8 +127,10 @@ describe("AuthGuard (jose ES256 오프라인 JWT & 게스트 세션 검증)", ()
       sub: "expired-user",
     })
       .setProtectedHeader({ alg: "ES256" })
+      .setIssuer(`${testSupabaseUrl}/auth/v1`)
+      .setAudience("authenticated")
       .setIssuedAt(Math.floor(Date.now() / 1000) - 3600)
-      .setExpirationTime(Math.floor(Date.now() / 1000) - 1800) // 이미 만료됨
+      .setExpirationTime(Math.floor(Date.now() / 1000) - 1800)
       .sign(validPrivateKey);
 
     const { context } = createMockContext({
@@ -133,13 +144,41 @@ describe("AuthGuard (jose ES256 오프라인 JWT & 게스트 세션 검증)", ()
       (err: any) => {
         assert.ok(err instanceof BusinessException);
         assert.equal(err.getStatus(), HttpStatus.UNAUTHORIZED);
-        assert.equal(err.errorCode, "AUTH_ALERT_UNAUTHORIZED");
+        assert.equal(err.errorCode, ERROR_CODES.AUTH_ALERT_UNAUTHORIZED);
         return true;
       }
     );
   });
 
-  it("시나리오 3: Authorization 헤더가 없고 유효한 X-Guest-Token(최대 64자)이 존재하면 request.guestToken에 바인딩되고 통과해야 한다", async () => {
+  it("시나리오 2-C: audience 클레임이 authenticated가 아닌 비인가 토큰(anon 등)은 401로 차단해야 한다", async () => {
+    const anonToken = await new SignJWT({
+      sub: "anon-user",
+    })
+      .setProtectedHeader({ alg: "ES256" })
+      .setIssuer(`${testSupabaseUrl}/auth/v1`)
+      .setAudience("anon") // 👈 authenticated가 아님!
+      .setIssuedAt()
+      .setExpirationTime("2h")
+      .sign(validPrivateKey);
+
+    const { context } = createMockContext({
+      authorization: `Bearer ${anonToken}`,
+    });
+
+    await assert.rejects(
+      async () => {
+        await authGuard.canActivate(context);
+      },
+      (err: any) => {
+        assert.ok(err instanceof BusinessException);
+        assert.equal(err.getStatus(), HttpStatus.UNAUTHORIZED);
+        assert.equal(err.errorCode, ERROR_CODES.AUTH_ALERT_UNAUTHORIZED);
+        return true;
+      }
+    );
+  });
+
+  it("시나리오 3-A: Authorization 헤더가 없고 유효한 X-Guest-Token(최대 64자)이 존재하면 request.guestToken에 바인딩되고 통과해야 한다", async () => {
     const guestToken = "gst_9f83b2a1c0d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8";
     const { context, request } = createMockContext({
       "x-guest-token": guestToken,
@@ -165,7 +204,7 @@ describe("AuthGuard (jose ES256 오프라인 JWT & 게스트 세션 검증)", ()
       (err: any) => {
         assert.ok(err instanceof BusinessException);
         assert.equal(err.getStatus(), HttpStatus.UNAUTHORIZED);
-        assert.equal(err.errorCode, "AUTH_ALERT_INVALID_GUEST_TOKEN");
+        assert.equal(err.errorCode, ERROR_CODES.AUTH_ALERT_INVALID_GUEST_TOKEN);
         return true;
       }
     );
@@ -181,7 +220,7 @@ describe("AuthGuard (jose ES256 오프라인 JWT & 게스트 세션 검증)", ()
       (err: any) => {
         assert.ok(err instanceof BusinessException);
         assert.equal(err.getStatus(), HttpStatus.UNAUTHORIZED);
-        assert.equal(err.errorCode, "AUTH_ALERT_UNAUTHORIZED");
+        assert.equal(err.errorCode, ERROR_CODES.AUTH_ALERT_UNAUTHORIZED);
         return true;
       }
     );
@@ -196,5 +235,57 @@ describe("AuthGuard (jose ES256 오프라인 JWT & 게스트 세션 검증)", ()
     assert.equal(request.user, undefined);
     assert.equal(request.guestToken, undefined);
   });
-});
 
+  it("시나리오 6: Authorization과 X-Guest-Token이 동시 유입된 경우 소셜 인증이 최우선되며 guestToken은 배제되어 DB 소유권 충돌을 방지해야 한다", async () => {
+    const token = await new SignJWT({
+      sub: "primary-user-id",
+      email: "primary@ideamory.com",
+    })
+      .setProtectedHeader({ alg: "ES256" })
+      .setIssuer(`${testSupabaseUrl}/auth/v1`)
+      .setAudience("authenticated")
+      .setIssuedAt()
+      .setExpirationTime("2h")
+      .sign(validPrivateKey);
+
+    const { context, request } = createMockContext({
+      authorization: `Bearer ${token}`,
+      "x-guest-token": "gst_simultaneous_guest_token",
+    });
+
+    const result = await authGuard.canActivate(context);
+
+    assert.equal(result, true);
+    assert.equal(request.user?.id, "primary-user-id");
+    assert.equal(request.guestToken, undefined, "소셜 유저 인증 시 guestToken은 배타적으로 undefined여야 함");
+  });
+
+  it("시나리오 7: 만료된 Authorization과 유효한 X-Guest-Token이 동시 유입된 경우 게스트로 조용히 폴백하지 않고 401 에러로 명확히 차단해야 한다", async () => {
+    const expiredToken = await new SignJWT({
+      sub: "expired-user",
+    })
+      .setProtectedHeader({ alg: "ES256" })
+      .setIssuer(`${testSupabaseUrl}/auth/v1`)
+      .setAudience("authenticated")
+      .setIssuedAt(Math.floor(Date.now() / 1000) - 3600)
+      .setExpirationTime(Math.floor(Date.now() / 1000) - 1800)
+      .sign(validPrivateKey);
+
+    const { context } = createMockContext({
+      authorization: `Bearer ${expiredToken}`,
+      "x-guest-token": "gst_valid_guest_token",
+    });
+
+    await assert.rejects(
+      async () => {
+        await authGuard.canActivate(context);
+      },
+      (err: any) => {
+        assert.ok(err instanceof BusinessException);
+        assert.equal(err.getStatus(), HttpStatus.UNAUTHORIZED);
+        assert.equal(err.errorCode, ERROR_CODES.AUTH_ALERT_UNAUTHORIZED);
+        return true;
+      }
+    );
+  });
+});

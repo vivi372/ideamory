@@ -8,7 +8,11 @@ import {
 } from "@nestjs/common";
 import { Request, Response } from "express";
 import { randomBytes } from "crypto";
-import type { ErrorResponseDto } from "@ideamory/api-spec";
+import {
+  type ErrorResponseDto,
+  ERROR_CODES,
+  mapHttpStatusToErrorCode,
+} from "@ideamory/api-spec";
 import { BusinessException } from "../exceptions/business.exception";
 import { getTraceId } from "../logging/trace-store";
 
@@ -48,7 +52,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     // 2. 상태 코드 및 에러 코드, 메시지 분류
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let errorCode = "SYSTEM_FATAL_INTERNAL";
+    let errorCode: string = ERROR_CODES.SYSTEM_FATAL_INTERNAL;
     let message = "서버 내부 오류가 발생했습니다.";
 
     if (exception instanceof BusinessException) {
@@ -61,9 +65,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
       if (typeof res === "string") {
         message = res;
+        errorCode = mapHttpStatusToErrorCode(status);
       } else if (typeof res === "object" && res !== null) {
         const resObj = res as Record<string, any>;
-        errorCode = resObj.errorCode || this.mapHttpCodeToUxTag(status);
+        errorCode = resObj.errorCode || mapHttpStatusToErrorCode(status);
 
         if (Array.isArray(resObj.message)) {
           // 유효성 검사 에러 배열 처리 (첫 번째 에러 메시지 우선)
@@ -97,25 +102,5 @@ export class HttpExceptionFilter implements ExceptionFilter {
     );
 
     response.status(status).json(errorResponse);
-  }
-
-  /**
-   * HTTP 표준 상태 코드에 대응하는 기본 UX 태그 에러 코드 매핑
-   */
-  private mapHttpCodeToUxTag(status: number): string {
-    switch (status) {
-      case HttpStatus.BAD_REQUEST:
-        return "SYSTEM_FIELD_BAD_REQUEST";
-      case HttpStatus.UNAUTHORIZED:
-        return "AUTH_ALERT_UNAUTHORIZED";
-      case HttpStatus.FORBIDDEN:
-        return "AUTH_ALERT_FORBIDDEN";
-      case HttpStatus.NOT_FOUND:
-        return "COMMON_WARN_NOT_FOUND";
-      case HttpStatus.CONFLICT:
-        return "COMMON_WARN_CONFLICT";
-      default:
-        return "SYSTEM_FATAL_INTERNAL";
-    }
   }
 }
