@@ -7,10 +7,13 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { Request } from "express";
-import { createRemoteJWKSet, jwtVerify } from "jose";
-import { ERROR_CODES } from "@ideamory/api-spec";
+import { ERROR_CODES, GUEST_TOKEN_MAX_LENGTH } from "@ideamory/api-spec";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 import { BusinessException } from "../exceptions/business.exception";
+import {
+  getSharedSupabaseJWKS,
+  verifySupabaseJwt,
+} from "../utils/supabase-jwt.util";
 
 /**
  * 인증된 사용자 또는 게스트 정보를 포함하는 Express Request 인터페이스 확장
@@ -38,34 +41,14 @@ export interface AuthenticatedRequest extends Request {
 @Injectable()
 export class AuthGuard implements CanActivate {
   private readonly logger = new Logger(AuthGuard.name);
-  private jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
-  constructor(private readonly reflector: Reflector) {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    if (supabaseUrl) {
-      const jwksUrl = new URL("/auth/v1/.well-known/jwks.json", supabaseUrl);
-      this.jwks = createRemoteJWKSet(jwksUrl);
-    }
-  }
+  constructor(private readonly reflector: Reflector) {}
 
   /**
-   * Supabase Auth 공개키 셋(JWKS) 인스턴스 획득 (지연 초기화 및 캐싱)
+   * 전역 공유 Supabase Auth 공개키 셋(JWKS) 인스턴스 획득
    */
-  private getJWKS(): ReturnType<typeof createRemoteJWKSet> {
-    if (!this.jwks) {
-      const supabaseUrl = process.env.SUPABASE_URL;
-      if (!supabaseUrl) {
-        this.logger.error("SUPABASE_URL 환경변수가 설정되지 않았습니다.");
-        throw new BusinessException(
-          "인증 서버 설정이 유효하지 않습니다.",
-          ERROR_CODES.AUTH_FATAL_CONFIG_ERROR,
-          HttpStatus.INTERNAL_SERVER_ERROR
-        );
-      }
-      const jwksUrl = new URL("/auth/v1/.well-known/jwks.json", supabaseUrl);
-      this.jwks = createRemoteJWKSet(jwksUrl);
-    }
-    return this.jwks;
+  private getJWKS() {
+    return getSharedSupabaseJWKS();
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -84,27 +67,7 @@ export class AuthGuard implements CanActivate {
       const token = authHeader.split(" ")[1];
       if (token) {
         try {
-          const JWKS = this.getJWKS();
-          const supabaseUrl = process.env.SUPABASE_URL;
-
-          // issuer 및 audience 클레임 정밀 검증 (타 프로젝트 및 비인증 토큰 차단)
-          const verifyOptions: Record<string, any> = {
-            algorithms: ["ES256"],
-            audience: "authenticated",
-          };
-          if (supabaseUrl) {
-            verifyOptions.issuer = `${supabaseUrl}/auth/v1`;
-          }
-
-          const { payload } = await jwtVerify(token, JWKS, verifyOptions);
-
-          if (!payload.sub) {
-            throw new BusinessException(
-              "유효하지 않은 토큰 페이로드입니다.",
-              ERROR_CODES.AUTH_ALERT_INVALID_PAYLOAD,
-              HttpStatus.UNAUTHORIZED
-            );
-          }
+          const payload = await verifySupabaseJwt(token, this.getJWKS());
 
           // 검증 성공 시 사용자 식별자 바인딩
           request.user = {
@@ -141,7 +104,7 @@ export class AuthGuard implements CanActivate {
     if (typeof guestHeader === "string" && guestHeader.trim().length > 0) {
       const cleanGuestToken = guestHeader.trim();
       // 게스트 토큰 규격(최대 64자) 검증
-      if (cleanGuestToken.length <= 64) {
+      if (cleanGuestToken.length <= GUEST_TOKEN_MAX_LENGTH) {
         request.guestToken = cleanGuestToken;
         request.user = undefined; // 상호 배타성
         return true;

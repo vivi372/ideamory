@@ -1,224 +1,316 @@
-import { Injectable, Inject, Optional } from "@nestjs/common";
-import { v7 as uuidv7 } from "uuid";
+import { Injectable } from "@nestjs/common";
 import {
-  db as defaultDb,
-  DatabaseInstance,
+  db,
+  eq,
+  and,
+  inArray,
+  ogpCaches,
   categories,
   memos,
-  ogpCaches,
   authUsers,
-  eq,
 } from "@ideamory/db";
 
+/** Drizzle 트랜잭션 컨텍스트 타입 */
+export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** 일반 DB 클라이언트 또는 트랜잭션 컨텍스트를 아우르는 실행기 타입 */
+export type DbExecutor = typeof db | DbTransaction;
+
 /**
- * AuthModule 전용 데이터베이스 리포지토리 (Drizzle ORM 전담 계층)
- * BaaS 종속적인 Stored Function/RPC 대신 NestJS 서비스/리포지토리 레이어에서
- * db.transaction()을 통해 원자적(Atomic) 데이터 생성, 이관, 영구 파기를 수행합니다.
+ * 인증 및 유저 데이터 라이프사이클 원자적 데이터 접근(Repository) 계층
+ * 트랜잭션 경계 관리 및 유즈케이스 오케스트레이션은 Service 계층에 위임하고,
+ * 각 메서드는 선택적 트랜잭션 컨텍스트(tx)를 주입받아 단일 테이블 단위의 쿼리만 수행합니다.
  */
 @Injectable()
 export class AuthRepository {
-  private readonly db: DatabaseInstance;
-
-  constructor(
-    @Optional()
-    @Inject("DATABASE_INSTANCE")
-    injectedDb?: DatabaseInstance
-  ) {
-    this.db = injectedDb ?? defaultDb;
+  /**
+   * 단일 PostgreSQL 트랜잭션 경계를 시작하여 콜백을 실행합니다.
+   *
+   * @param callback 트랜잭션 컨텍스트(tx)를 인자로 받는 비동기 작업
+   * @returns 콜백 반환값
+   */
+  async withTransaction<T>(
+    callback: (tx: DbTransaction) => Promise<T>
+  ): Promise<T> {
+    return db.transaction(callback);
   }
 
   /**
-   * 익명 게스트 세션용 온보딩 가이드 OGP 캐시, [사용 가이드] 카테고리, 시드 메모를
-   * 단일 데이터베이스 트랜잭션으로 원자적 생성합니다.
+   * 대상 URL로 캐싱된 OGP 메타데이터 레코드를 조회합니다.
    *
-   * @param params.guestToken 발급된 익명 게스트 세션 식별자 (VARCHAR 64)
-   * @param params.memoId 클라이언트/DTO에서 선발급된 가이드 메모 UUID v7
-   * @param params.categoryId 클라이언트/DTO에서 선발급된 [사용 가이드] 카테고리 UUID v7
-   * @param params.guideUrl 환경변수 기반 동적 가이드 페이지 URL
-   * @param params.guideContent 가이드 시드 메모 본문 텍스트
-   * @returns 생성 완료된 시드 메모의 UUID v7 식별자
+   * @param targetUrl 조회할 대상 URL
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   * @returns OGP 캐시 ID 또는 null
    */
-  async createGuestSessionWithSeed(params: {
-    guestToken: string;
-    memoId: string;
-    categoryId: string;
-    guideUrl: string;
-    guideContent: string;
-  }): Promise<string> {
-    const { guestToken, memoId, categoryId, guideUrl, guideContent } = params;
+  async findOgpCacheByTargetUrl(
+    targetUrl: string,
+    tx: DbExecutor = db
+  ): Promise<{ id: string } | null> {
+    const rows = await tx
+      .select({ id: ogpCaches.id })
+      .from(ogpCaches)
+      .where(eq(ogpCaches.targetUrl, targetUrl))
+      .limit(1);
+    return rows[0] ?? null;
+  }
 
-    return await this.db.transaction(async (tx) => {
-      // 1. Pre-seeded OGP 캐시 존재 여부 확인 (URL 중심 N:1 공유 캐시 재사용)
-      const existingOgp = await tx
-        .select({ id: ogpCaches.id })
-        .from(ogpCaches)
-        .where(eq(ogpCaches.targetUrl, guideUrl))
-        .limit(1);
-
-      let ogpId: string;
-
-      if (existingOgp.length > 0) {
-        ogpId = existingOgp[0].id;
-      } else {
-        // 미존재 시 신규 OGP 캐시 생성: 온보딩 가이드 URL은 크롤러 청소 대상에서 제외하기 위해
-        // 100년 영구 만료(expiresAt = NOW + 100년) 정책을 적용하여 0ms 지연시간을 보장합니다.
-        ogpId = uuidv7();
-        const hundredYearsLater = new Date();
-        hundredYearsLater.setFullYear(hundredYearsLater.getFullYear() + 100);
-
-        await tx.insert(ogpCaches).values({
-          id: ogpId,
-          targetUrl: guideUrl,
-          title: "Ideamory 사용 가이드 — 0.1초 만에 생각 캡처하기",
-          description:
-            "뇌의 캐시 메모리, 아이디모리를 200% 활용하는 방법을 확인해 보세요.",
-          thumbnailUrl: `${guideUrl}/thumb.png`,
-          expiresAt: hundredYearsLater,
-        });
-      }
-
-      // 2. [사용 가이드] 기본 카테고리 생성 (배타적 소유권 준수: guestToken만 설정, userId는 null)
-      await tx.insert(categories).values({
-        id: categoryId,
-        userId: null,
-        guestToken,
-        name: "사용 가이드",
-        normalizedName: "사용가이드",
-      });
-
-      // 3. 온보딩 가이드 시드 메모 생성 (Pre-seeded OGP 연동 및 카테고리 매핑)
-      await tx.insert(memos).values({
-        id: memoId,
-        userId: null,
-        guestToken,
-        categoryId,
-        ogpId,
-        content: guideContent,
-        embedding: null,
-        deletedAt: null,
-      });
-
-      return memoId;
+  /**
+   * 신규 OGP 메타데이터 캐시 레코드를 삽입합니다.
+   *
+   * @param params OGP 캐시 UUID, 대상 URL, 제목, 설명, 만료 시각
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async insertOgpCache(
+    params: {
+      id: string;
+      targetUrl: string;
+      title: string;
+      description: string;
+      expiresAt: Date;
+    },
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx.insert(ogpCaches).values({
+      id: params.id,
+      targetUrl: params.targetUrl,
+      title: params.title,
+      description: params.description,
+      expiresAt: params.expiresAt,
     });
   }
 
   /**
-   * 익명 게스트 세션이 보유한 모든 메모 및 카테고리를 단일 트랜잭션으로 완전 영구 삭제(Hard Delete)합니다.
+   * 신규 카테고리 레코드를 삽입합니다.
    *
-   * @param guestToken 초기화 대상 익명 게스트 세션 토큰
+   * @param params 카테고리 ID, 소유자(guestToken 또는 userId), 이름, 정규화 이름
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
    */
-  async resetGuestData(guestToken: string): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      // 외래키 무결성 제약(memos.category_id REFERENCES categories.id ON DELETE RESTRICT)으로 인해
-      // 반드시 자식 테이블인 memos 레코드를 먼저 삭제한 뒤 categories를 삭제해야 합니다.
-      await tx.delete(memos).where(eq(memos.guestToken, guestToken));
-      await tx.delete(categories).where(eq(categories.guestToken, guestToken));
-
-      // ogp_caches 테이블은 다수 유저가 URL 키를 공유하는 N:1 구조이므로
-      // 게스트 초기화 시 직접 삭제하지 않고 만료 스케줄러(14일 TTL)에 위임합니다.
+  async insertCategory(
+    params: {
+      id: string;
+      guestToken?: string | null;
+      userId?: string | null;
+      name: string;
+      normalizedName: string;
+    },
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx.insert(categories).values({
+      id: params.id,
+      guestToken: params.guestToken ?? null,
+      userId: params.userId ?? null,
+      name: params.name,
+      normalizedName: params.normalizedName,
     });
   }
 
   /**
-   * 익명 게스트 세션에 보관 중이던 모든 카테고리와 메모를 정식 소셜 계정(userId)으로
-   * 데이터 손실 및 소유권 제약 위반 없이 단일 트랜잭션으로 일괄 이관(마이그레이션)합니다.
+   * 신규 메모 레코드를 삽입합니다.
    *
-   * @param params.guestToken 이관 대상 게스트 세션 토큰
-   * @param params.targetUserId 검증된 Supabase Auth 정회원 UUID (payload.sub)
+   * @param params 메모 ID, 소유자(guestToken 또는 userId), 카테고리 ID, OGP 캐시 ID, 본문
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
    */
-  async migrateGuestToSocialAccount(params: {
-    guestToken: string;
-    targetUserId: string;
-  }): Promise<void> {
-    const { guestToken, targetUserId } = params;
-
-    await this.db.transaction(async (tx) => {
-      // 1. 기존 소셜 계정에 이미 존재하는 카테고리 목록 조회 (공백 정규화 키 기준 매핑용)
-      const existingSocialCategories = await tx
-        .select({
-          id: categories.id,
-          normalizedName: categories.normalizedName,
-        })
-        .from(categories)
-        .where(eq(categories.userId, targetUserId));
-
-      const socialCategoryMap = new Map<string, string>();
-      for (const cat of existingSocialCategories) {
-        socialCategoryMap.set(cat.normalizedName, cat.id);
-      }
-
-      // 2. 이관할 게스트 세션의 카테고리 목록 조회
-      const guestCategories = await tx
-        .select({
-          id: categories.id,
-          normalizedName: categories.normalizedName,
-        })
-        .from(categories)
-        .where(eq(categories.guestToken, guestToken));
-
-      const now = new Date();
-
-      // 3. 카테고리 중복 충돌 해결 및 소유권 이전
-      // idx_categories_user_normalized 유니크 인덱스 위반을 방지하기 위해
-      // 동일한 normalizedName이 이미 소셜 계정에 존재할 경우 기존 소셜 카테고리로 병합합니다.
-      for (const guestCat of guestCategories) {
-        const existingSocialCatId = socialCategoryMap.get(
-          guestCat.normalizedName
-        );
-
-        if (existingSocialCatId) {
-          // 게스트 메모들이 기존 소셜 카테고리를 참조하도록 먼저 재매핑 (ON DELETE RESTRICT 방어)
-          await tx
-            .update(memos)
-            .set({
-              categoryId: existingSocialCatId,
-              updatedAt: now,
-            })
-            .where(eq(memos.categoryId, guestCat.id));
-
-          // 참조가 해제된 중복 게스트 카테고리 레코드 삭제
-          await tx.delete(categories).where(eq(categories.id, guestCat.id));
-        } else {
-          // 중복이 없는 게스트 카테고리는 소유권을 소셜 계정으로 이전
-          // DB CHECK 제약(chk_categories_owner) 준수를 위해 userId 설정과 guestToken=null을 동시 반영
-          await tx
-            .update(categories)
-            .set({
-              userId: targetUserId,
-              guestToken: null,
-              updatedAt: now,
-            })
-            .where(eq(categories.id, guestCat.id));
-        }
-      }
-
-      // 4. 게스트의 모든 메모 소유권을 정식 소셜 계정으로 일괄 이전
-      // DB CHECK 제약(chk_memos_owner) 준수를 위해 userId 설정과 guestToken=null을 원자적으로 동시 반영
-      await tx
-        .update(memos)
-        .set({
-          userId: targetUserId,
-          guestToken: null,
-          updatedAt: now,
-        })
-        .where(eq(memos.guestToken, guestToken));
+  async insertMemo(
+    params: {
+      id: string;
+      guestToken?: string | null;
+      userId?: string | null;
+      categoryId: string;
+      ogpId?: string | null;
+      content: string;
+    },
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx.insert(memos).values({
+      id: params.id,
+      guestToken: params.guestToken ?? null,
+      userId: params.userId ?? null,
+      categoryId: params.categoryId,
+      ogpId: params.ogpId ?? null,
+      content: params.content,
+      deletedAt: null,
     });
   }
 
   /**
-   * 소셜 회원 탈퇴 요청 시 회원이 소유한 모든 메모, 카테고리 및 인증 계정 레코드를
-   * 단일 트랜잭션으로 완전 영구 삭제(Hard Delete)합니다.
+   * 특정 게스트 토큰 소유의 모든 메모를 영구 삭제(Hard Delete)합니다.
    *
-   * @param userId 탈퇴를 요청한 정회원 UUID (payload.sub)
+   * @param guestToken 익명 게스트 세션 토큰
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
    */
-  async deleteSocialAccountData(userId: string): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      // 외래키 제약(memos.category_id -> categories.id ON DELETE RESTRICT) 방어를 위해
-      // 반드시 memos -> categories -> auth.users 순으로 영구 삭제를 수행합니다.
-      await tx.delete(memos).where(eq(memos.userId, userId));
-      await tx.delete(categories).where(eq(categories.userId, userId));
-      await tx.delete(authUsers).where(eq(authUsers.id, userId));
-    });
+  async deleteMemosByGuestToken(
+    guestToken: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx.delete(memos).where(eq(memos.guestToken, guestToken));
+  }
+
+  /**
+   * 특정 게스트 토큰 소유의 모든 카테고리를 영구 삭제(Hard Delete)합니다.
+   *
+   * @param guestToken 익명 게스트 세션 토큰
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async deleteCategoriesByGuestToken(
+    guestToken: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx.delete(categories).where(eq(categories.guestToken, guestToken));
+  }
+
+  /**
+   * 게스트 토큰이 보유한 카테고리 목록(id, normalizedName)을 조회합니다.
+   *
+   * @param guestToken 익명 게스트 세션 토큰
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   * @returns 게스트 카테고리 목록
+   */
+  async findCategoriesByGuestToken(
+    guestToken: string,
+    tx: DbExecutor = db
+  ): Promise<Array<{ id: string; normalizedName: string }>> {
+    return tx
+      .select({
+        id: categories.id,
+        normalizedName: categories.normalizedName,
+      })
+      .from(categories)
+      .where(eq(categories.guestToken, guestToken));
+  }
+
+  /**
+   * 정식 소셜 유저가 보유한 카테고리 목록(id, normalizedName)을 조회합니다.
+   *
+   * @param userId 정식 소셜 유저 UUID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   * @returns 소셜 유저 카테고리 목록
+   */
+  async findCategoriesByUserId(
+    userId: string,
+    tx: DbExecutor = db
+  ): Promise<Array<{ id: string; normalizedName: string }>> {
+    return tx
+      .select({
+        id: categories.id,
+        normalizedName: categories.normalizedName,
+      })
+      .from(categories)
+      .where(eq(categories.userId, userId));
+  }
+
+  /**
+   * 게스트 메모의 카테고리 참조(categoryId)를 다른 카테고리로 일괄 재매핑합니다.
+   *
+   * @param guestToken 익명 게스트 세션 토큰
+   * @param fromCategoryId 기존 게스트 카테고리 ID
+   * @param toCategoryId 이관 대상 소셜 카테고리 ID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async reassignMemosCategory(
+    guestToken: string,
+    fromCategoryId: string,
+    toCategoryId: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx
+      .update(memos)
+      .set({ categoryId: toCategoryId })
+      .where(
+        and(
+          eq(memos.guestToken, guestToken),
+          eq(memos.categoryId, fromCategoryId)
+        )
+      );
+  }
+
+  /**
+   * 지정된 ID 목록에 해당하는 카테고리들을 일괄 삭제합니다.
+   *
+   * @param categoryIds 삭제할 카테고리 UUID 목록
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async deleteCategoriesByIds(
+    categoryIds: string[],
+    tx: DbExecutor = db
+  ): Promise<void> {
+    if (categoryIds.length === 0) {
+      return;
+    }
+    await tx.delete(categories).where(inArray(categories.id, categoryIds));
+  }
+
+  /**
+   * 게스트 소유의 카테고리를 소셜 유저 소유로 일괄 전환합니다 (배타적 소유권 준수: guestToken = null).
+   *
+   * @param guestToken 익명 게스트 세션 토큰
+   * @param userId 정식 소셜 유저 UUID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async transferCategoriesToUser(
+    guestToken: string,
+    userId: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx
+      .update(categories)
+      .set({ userId, guestToken: null })
+      .where(eq(categories.guestToken, guestToken));
+  }
+
+  /**
+   * 게스트 소유의 메모를 소셜 유저 소유로 일괄 전환합니다 (배타적 소유권 준수: guestToken = null).
+   *
+   * @param guestToken 익명 게스트 세션 토큰
+   * @param userId 정식 소셜 유저 UUID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async transferMemosToUser(
+    guestToken: string,
+    userId: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx
+      .update(memos)
+      .set({ userId, guestToken: null })
+      .where(eq(memos.guestToken, guestToken));
+  }
+
+  /**
+   * 정식 소셜 유저 소유의 모든 메모를 영구 삭제(Hard Delete)합니다.
+   *
+   * @param userId 정식 소셜 유저 UUID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async deleteMemosByUserId(
+    userId: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx.delete(memos).where(eq(memos.userId, userId));
+  }
+
+  /**
+   * 정식 소셜 유저 소유의 모든 카테고리를 영구 삭제(Hard Delete)합니다.
+   *
+   * @param userId 정식 소셜 유저 UUID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async deleteCategoriesByUserId(
+    userId: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx.delete(categories).where(eq(categories.userId, userId));
+  }
+
+  /**
+   * Supabase Auth 유저 레코드(auth.users)를 영구 삭제합니다.
+   *
+   * @param userId 정식 소셜 유저 UUID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async deleteAuthUserById(
+    userId: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx.delete(authUsers).where(eq(authUsers.id, userId));
   }
 }
-
