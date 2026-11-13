@@ -182,10 +182,77 @@ describe("OgpService & OgpScheduler (1개 URL 추출, SSRF 방어, 14일 TTL 캐
       }
     );
 
-    const html = await (ogpService as any).fetchSafeHtml(
+    const { html, finalUrl } = await (ogpService as any).fetchSafeHtml(
       "https://public.example.com/redirect-safe"
     );
     assert.ok(html.includes("<title>Safe</title>"));
+    assert.equal(finalUrl, "https://www.example.com/article");
+  });
+
+  it("시나리오 8: scrapeUrlMetadata는 리다이렉트된 최종 URL 기준으로 상대 경로 og:image를 절대 경로로 변환해야 한다", async () => {
+    (ogpService as any).performHttpGet = async (url: string) => {
+      if (url === "https://short.example.com/p/1") {
+        return new Response(null, {
+          status: 301,
+          headers: { location: "https://blog.example.com/posts/hello" },
+        });
+      }
+      if (url === "https://blog.example.com/posts/hello") {
+        return new Response(
+          `<html><head>
+            <meta property="og:title" content="Relative OG Test" />
+            <meta property="og:image" content="/assets/og-thumb.png" />
+          </head></html>`,
+          { status: 200 }
+        );
+      }
+      return new Response(null, { status: 404 });
+    };
+
+    const meta = await (ogpService as any).scrapeUrlMetadata(
+      "https://short.example.com/p/1"
+    );
+    assert.equal(meta.title, "Relative OG Test");
+    assert.equal(
+      meta.thumbnailUrl,
+      "https://blog.example.com/assets/og-thumb.png"
+    );
+  });
+
+  it("시나리오 9: fetchSafeHtml은 Content-Length 또는 스트림 본문이 2MB 상한을 초과하면 즉시 차단해야 한다", async () => {
+    (ogpService as any).performHttpGet = async (url: string) => {
+      if (url === "https://cdn.example.com/huge-header") {
+        return new Response("ok", {
+          status: 200,
+          headers: { "content-length": String(3 * 1024 * 1024) },
+        });
+      }
+      if (url === "https://cdn.example.com/huge-stream") {
+        const oversizedChunk = new Uint8Array(2 * 1024 * 1024 + 1024);
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(oversizedChunk);
+            controller.close();
+          },
+        });
+        return new Response(stream, { status: 200 });
+      }
+      return new Response(null, { status: 404 });
+    };
+
+    for (const url of [
+      "https://cdn.example.com/huge-header",
+      "https://cdn.example.com/huge-stream",
+    ]) {
+      await assert.rejects(
+        () => (ogpService as any).fetchSafeHtml(url),
+        (err: any) => {
+          assert.ok(err instanceof BusinessException);
+          assert.equal(err.getStatus(), HttpStatus.BAD_GATEWAY);
+          return true;
+        }
+      );
+    }
   });
 });
 
