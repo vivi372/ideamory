@@ -80,6 +80,7 @@ async function bootstrap() {
     .addTag("auth", "게스트 세션 발급 및 소셜 계정 데이터 이관")
     .addTag("memo", "메모 0.1초 퀵 캡처, 타임라인 및 하이브리드 검색")
     .addTag("category", "카테고리 CRUD 및 AI 유사 카테고리 병합")
+    .addTag("ogp", "URL Open Graph 메타데이터 파싱 및 캐싱")
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
