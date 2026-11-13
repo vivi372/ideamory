@@ -124,7 +124,7 @@ export class AiService {
 
     try {
       const model =
-        process.env.GEMINI_CLASSIFY_MODEL || "gemini-2.5-flash";
+        process.env.GEMINI_CLASSIFY_MODEL || "gemini-3.1-flash-lite";
       const existingListText =
         existingCategoryNames.length > 0
           ? existingCategoryNames.join(", ")
@@ -146,7 +146,6 @@ export class AiService {
         contents: prompt,
         config: {
           systemInstruction,
-          temperature: 0.1,
           maxOutputTokens: 32,
         },
       });
@@ -166,7 +165,8 @@ export class AiService {
   }
 
   /**
-   * Gemini `text-embedding-004` 모델을 사용하여 768차원 시맨틱 임베딩 벡터를 생성합니다.
+   * Gemini `gemini-embedding-2` 모델을 사용하여 768차원 시맨틱 임베딩 벡터를 생성합니다.
+   * (3072 미만 outputDimensionality 지정 시 모델 단에서 자동 정규화 지원)
    *
    * @param content 임베딩을 생성할 메모 텍스트
    * @returns 768차원 실수 벡터 배열 또는 실패 시 null
@@ -182,7 +182,7 @@ export class AiService {
 
     try {
       const model =
-        process.env.GEMINI_EMBEDDING_MODEL || "text-embedding-004";
+        process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2";
 
       const response = await client.models.embedContent({
         model,
