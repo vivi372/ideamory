@@ -21,6 +21,9 @@ export function getErrorCodeFromZodIssue(issue: ZodIssue): ErrorCode {
   if (fieldPath.includes("MEMO") || fieldPath.includes("CONTENT")) {
     if (issueCode === "too_small") return ERROR_CODES.MEMO_FIELD_REQUIRED;
     if (issueCode === "too_big") return ERROR_CODES.MEMO_FIELD_EXCEEDED;
+    if (issueCode === "invalid_string" || issueCode === "invalid_type") {
+      return ERROR_CODES.COMMON_FIELD_FORMAT;
+    }
     return ERROR_CODES.MEMO_FIELD_REQUIRED;
   }
 

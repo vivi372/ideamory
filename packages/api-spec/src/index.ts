@@ -4,8 +4,9 @@
  * Zod DTO 스키마 및 z.infer 정적 타입 정의 전역 Barrel Export
  */
 
-// 전역 에러 코드 상수 및 유틸리티 (SSOT)
+// 전역 에러 코드 상수 및 인증 규격 상수 (SSOT)
 export * from "./constants/error-code.constant";
+export * from "./constants/auth.constant";
 export * from "./utils/error.util";
 
 // 공통 도메인 스키마 및 타입
