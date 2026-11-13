@@ -17,6 +17,9 @@ const OGP_SCRAPE_TIMEOUT_SECONDS = 5;
 /** OGP 크롤링 시 허용하는 최대 HTTP 리다이렉트 횟수 */
 const MAX_OGP_REDIRECTS = 3;
 
+/** OGP HTML 응답 본문 최대 허용 크기 (2MB) */
+const MAX_OGP_HTML_BYTES = 2 * 1024 * 1024;
+
 /**
  * URL 메타데이터(Open Graph) 크롤링 및 14일 TTL 캐싱 서비스
  *
@@ -218,9 +221,96 @@ export class OgpService {
   }
 
   /**
-   * 리다이렉트(3xx) 매 홉마다 SSRF 검증을 수행하며 안전하게 HTML 본문을 가져옵니다.
+   * 응답 본문을 최대 허용 바이트 상한(maxBytes) 내에서 스트림으로 안전하게 읽습니다.
    */
-  protected async fetchSafeHtml(targetUrl: string): Promise<string> {
+  protected async readResponseTextWithLimit(
+    response: Response,
+    maxBytes: number = MAX_OGP_HTML_BYTES
+  ): Promise<string> {
+    const contentLengthHeader = response.headers.get("content-length");
+    if (contentLengthHeader) {
+      const contentLength = Number(contentLengthHeader);
+      if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+        await response.body?.cancel().catch(() => undefined);
+        throw new BusinessException(
+          "응답 본문 크기가 허용 범위를 초과했습니다.",
+          ERROR_CODES.OGP_ERROR_PARSE_FAILED,
+          HttpStatus.BAD_GATEWAY
+        );
+      }
+    }
+
+    if (!response.body) {
+      const text = await response.text();
+      if (Buffer.byteLength(text, "utf8") > maxBytes) {
+        throw new BusinessException(
+          "응답 본문 크기가 허용 범위를 초과했습니다.",
+          ERROR_CODES.OGP_ERROR_PARSE_FAILED,
+          HttpStatus.BAD_GATEWAY
+        );
+      }
+      return text;
+    }
+
+    const reader = response.body.getReader();
+    const chunks: Buffer[] = [];
+    let totalBytes = 0;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        if (value) {
+          totalBytes += value.byteLength;
+          if (totalBytes > maxBytes) {
+            await reader.cancel().catch(() => undefined);
+            throw new BusinessException(
+              "응답 본문 크기가 허용 범위를 초과했습니다.",
+              ERROR_CODES.OGP_ERROR_PARSE_FAILED,
+              HttpStatus.BAD_GATEWAY
+            );
+          }
+          chunks.push(Buffer.from(value));
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return Buffer.concat(chunks).toString("utf-8");
+  }
+
+  /**
+   * 상대 경로 또는 프로토콜 생략(`//`) 썸네일 URL을 최종 페이지 URL 기준 절대 http(s) URL로 변환합니다.
+   */
+  public resolveThumbnailUrl(
+    rawThumbnail: string | null,
+    baseUrl: string
+  ): string | null {
+    const trimmed = rawThumbnail?.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    try {
+      const resolved = new URL(trimmed, baseUrl);
+      if (resolved.protocol !== "http:" && resolved.protocol !== "https:") {
+        return null;
+      }
+      return resolved.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 리다이렉트(3xx) 매 홉마다 SSRF 검증을 수행하며 안전하게 HTML 본문과 최종 URL을 가져옵니다.
+   */
+  protected async fetchSafeHtml(
+    targetUrl: string
+  ): Promise<{ html: string; finalUrl: string }> {
     let currentUrl = (
       await this.validateSafeExternalUrlWithDns(targetUrl)
     ).toString();
@@ -261,7 +351,11 @@ export class OgpService {
         );
       }
 
-      return await response.text();
+      const html = await this.readResponseTextWithLimit(
+        response,
+        MAX_OGP_HTML_BYTES
+      );
+      return { html, finalUrl: currentUrl };
     }
 
     throw new BusinessException(
@@ -284,7 +378,7 @@ export class OgpService {
     description: string | null;
   }> {
     try {
-      const html = await this.fetchSafeHtml(targetUrl);
+      const { html, finalUrl } = await this.fetchSafeHtml(targetUrl);
       const { error, result } = await ogs({ html });
 
       if (error || !result.success) {
@@ -299,7 +393,7 @@ export class OgpService {
 
       return {
         title: result.ogTitle?.trim() || result.twitterTitle?.trim() || null,
-        thumbnailUrl: rawThumbnail,
+        thumbnailUrl: this.resolveThumbnailUrl(rawThumbnail, finalUrl),
         description:
           result.ogDescription?.trim() ||
           result.twitterDescription?.trim() ||
