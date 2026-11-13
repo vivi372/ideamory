@@ -36,6 +36,7 @@ describe("OgpService & OgpScheduler (1개 URL 추출, SSRF 방어, 14일 TTL 캐
     };
 
     ogpService = new OgpService(mockRepo as OgpRepository);
+    (ogpService as any).lookupHostIps = async () => ["93.184.216.34"];
   });
 
   it("시나리오 1: extractFirstUrl은 본문에 복수의 URL이 있어도 반드시 첫 번째 URL 1개만 추출해야 한다", () => {
@@ -119,6 +120,72 @@ describe("OgpService & OgpScheduler (1개 URL 추출, SSRF 방어, 14일 TTL 캐
 
     assert.equal(deletedExpiredCount, 3);
     assert.equal(ERROR_CODES.OGP_ERROR_PARSE_FAILED, "OGP_ERROR_PARSE_FAILED");
+  });
+
+  it("시나리오 6: validateSafeExternalUrlWithDns는 사설/루프백/IPv4-mapped IPv6로 해석되는 DNS 우회 도메인을 차단해야 한다", async () => {
+    (ogpService as any).lookupHostIps = async (hostname: string) => {
+      if (hostname === "rebind.example.com") {
+        return ["127.0.0.1"];
+      }
+      if (hostname === "v6mapped.example.com") {
+        return ["::ffff:169.254.169.254"];
+      }
+      return ["93.184.216.34"];
+    };
+
+    for (const url of [
+      "https://rebind.example.com/secret",
+      "https://v6mapped.example.com/latest/meta-data",
+    ]) {
+      await assert.rejects(
+        () => ogpService.validateSafeExternalUrlWithDns(url),
+        (err: any) => {
+          assert.ok(err instanceof BusinessException);
+          assert.equal(err.getStatus(), HttpStatus.BAD_REQUEST);
+          return true;
+        }
+      );
+    }
+  });
+
+  it("시나리오 7: fetchSafeHtml은 HTTP 302 리다이렉트가 내부망으로 향하면 차단하고, 안전한 외부 리다이렉트만 허용해야 한다", async () => {
+    (ogpService as any).performHttpGet = async (url: string) => {
+      if (url === "https://public.example.com/redirect-internal") {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "http://169.254.169.254/latest/meta-data" },
+        });
+      }
+      if (url === "https://public.example.com/redirect-safe") {
+        return new Response(null, {
+          status: 301,
+          headers: { location: "https://www.example.com/article" },
+        });
+      }
+      if (url === "https://www.example.com/article") {
+        return new Response("<html><head><title>Safe</title></head></html>", {
+          status: 200,
+        });
+      }
+      return new Response(null, { status: 404 });
+    };
+
+    await assert.rejects(
+      () =>
+        (ogpService as any).fetchSafeHtml(
+          "https://public.example.com/redirect-internal"
+        ),
+      (err: any) => {
+        assert.ok(err instanceof BusinessException);
+        assert.equal(err.getStatus(), HttpStatus.BAD_REQUEST);
+        return true;
+      }
+    );
+
+    const html = await (ogpService as any).fetchSafeHtml(
+      "https://public.example.com/redirect-safe"
+    );
+    assert.ok(html.includes("<title>Safe</title>"));
   });
 });
 
