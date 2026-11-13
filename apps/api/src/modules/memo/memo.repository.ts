@@ -4,6 +4,7 @@ import {
   db,
   eq,
   and,
+  gt,
   lt,
   isNull,
   isNotNull,
@@ -231,7 +232,10 @@ export class MemoRepository {
       })
       .from(memos)
       .innerJoin(categories, eq(memos.categoryId, categories.id))
-      .leftJoin(ogpCaches, eq(memos.ogpId, ogpCaches.id))
+      .leftJoin(
+        ogpCaches,
+        and(eq(memos.ogpId, ogpCaches.id), gt(ogpCaches.expiresAt, sql`NOW()`))
+      )
       .where(and(...conditions))
       .orderBy(desc(memos.createdAt));
 
@@ -265,7 +269,10 @@ export class MemoRepository {
       })
       .from(memos)
       .innerJoin(categories, eq(memos.categoryId, categories.id))
-      .leftJoin(ogpCaches, eq(memos.ogpId, ogpCaches.id))
+      .leftJoin(
+        ogpCaches,
+        and(eq(memos.ogpId, ogpCaches.id), gt(ogpCaches.expiresAt, sql`NOW()`))
+      )
       .where(and(eq(memos.id, memoId), this.buildMemoOwnerCondition(owner)))
       .limit(1);
 

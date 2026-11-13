@@ -1,4 +1,6 @@
 import { Injectable, Logger, HttpStatus } from "@nestjs/common";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { v7 as uuidv7 } from "uuid";
 import ogs from "open-graph-scraper";
 import { ERROR_CODES, type OgpResponseDto } from "@ideamory/api-spec";
@@ -11,6 +13,9 @@ const OGP_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 /** OGP 크롤러 HTTP 요청 타임아웃 (초 단위) */
 const OGP_SCRAPE_TIMEOUT_SECONDS = 5;
+
+/** OGP 크롤링 시 허용하는 최대 HTTP 리다이렉트 횟수 */
+const MAX_OGP_REDIRECTS = 3;
 
 /**
  * URL 메타데이터(Open Graph) 크롤링 및 14일 TTL 캐싱 서비스
@@ -68,22 +73,20 @@ export class OgpService {
       );
     }
 
-    const hostname = parsed.hostname.toLowerCase();
-    const isPrivateOrLoopback =
-      hostname === "localhost" ||
-      hostname.endsWith(".local") ||
-      hostname === "::1" ||
-      hostname === "[::1]" ||
-      hostname.startsWith("fc00:") ||
-      hostname.startsWith("fe80:") ||
-      /^127\./.test(hostname) ||
-      /^10\./.test(hostname) ||
-      /^0\./.test(hostname) ||
-      /^169\.254\./.test(hostname) ||
-      /^192\.168\./.test(hostname) ||
-      /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
+    const rawHostname = parsed.hostname.toLowerCase();
+    const hostname =
+      rawHostname.startsWith("[") && rawHostname.endsWith("]")
+        ? rawHostname.slice(1, -1)
+        : rawHostname;
 
-    if (isPrivateOrLoopback) {
+    const isBlockedHostname =
+      hostname === "localhost" ||
+      hostname.endsWith(".localhost") ||
+      hostname.endsWith(".local") ||
+      hostname.endsWith(".internal") ||
+      (isIP(hostname) !== 0 && this.isPrivateOrReservedIp(hostname));
+
+    if (isBlockedHostname) {
       throw new BusinessException(
         "내부 네트워크 또는 허용되지 않은 호스트로의 접근은 차단됩니다.",
         ERROR_CODES.OGP_ERROR_PARSE_FAILED,
@@ -92,6 +95,180 @@ export class OgpService {
     }
 
     return parsed;
+  }
+
+  /**
+   * IPv4/IPv6 주소가 사설망, 루프백, 링크로컬(클라우드 메타데이터), 예약 대역인지 판별합니다.
+   * IPv4-mapped IPv6(::ffff:127.0.0.1 등) 우회 주소도 함께 차단합니다.
+   */
+  public isPrivateOrReservedIp(rawIp: string): boolean {
+    const ip = rawIp.toLowerCase().trim();
+
+    if (ip.startsWith("::ffff:")) {
+      const mappedIpv4 = ip.slice("::ffff:".length);
+      if (isIP(mappedIpv4) === 4) {
+        return this.isPrivateOrReservedIpv4(mappedIpv4);
+      }
+    }
+
+    if (isIP(ip) === 4) {
+      return this.isPrivateOrReservedIpv4(ip);
+    }
+
+    if (isIP(ip) === 6) {
+      return (
+        ip === "::" ||
+        ip === "::1" ||
+        ip.startsWith("fc") ||
+        ip.startsWith("fd") ||
+        /^fe[89ab]/.test(ip) ||
+        ip.startsWith("ff")
+      );
+    }
+
+    return true;
+  }
+
+  private isPrivateOrReservedIpv4(ipv4: string): boolean {
+    const octets = ipv4.split(".").map(Number);
+    if (octets.length !== 4 || octets.some((o) => Number.isNaN(o))) {
+      return true;
+    }
+    const [a, b] = octets;
+
+    return (
+      a === 0 || // 0.0.0.0/8
+      a === 10 || // 10.0.0.0/8
+      (a === 100 && b >= 64 && b <= 127) || // 100.64.0.0/10 (CGNAT)
+      a === 127 || // 127.0.0.0/8 (Loopback)
+      (a === 169 && b === 254) || // 169.254.0.0/16 (Link-local / Cloud metadata)
+      (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12
+      (a === 192 && b === 0 && octets[2] === 0) || // 192.0.0.0/24
+      (a === 192 && b === 168) || // 192.168.0.0/16
+      (a === 198 && (b === 18 || b === 19)) || // 198.18.0.0/15
+      a >= 224 // Multicast / Reserved
+    );
+  }
+
+  /**
+   * 호스트명의 실제 DNS A/AAAA 레코드를 조회합니다 (테스트 대역 주입 가능).
+   */
+  protected async lookupHostIps(hostname: string): Promise<string[]> {
+    const records = await lookup(hostname, { all: true });
+    return records.map((record) => record.address);
+  }
+
+  /**
+   * URL 형식/프로토콜 검증과 함께 실제 DNS 해석 IP가 내부망이 아닌지 비동기로 검증합니다.
+   *
+   * @param rawUrl 검증할 외부 URL 문자열
+   * @returns 검증 완료된 URL 객체
+   */
+  public async validateSafeExternalUrlWithDns(rawUrl: string): Promise<URL> {
+    const parsed = this.validateSafeExternalUrl(rawUrl);
+    const rawHostname = parsed.hostname.toLowerCase();
+    const hostname =
+      rawHostname.startsWith("[") && rawHostname.endsWith("]")
+        ? rawHostname.slice(1, -1)
+        : rawHostname;
+
+    if (isIP(hostname) === 0) {
+      let resolvedIps: string[];
+      try {
+        resolvedIps = await this.lookupHostIps(hostname);
+      } catch {
+        throw new BusinessException(
+          "대상 호스트의 DNS 정보를 확인할 수 없습니다.",
+          ERROR_CODES.OGP_ERROR_PARSE_FAILED,
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      if (
+        resolvedIps.length === 0 ||
+        resolvedIps.some((ip) => this.isPrivateOrReservedIp(ip))
+      ) {
+        throw new BusinessException(
+          "내부 네트워크 또는 허용되지 않은 호스트로의 접근은 차단됩니다.",
+          ERROR_CODES.OGP_ERROR_PARSE_FAILED,
+          HttpStatus.BAD_REQUEST
+        );
+      }
+    }
+
+    return parsed;
+  }
+
+  /**
+   * HTTP 요청을 수행합니다 (단위 테스트에서 리다이렉트 응답 모킹 가능).
+   */
+  protected async performHttpGet(
+    url: string,
+    signal: AbortSignal
+  ): Promise<Response> {
+    return fetch(url, {
+      method: "GET",
+      redirect: "manual",
+      signal,
+      headers: {
+        "User-Agent": "IdeamoryOgpBot/1.0",
+        Accept: "text/html,application/xhtml+xml",
+      },
+    });
+  }
+
+  /**
+   * 리다이렉트(3xx) 매 홉마다 SSRF 검증을 수행하며 안전하게 HTML 본문을 가져옵니다.
+   */
+  protected async fetchSafeHtml(targetUrl: string): Promise<string> {
+    let currentUrl = (
+      await this.validateSafeExternalUrlWithDns(targetUrl)
+    ).toString();
+    const signal = AbortSignal.timeout(OGP_SCRAPE_TIMEOUT_SECONDS * 1000);
+
+    for (let hop = 0; hop <= MAX_OGP_REDIRECTS; hop++) {
+      const response = await this.performHttpGet(currentUrl, signal);
+
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location) {
+          throw new BusinessException(
+            "유효하지 않은 리다이렉트 응답입니다.",
+            ERROR_CODES.OGP_ERROR_PARSE_FAILED,
+            HttpStatus.BAD_GATEWAY
+          );
+        }
+        if (hop >= MAX_OGP_REDIRECTS) {
+          throw new BusinessException(
+            "허용된 리다이렉트 횟수를 초과했습니다.",
+            ERROR_CODES.OGP_ERROR_PARSE_FAILED,
+            HttpStatus.BAD_GATEWAY
+          );
+        }
+
+        const resolvedRedirectUrl = new URL(location, currentUrl).toString();
+        currentUrl = (
+          await this.validateSafeExternalUrlWithDns(resolvedRedirectUrl)
+        ).toString();
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new BusinessException(
+          "URL 메타데이터를 추출할 수 없습니다.",
+          ERROR_CODES.OGP_ERROR_PARSE_FAILED,
+          HttpStatus.BAD_GATEWAY
+        );
+      }
+
+      return await response.text();
+    }
+
+    throw new BusinessException(
+      "허용된 리다이렉트 횟수를 초과했습니다.",
+      ERROR_CODES.OGP_ERROR_PARSE_FAILED,
+      HttpStatus.BAD_GATEWAY
+    );
   }
 
   /**
@@ -107,10 +284,8 @@ export class OgpService {
     description: string | null;
   }> {
     try {
-      const { error, result } = await ogs({
-        url: targetUrl,
-        timeout: OGP_SCRAPE_TIMEOUT_SECONDS,
-      });
+      const html = await this.fetchSafeHtml(targetUrl);
+      const { error, result } = await ogs({ html });
 
       if (error || !result.success) {
         throw new BusinessException(
@@ -136,6 +311,7 @@ export class OgpService {
       }
       const isTimeout =
         err?.name === "AbortError" ||
+        err?.name === "TimeoutError" ||
         String(err?.message || "").toLowerCase().includes("timeout");
       this.logger.warn(`OGP 크롤링 실패 (${targetUrl}): ${err?.message || err}`);
       throw new BusinessException(
@@ -172,7 +348,9 @@ export class OgpService {
    * @returns 캐싱 또는 신규 크롤링된 OGP 응답 DTO
    */
   async parseAndCacheOgp(rawUrl: string): Promise<OgpResponseDto> {
-    const validatedUrl = this.validateSafeExternalUrl(rawUrl).toString();
+    const validatedUrl = (
+      await this.validateSafeExternalUrlWithDns(rawUrl)
+    ).toString();
     const now = new Date();
 
     // 1. 유효 기간이 남은 캐시 우선 조회
