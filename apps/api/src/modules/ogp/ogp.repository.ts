@@ -1,10 +1,14 @@
 import { Injectable } from "@nestjs/common";
-import { db, eq, and, gt, lte, ogpCaches, type OgpCache } from "@ideamory/db";
-
-/** 일반 DB 클라이언트 또는 Drizzle 트랜잭션 실행기 */
-export type OgpDbExecutor =
-  | typeof db
-  | Parameters<Parameters<typeof db.transaction>[0]>[0];
+import {
+  db,
+  eq,
+  and,
+  gt,
+  lte,
+  ogpCaches,
+  type OgpCache,
+  type DbExecutor,
+} from "@ideamory/db";
 
 /**
  * OGP 메타데이터 캐시 데이터 접근(Repository) 계층
@@ -23,7 +27,7 @@ export class OgpRepository {
   async findValidOgpCacheByUrl(
     targetUrl: string,
     now: Date = new Date(),
-    tx: OgpDbExecutor = db
+    tx: DbExecutor = db
   ): Promise<OgpCache | null> {
     const rows = await tx
       .select()
@@ -53,7 +57,7 @@ export class OgpRepository {
       fetchedAt: Date;
       expiresAt: Date;
     },
-    tx: OgpDbExecutor = db
+    tx: DbExecutor = db
   ): Promise<OgpCache> {
     const rows = await tx
       .insert(ogpCaches)
@@ -91,7 +95,7 @@ export class OgpRepository {
    */
   async deleteExpiredOgpCaches(
     now: Date = new Date(),
-    tx: OgpDbExecutor = db
+    tx: DbExecutor = db
   ): Promise<Array<{ id: string }>> {
     return tx
       .delete(ogpCaches)

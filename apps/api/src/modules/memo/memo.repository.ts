@@ -12,35 +12,11 @@ import {
   categories,
   memos,
   ogpCaches,
-  type OgpCache,
+  type DbTransaction,
+  type DbExecutor,
 } from "@ideamory/db";
-
-/** Drizzle 트랜잭션 컨텍스트 타입 */
-export type MemoDbTransaction = Parameters<
-  Parameters<typeof db.transaction>[0]
->[0];
-
-/** 일반 DB 클라이언트 또는 Drizzle 트랜잭션 실행기 */
-export type MemoDbExecutor = typeof db | MemoDbTransaction;
-
-/** 배타적 소유권 식별자 (소셜 정회원 UUID 또는 게스트 토큰) */
-export interface MemoOwnerIdentity {
-  userId?: string;
-  guestToken?: string;
-}
-
-/** OGP 및 카테고리 정보가 조인된 메모 조회 결과 */
-export interface MemoWithRelations {
-  id: string;
-  content: string;
-  categoryId: string;
-  categoryName: string;
-  ogpId: string | null;
-  ogp: OgpCache | null;
-  deletedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import type { OwnerIdentity } from "../../common/types/owner.type";
+import type { MemoWithRelations } from "./memo.type";
 
 /**
  * 메모 및 카테고리 코어 데이터 접근(Repository) 계층
@@ -55,7 +31,7 @@ export class MemoRepository {
    * @returns 콜백 반환값
    */
   async withTransaction<T>(
-    callback: (tx: MemoDbTransaction) => Promise<T>
+    callback: (tx: DbTransaction) => Promise<T>
   ): Promise<T> {
     return db.transaction(callback);
   }
@@ -63,7 +39,7 @@ export class MemoRepository {
   /**
    * 소유자 식별자(userId 우선, 부재 시 guestToken)에 따른 memos 테이블 조건절을 생성합니다.
    */
-  private buildMemoOwnerCondition(owner: MemoOwnerIdentity) {
+  private buildMemoOwnerCondition(owner: OwnerIdentity) {
     return owner.userId
       ? eq(memos.userId, owner.userId)
       : eq(memos.guestToken, owner.guestToken!);
@@ -72,7 +48,7 @@ export class MemoRepository {
   /**
    * 소유자 식별자에 따른 categories 테이블 조건절을 생성합니다.
    */
-  private buildCategoryOwnerCondition(owner: MemoOwnerIdentity) {
+  private buildCategoryOwnerCondition(owner: OwnerIdentity) {
     return owner.userId
       ? eq(categories.userId, owner.userId)
       : eq(categories.guestToken, owner.guestToken!);
@@ -86,8 +62,8 @@ export class MemoRepository {
    * @returns 카테고리 목록
    */
   async findCategoriesByOwner(
-    owner: MemoOwnerIdentity,
-    tx: MemoDbExecutor = db
+    owner: OwnerIdentity,
+    tx: DbExecutor = db
   ): Promise<Array<{ id: string; name: string; normalizedName: string }>> {
     return tx
       .select({
@@ -109,10 +85,10 @@ export class MemoRepository {
    * @returns 조회 또는 생성된 카테고리(id, name)
    */
   async findOrCreateCategory(
-    owner: MemoOwnerIdentity,
+    owner: OwnerIdentity,
     name: string,
     normalizedName: string,
-    tx: MemoDbExecutor = db
+    tx: DbExecutor = db
   ): Promise<{ id: string; name: string }> {
     const existing = await tx
       .select({ id: categories.id, name: categories.name })
@@ -166,8 +142,8 @@ export class MemoRepository {
    */
   async findCategoryByIdAndOwner(
     categoryId: string,
-    owner: MemoOwnerIdentity,
-    tx: MemoDbExecutor = db
+    owner: OwnerIdentity,
+    tx: DbExecutor = db
   ): Promise<{ id: string; name: string } | null> {
     const rows = await tx
       .select({ id: categories.id, name: categories.name })
@@ -193,11 +169,11 @@ export class MemoRepository {
   async insertMemo(
     params: {
       id: string;
-      owner: MemoOwnerIdentity;
+      owner: OwnerIdentity;
       categoryId: string;
       content: string;
     },
-    tx: MemoDbExecutor = db
+    tx: DbExecutor = db
   ): Promise<{ createdAt: Date; updatedAt: Date }> {
     const rows = await tx
       .insert(memos)
@@ -228,9 +204,9 @@ export class MemoRepository {
    * @returns 조인된 메모 목록
    */
   async findMemosWithOgp(
-    owner: MemoOwnerIdentity,
+    owner: OwnerIdentity,
     options: { categoryId?: string; deleted: boolean },
-    tx: MemoDbExecutor = db
+    tx: DbExecutor = db
   ): Promise<MemoWithRelations[]> {
     const conditions = [
       this.buildMemoOwnerCondition(owner),
@@ -272,8 +248,8 @@ export class MemoRepository {
    */
   async findMemoByIdAndOwner(
     memoId: string,
-    owner: MemoOwnerIdentity,
-    tx: MemoDbExecutor = db
+    owner: OwnerIdentity,
+    tx: DbExecutor = db
   ): Promise<MemoWithRelations | null> {
     const rows = await tx
       .select({
@@ -306,9 +282,9 @@ export class MemoRepository {
    */
   async updateMemoById(
     memoId: string,
-    owner: MemoOwnerIdentity,
+    owner: OwnerIdentity,
     updates: { content?: string; categoryId?: string },
-    tx: MemoDbExecutor = db
+    tx: DbExecutor = db
   ): Promise<void> {
     await tx
       .update(memos)
@@ -333,9 +309,9 @@ export class MemoRepository {
    */
   async updateMemoDeletedAt(
     memoId: string,
-    owner: MemoOwnerIdentity,
+    owner: OwnerIdentity,
     deletedAt: Date | null,
-    tx: MemoDbExecutor = db
+    tx: DbExecutor = db
   ): Promise<Array<{ id: string }>> {
     return tx
       .update(memos)
@@ -361,7 +337,7 @@ export class MemoRepository {
       embedding?: number[];
       ogpId?: string;
     },
-    tx: MemoDbExecutor = db
+    tx: DbExecutor = db
   ): Promise<void> {
     const setPayload: Record<string, any> = {};
     if (updates.categoryId !== undefined) {
@@ -390,7 +366,7 @@ export class MemoRepository {
    */
   async deleteExpiredTrashMemos(
     cutoffDate: Date,
-    tx: MemoDbExecutor = db
+    tx: DbExecutor = db
   ): Promise<Array<{ id: string }>> {
     return tx
       .delete(memos)
@@ -405,7 +381,7 @@ export class MemoRepository {
    * @returns 정리된 고아 카테고리 ID 목록
    */
   async deleteOrphanCategories(
-    tx: MemoDbExecutor = db
+    tx: DbExecutor = db
   ): Promise<Array<{ id: string }>> {
     return tx
       .delete(categories)

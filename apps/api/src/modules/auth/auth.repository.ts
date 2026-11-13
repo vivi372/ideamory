@@ -8,13 +8,9 @@ import {
   categories,
   memos,
   authUsers,
+  type DbTransaction,
+  type DbExecutor,
 } from "@ideamory/db";
-
-/** Drizzle 트랜잭션 컨텍스트 타입 */
-export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-/** 일반 DB 클라이언트 또는 트랜잭션 컨텍스트를 아우르는 실행기 타입 */
-export type DbExecutor = typeof db | DbTransaction;
 
 /**
  * 인증 및 유저 데이터 라이프사이클 원자적 데이터 접근(Repository) 계층

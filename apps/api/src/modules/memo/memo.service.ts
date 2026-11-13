@@ -7,13 +7,11 @@ import {
   type MemoResponseDto,
 } from "@ideamory/api-spec";
 import { BusinessException } from "../../common/exceptions/business.exception";
+import type { OwnerIdentity } from "../../common/types/owner.type";
 import { AiService } from "../ai/ai.service";
 import { OgpService } from "../ogp/ogp.service";
-import {
-  MemoRepository,
-  type MemoOwnerIdentity,
-  type MemoWithRelations,
-} from "./memo.repository";
+import { MemoRepository } from "./memo.repository";
+import type { MemoWithRelations } from "./memo.type";
 
 /** 휴지통 영구 보관 기한 (30일, 밀리초 단위) */
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -40,7 +38,7 @@ export class MemoService {
    *
    * @throws BusinessException userId와 guestToken이 모두 누락된 경우 401 Unauthorized 발생
    */
-  private assertOwner(owner: MemoOwnerIdentity): void {
+  private assertOwner(owner: OwnerIdentity): void {
     if (!owner.userId && !owner.guestToken) {
       throw new BusinessException(
         "인증 토큰 또는 게스트 토큰이 필요합니다.",
@@ -76,7 +74,7 @@ export class MemoService {
    * @returns 즉시 생성된 메모 응답 DTO
    */
   async createMemo(
-    owner: MemoOwnerIdentity,
+    owner: OwnerIdentity,
     dto: CreateMemoDto
   ): Promise<MemoResponseDto> {
     this.assertOwner(owner);
@@ -143,7 +141,7 @@ export class MemoService {
    */
   protected async runBackgroundEnrichment(
     memoId: string,
-    owner: MemoOwnerIdentity,
+    owner: OwnerIdentity,
     content: string,
     hasExplicitDirective: boolean
   ): Promise<void> {
@@ -221,7 +219,7 @@ export class MemoService {
    * @returns OGP 메타데이터가 조인된 메모 목록
    */
   async getMemos(
-    owner: MemoOwnerIdentity,
+    owner: OwnerIdentity,
     query: GetMemosQueryDto
   ): Promise<MemoResponseDto[]> {
     this.assertOwner(owner);
@@ -244,7 +242,7 @@ export class MemoService {
    * @throws BusinessException 대상 메모 또는 카테고리가 없으면 404 Not Found 발생
    */
   async updateMemo(
-    owner: MemoOwnerIdentity,
+    owner: OwnerIdentity,
     memoId: string,
     dto: UpdateMemoDto
   ): Promise<MemoResponseDto> {
@@ -296,7 +294,7 @@ export class MemoService {
    * @throws BusinessException 대상 메모가 존재하지 않으면 404 Not Found 발생
    */
   async softDeleteMemo(
-    owner: MemoOwnerIdentity,
+    owner: OwnerIdentity,
     memoId: string
   ): Promise<void> {
     this.assertOwner(owner);
@@ -324,7 +322,7 @@ export class MemoService {
    * @throws BusinessException 대상 메모가 존재하지 않으면 404 Not Found 발생
    */
   async restoreMemo(
-    owner: MemoOwnerIdentity,
+    owner: OwnerIdentity,
     memoId: string
   ): Promise<MemoResponseDto> {
     this.assertOwner(owner);
