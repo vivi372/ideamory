@@ -148,8 +148,18 @@ export class CategoryService {
       );
     }
 
-    // 기존 명칭과 동일하면 불필요한 제안 큐 삭제 및 Gemini 재임베딩 호출을 생략합니다.
+    // 기존 명칭과 동일하면 불필요한 제안 큐 삭제는 생략하되,
+    // 이전 임베딩 실패 등으로 embedding이 NULL인 상태라면 백그라운드 자가 치유(Self-Healing)만 트리거합니다.
     if (existing.name === trimmedName) {
+      const hasEmbedding =
+        await this.categoryRepository.hasCategoryEmbedding(categoryId);
+      if (!hasEmbedding) {
+        void this.syncCategoryEmbeddingAndDetectSimilar(
+          existing.id,
+          existing.name
+        );
+      }
+
       const memoCount =
         await this.categoryRepository.countActiveMemosByCategoryId(
           categoryId,
@@ -290,11 +300,11 @@ export class CategoryService {
 
   /**
    * 비동기 백그라운드에서 카테고리명 임베딩 벡터를 저장하고 pgvector 유사 카테고리 탐지를 실행합니다.
-   * MemoService 배치 임베딩에서 이미 획득한 벡터가 있으면 재사용하여 중복 API 호출을 방지합니다.
-   * 백그라운드 작업 실패 시에도 메인 요청 흐름에 영향을 주지 않고 안전하게 경고 로그만 남깁니다.
+   * 동일 소유자의 `embedding IS NULL` 카테고리도 최대 10건까지 함께 배치 임베딩하여 자가 치유(Self-Healing)합니다.
+   * Gemini API 호출은 트랜잭션 밖에서 수행하고, 임베딩 저장과 유사 탐지는 단일 트랜잭션으로 묶어 부분 실패를 방지합니다.
    *
-   * @param categoryId 임베딩을 저장할 카테고리 UUID
-   * @param categoryName 카테고리 표시명
+   * @param categoryId 임베딩을 저장할 기준 카테고리 UUID
+   * @param categoryName 기준 카테고리 표시명
    * @param precomputedEmbedding 배치 임베딩으로 선계산된 768차원 벡터 (선택)
    */
   async syncCategoryEmbeddingAndDetectSimilar(
@@ -303,19 +313,65 @@ export class CategoryService {
     precomputedEmbedding?: number[] | null
   ): Promise<void> {
     try {
-      const embedding =
-        precomputedEmbedding ??
-        (await this.aiService.generateEmbedding(categoryName));
+      // 1. 별도 크론 스케줄러 없이 동일 소유자의 누락분(embedding IS NULL)을 최대 10건까지 함께 조회해 배치 API 한도를 보호합니다.
+      const missingOthers =
+        await this.categoryRepository.findMissingEmbeddingCategoriesForSameOwner(
+          categoryId,
+          10
+        );
 
-      if (!embedding) {
+      const resolvedTargets: Array<{ id: string; embedding: number[] }> = [];
+
+      // 2. 외부 Gemini API 호출은 DB 커넥션 풀 점유를 막기 위해 반드시 트랜잭션 밖에서 먼저 수행합니다.
+      if (precomputedEmbedding) {
+        resolvedTargets.push({ id: categoryId, embedding: precomputedEmbedding });
+        if (missingOthers.length > 0) {
+          const otherEmbeddings = await this.aiService.batchEmbedContents(
+            missingOthers.map((item) => item.name)
+          );
+          missingOthers.forEach((item, idx) => {
+            const vector = otherEmbeddings[idx];
+            if (vector) {
+              resolvedTargets.push({ id: item.id, embedding: vector });
+            }
+          });
+        }
+      } else {
+        const allItems = [
+          { id: categoryId, name: categoryName },
+          ...missingOthers,
+        ];
+        const vectors = await this.aiService.batchEmbedContents(
+          allItems.map((item) => item.name)
+        );
+        allItems.forEach((item, idx) => {
+          const vector = vectors[idx];
+          if (vector) {
+            resolvedTargets.push({ id: item.id, embedding: vector });
+          }
+        });
+      }
+
+      if (resolvedTargets.length === 0) {
         return;
       }
 
-      await this.categoryRepository.updateCategoryEmbedding(
-        categoryId,
-        embedding
-      );
-      await this.categoryRepository.detectAndQueueSimilarCategories(categoryId);
+      // 3. 임베딩 저장과 유사 탐지는 단일 트랜잭션으로 묶어, 탐지 실패 시 임베딩만 저장되어 재시도 대상에서 누락되는 현상을 방지합니다.
+      await this.categoryRepository.withTransaction(async (tx) => {
+        for (const target of resolvedTargets) {
+          await this.categoryRepository.updateCategoryEmbedding(
+            target.id,
+            target.embedding,
+            tx
+          );
+        }
+        for (const target of resolvedTargets) {
+          await this.categoryRepository.detectAndQueueSimilarCategories(
+            target.id,
+            tx
+          );
+        }
+      });
     } catch (error: any) {
       this.logger.warn(
         `비동기 유사 카테고리 탐지 스킵 (categoryId: ${categoryId}): ${error?.message || error}`
