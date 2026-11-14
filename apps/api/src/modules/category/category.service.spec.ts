@@ -126,6 +126,13 @@ describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화,
         );
         return storedSuggestions.length < before ? [{ id: suggestionId }] : [];
       },
+      deleteSuggestionsByCategoryId: async (categoryId) => {
+        storedSuggestions = storedSuggestions.filter(
+          (s) =>
+            s.sourceCategoryId !== categoryId &&
+            s.targetCategoryId !== categoryId
+        );
+      },
     };
 
     const mockAiService: Partial<AiService> = {
@@ -289,6 +296,15 @@ describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화,
 
     assert.equal(updatedEmbeddingCalls.length, 2);
     assert.deepEqual(detectedCategoryIds, [newId, newId]);
+
+    // 기존 제안 큐에 포함된 카테고리 수정 시 해당 제안이 즉시 정리되어야 한다
+    await categoryService.updateCategory(
+      owner,
+      "018d0000-0000-7000-8000-000000000011",
+      { name: "쇼핑 리스트" }
+    );
+    const remainingSuggestions = await categoryService.getMergeSuggestions(owner);
+    assert.equal(remainingSuggestions.length, 0);
   });
 
   it("시나리오 6: getMergeSuggestions는 대기 제안 큐를 반올림된 similarity와 함께 반환하고, dismissMergeSuggestion은 즉시 삭제 또는 404 예외를 발생시켜야 한다", async () => {
