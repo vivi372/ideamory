@@ -3,9 +3,14 @@ import assert from "node:assert/strict";
 import {
   CreateMemoSchema,
   GetMemosQuerySchema,
+  SearchMemoQuerySchema,
+  RelatedMemoQuerySchema,
   ParseOgpSchema,
+  UuidV7Schema,
   type CreateMemoDto,
   type GetMemosQueryDto,
+  type SearchMemoQueryDto,
+  type RelatedMemoQueryDto,
   type ParseOgpDto,
 } from "@ideamory/api-spec";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -32,6 +37,8 @@ describe("MemoController & OgpController (REST 라우트, Zod 파이프 및 204 
       updateMemo: [],
       softDeleteMemo: [],
       restoreMemo: [],
+      searchMemos: [],
+      getRelatedMemos: [],
       parseAndCacheOgp: [],
     };
 
@@ -81,6 +88,14 @@ describe("MemoController & OgpController (REST 라우트, Zod 파이프 및 204 
           deletedAt: null,
           createdAt: "2026-11-13T05:00:00.000Z",
         };
+      },
+      searchMemos: async (owner, query) => {
+        serviceCalls.searchMemos.push({ owner, query });
+        return [];
+      },
+      getRelatedMemos: async (owner, id, query) => {
+        serviceCalls.getRelatedMemos.push({ owner, id, query });
+        return [];
       },
     };
 
@@ -164,5 +179,49 @@ describe("MemoController & OgpController (REST 라우트, Zod 파이프 및 204 
 
     assert.equal(result.targetUrl, "https://nextjs.org");
     assert.equal(serviceCalls.parseAndCacheOgp[0], "https://nextjs.org");
+  });
+
+  it("시나리오 6: GET /v1/memos/search는 SearchMemoQuerySchema 기본값·검증 후 searchMemos를 호출해야 한다", async () => {
+    const queryPipe = new ZodValidationPipe(SearchMemoQuerySchema);
+    const validQuery = queryPipe.transform(
+      { q: "  pgvector 하이브리드  " },
+      { type: "query" }
+    ) as SearchMemoQueryDto;
+
+    await memoController.searchMemos(mockUser, validQuery);
+    assert.equal(serviceCalls.searchMemos.length, 1);
+    assert.deepEqual(serviceCalls.searchMemos[0].query, {
+      q: "pgvector 하이브리드",
+      threshold: 0.3,
+      limit: 30,
+    });
+
+    // 공백 전용 검색어 및 limit 100 초과 차단 검증
+    assert.throws(
+      () => queryPipe.transform({ q: "   " }, { type: "query" }),
+      (err: any) => err instanceof BusinessException
+    );
+    assert.throws(
+      () => queryPipe.transform({ q: "검색", limit: "101" }, { type: "query" }),
+      (err: any) => err instanceof BusinessException
+    );
+  });
+
+  it("시나리오 7: GET /v1/memos/:id/related는 UUID v7 및 RelatedMemoQuerySchema 기본값 검증 후 getRelatedMemos를 호출해야 한다", async () => {
+    const paramPipe = new ZodValidationPipe(UuidV7Schema);
+    const queryPipe = new ZodValidationPipe(RelatedMemoQuerySchema);
+    const memoId = paramPipe.transform(
+      "018d0000-0000-7000-8000-000000000001",
+      { type: "param" }
+    ) as string;
+    const validQuery = queryPipe.transform({}, { type: "query" }) as RelatedMemoQueryDto;
+
+    await memoController.getRelatedMemos(mockUser, memoId, validQuery);
+    assert.equal(serviceCalls.getRelatedMemos.length, 1);
+    assert.equal(serviceCalls.getRelatedMemos[0].id, memoId);
+    assert.deepEqual(serviceCalls.getRelatedMemos[0].query, {
+      threshold: 0.8,
+      limit: 10,
+    });
   });
 });

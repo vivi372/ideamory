@@ -7,6 +7,11 @@ import { AiService } from "../ai/ai.service";
 import { OgpService } from "../ogp/ogp.service";
 import { MemoService } from "./memo.service";
 import { MemoRepository } from "./memo.repository";
+import {
+  clampAndRoundScore,
+  sanitizeSearchQuery,
+  toPgVectorLiteral,
+} from "./memo.helper";
 import { TrashCleanerScheduler } from "../scheduler/trash-cleaner.scheduler";
 
 describe("MemoService & TrashCleanerScheduler (2단계 퀵 캡처 파이프라인, CUD, 휴지통 복구 및 자정 GC)", () => {
@@ -32,6 +37,8 @@ describe("MemoService & TrashCleanerScheduler (2단계 퀵 캡처 파이프라�
       updateMemoDeletedAt: [],
       deleteExpiredTrashMemos: [],
       deleteOrphanCategories: [],
+      searchMemosHybrid: [],
+      findRelatedMemos: [],
     };
     mockMemoRecord = null;
     mockCategoryRecord = { id: "cat-1", name: "개발" };
@@ -87,6 +94,49 @@ describe("MemoService & TrashCleanerScheduler (2단계 퀵 캡처 파이프라�
         opOrder.push("deleteOrphanCategories");
         repoCalls.deleteOrphanCategories.push(true);
         return [{ id: "orphan-cat-1" }];
+      },
+      searchMemosHybrid: async (params) => {
+        repoCalls.searchMemosHybrid.push(params);
+        return [
+          {
+            id: "018d0000-0000-7000-8000-000000000501",
+            content: "NestJS pgvector 하이브리드 검색",
+            categoryId: "018d0000-0000-7000-8000-000000000010",
+            categoryName: "개발",
+            ftsScore: 0.812345,
+            vectorScore: 0.912345,
+            finalScore: 0.872345,
+            ogpId: "018d0000-0000-7000-8000-000000000601",
+            ogpTargetUrl: "https://nestjs.com",
+            ogpTitle: "NestJS",
+            ogpThumbnailUrl: null,
+            ogpDescription: "Progressive Node.js framework",
+            ogpExpiresAt: new Date("2026-11-29T00:00:00.000Z"),
+            ogpFetchedAt: new Date("2026-11-15T00:00:00.000Z"),
+            createdAt: new Date("2026-11-14T10:00:00.000Z"),
+          },
+        ];
+      },
+      findMemoEmbeddingByIdAndOwner: async () => mockMemoRecord,
+      findRelatedMemos: async (params) => {
+        repoCalls.findRelatedMemos.push(params);
+        return [
+          {
+            id: "018d0000-0000-7000-8000-000000000502",
+            content: "Drizzle pgvector 코사인 거리 연산",
+            categoryId: "018d0000-0000-7000-8000-000000000010",
+            categoryName: "개발",
+            similarity: 0.884321,
+            ogpId: null,
+            ogpTargetUrl: null,
+            ogpTitle: null,
+            ogpThumbnailUrl: null,
+            ogpDescription: null,
+            ogpExpiresAt: null,
+            ogpFetchedAt: null,
+            createdAt: new Date("2026-11-14T09:00:00.000Z"),
+          },
+        ];
       },
     };
 
@@ -316,6 +366,130 @@ describe("MemoService & TrashCleanerScheduler (2단계 퀵 캡처 파이프라�
       repoCalls.updateMemoBackgroundEnrichment.at(-1)?.updates?.embedding?.length,
       768
     );
+  });
+
+  it("시나리오 8: searchMemos는 검색어 정제 및 Gemini 벡터 변환 후 하이브리드 검색 결과와 OGP를 직렬화해 반환해야 한다", async () => {
+    const queryVec = new Array(768).fill(0.15);
+    let embeddedInput: string | null = null;
+    (aiService as any).generateEmbedding = async (text: string) => {
+      embeddedInput = text;
+      return queryVec;
+    };
+
+    const results = await memoService.searchMemos(owner, {
+      q: "  pgvector   검색 \u0007 ",
+      threshold: 0.35,
+      limit: 20,
+    });
+
+    assert.equal(embeddedInput, "pgvector 검색");
+    assert.equal(repoCalls.searchMemosHybrid.length, 1);
+    assert.equal(repoCalls.searchMemosHybrid[0].queryText, "pgvector 검색");
+    assert.equal(repoCalls.searchMemosHybrid[0].threshold, 0.35);
+    assert.equal(repoCalls.searchMemosHybrid[0].limit, 20);
+    assert.equal(repoCalls.searchMemosHybrid[0].queryVector.length, 768);
+
+    assert.equal(results.length, 1);
+    assert.equal(results[0].ftsScore, 0.8123);
+    assert.equal(results[0].vectorScore, 0.9123);
+    assert.equal(results[0].finalScore, 0.8723);
+    assert.equal(results[0].ogp?.targetUrl, "https://nestjs.com");
+    assert.equal(results[0].createdAt, "2026-11-14T10:00:00.000Z");
+  });
+
+  it("시나리오 9: searchMemos는 Gemini 임베딩 생성이 null로 실패해도 FTS 단독 폴백 검색을 정상 수행해야 한다", async () => {
+    (aiService as any).generateEmbedding = async () => null;
+
+    const results = await memoService.searchMemos(owner, {
+      q: "NestJS",
+      threshold: 0.3,
+      limit: 30,
+    });
+
+    assert.equal(repoCalls.searchMemosHybrid[0].queryVector, null);
+    assert.equal(results.length, 1);
+  });
+
+  it("시나리오 10: getRelatedMemos는 기준 메모의 임베딩 벡터로 1-Depth 연관 메모를 조회하고 반올림된 유사도를 반환해야 한다", async () => {
+    const sourceVec = new Array(768).fill(0.25);
+    mockMemoRecord = {
+      id: "018d0000-0000-7000-8000-000000000500",
+      embedding: sourceVec,
+      deletedAt: null,
+    };
+
+    const related = await memoService.getRelatedMemos(
+      owner,
+      "018d0000-0000-7000-8000-000000000500",
+      { threshold: 0.8, limit: 10 }
+    );
+
+    assert.equal(repoCalls.findRelatedMemos.length, 1);
+    assert.equal(
+      repoCalls.findRelatedMemos[0].sourceMemoId,
+      "018d0000-0000-7000-8000-000000000500"
+    );
+    assert.equal(repoCalls.findRelatedMemos[0].threshold, 0.8);
+    assert.equal(related.length, 1);
+    assert.equal(related[0].similarity, 0.8843);
+    assert.equal(related[0].ogp, null);
+  });
+
+  it("시나리오 11: getRelatedMemos는 미존재·휴지통 메모에 대해 404를 던지고, 임베딩이 NULL인 기준 메모는 빈 배열을 반환해야 한다", async () => {
+    mockMemoRecord = null;
+    await assert.rejects(
+      () =>
+        memoService.getRelatedMemos(
+          owner,
+          "018d0000-0000-7000-8000-000000000999",
+          { threshold: 0.8, limit: 10 }
+        ),
+      (err: any) => {
+        assert.ok(err instanceof BusinessException);
+        assert.equal(err.getStatus(), HttpStatus.NOT_FOUND);
+        assert.equal(err.errorCode, ERROR_CODES.MEMO_WARN_NOT_FOUND);
+        return true;
+      }
+    );
+
+    mockMemoRecord = {
+      id: "018d0000-0000-7000-8000-000000000500",
+      embedding: new Array(768).fill(0.1),
+      deletedAt: new Date("2026-11-14T00:00:00.000Z"),
+    };
+    await assert.rejects(
+      () =>
+        memoService.getRelatedMemos(
+          owner,
+          "018d0000-0000-7000-8000-000000000500",
+          { threshold: 0.8, limit: 10 }
+        ),
+      (err: any) =>
+        err instanceof BusinessException &&
+        err.getStatus() === HttpStatus.NOT_FOUND
+    );
+
+    mockMemoRecord = {
+      id: "018d0000-0000-7000-8000-000000000500",
+      embedding: null,
+      deletedAt: null,
+    };
+    const emptyRelated = await memoService.getRelatedMemos(
+      owner,
+      "018d0000-0000-7000-8000-000000000500",
+      { threshold: 0.8, limit: 10 }
+    );
+    assert.deepEqual(emptyRelated, []);
+    assert.equal(repoCalls.findRelatedMemos.length, 0);
+  });
+
+  it("시나리오 12: memo.helper 유틸은 검색어 정제, pgvector 직렬화 및 [0, 1] 스코어 클램핑을 안전하게 처리해야 한다", () => {
+    assert.equal(sanitizeSearchQuery("  hello\n\tworld  "), "hello world");
+    assert.equal(toPgVectorLiteral([0.1, -0.2, 0.3]), "[0.1,-0.2,0.3]");
+    assert.throws(() => toPgVectorLiteral([0.1, Number.NaN]));
+    assert.equal(clampAndRoundScore(1.0000002), 1);
+    assert.equal(clampAndRoundScore(-0.05), 0);
+    assert.equal(clampAndRoundScore(0.854321), 0.8543);
   });
 });
 

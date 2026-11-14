@@ -62,12 +62,17 @@ export const MemoResponseSchema = z.object({
 export type MemoResponseDto = z.infer<typeof MemoResponseSchema>;
 
 /**
- * GET /api/memos/search (Gemini 하이브리드 검색 쿼리 DTO)
+ * GET /api/v1/memos/search (Gemini 하이브리드 검색 쿼리 DTO)
+ * 타이핑 도중 실시간 API 호출을 방지하고 [엔터]/[검색] 시에만 명시적 호출합니다.
  */
 export const SearchMemoQuerySchema = z.object({
-  q: z.string().min(1, "검색어를 입력해 주세요."),
+  q: z
+    .string()
+    .trim()
+    .min(1, "검색어를 입력해 주세요.")
+    .max(500, "검색어는 최대 500자까지 입력할 수 있습니다."),
   threshold: z.coerce.number().min(0).max(1).optional().default(0.3),
-  limit: z.coerce.number().int().positive().optional().default(30),
+  limit: z.coerce.number().int().positive().max(100).optional().default(30),
 });
 
 export type SearchMemoQueryDto = z.infer<typeof SearchMemoQuerySchema>;
@@ -83,18 +88,34 @@ export const SearchResultResponseSchema = z.object({
   ftsScore: z.number(),
   vectorScore: z.number(),
   finalScore: z.number(),
+  ogp: OgpResponseSchema.nullable().optional(),
   createdAt: z.string().datetime(),
 });
 
 export type SearchResultResponseDto = z.infer<typeof SearchResultResponseSchema>;
 
 /**
- * GET /api/memos/:id/related (관련 메모 1-Depth 필터링 쿼리 DTO)
+ * GET /api/v1/memos/:id/related (관련 메모 1-Depth 필터링 쿼리 DTO)
  */
 export const RelatedMemoQuerySchema = z.object({
   threshold: z.coerce.number().min(0).max(1).optional().default(0.8),
-  limit: z.coerce.number().int().positive().optional().default(10),
+  limit: z.coerce.number().int().positive().max(100).optional().default(10),
 });
 
 export type RelatedMemoQueryDto = z.infer<typeof RelatedMemoQuerySchema>;
+
+/**
+ * 관련 메모 1-Depth 추천 결과 응답 DTO (코사인 유사도 0.8 이상)
+ */
+export const RelatedMemoResponseSchema = z.object({
+  id: UuidV7Schema,
+  content: z.string(),
+  categoryId: UuidV7Schema,
+  categoryName: z.string(),
+  similarity: z.number(),
+  ogp: OgpResponseSchema.nullable().optional(),
+  createdAt: z.string().datetime(),
+});
+
+export type RelatedMemoResponseDto = z.infer<typeof RelatedMemoResponseSchema>;
 

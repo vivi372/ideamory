@@ -17,7 +17,12 @@ import {
   type DbExecutor,
 } from "@ideamory/db";
 import type { OwnerIdentity } from "../../common/types/owner.type";
-import type { MemoWithRelations } from "./memo.type";
+import { toPgVectorLiteral } from "./memo.helper";
+import type {
+  HybridSearchRawRow,
+  MemoWithRelations,
+  RelatedMemoRawRow,
+} from "./memo.type";
 
 /**
  * 메모 및 카테고리 코어 데이터 접근(Repository) 계층
@@ -396,6 +401,257 @@ export class MemoRepository {
         sql`NOT EXISTS (SELECT 1 FROM memos m WHERE m.category_id = ${categories.id})`
       )
       .returning({ id: categories.id });
+  }
+
+  /**
+   * Drizzle Raw SQL 기반 FTS(0.4) + pgvector 코사인 유사도(0.6) 하이브리드 검색을 실행합니다.
+   *
+   * [하이브리드 스코어링 및 인덱스 설계 근거]
+   * - PostgreSQL `simple` 사전: 형태소 분석기 의존 없이 한·영 혼용 본문을 공백·구두점 토큰화하고
+   *   `idx_memos_content_fts` GIN 인덱스를 안정적으로 활용하기 위해 사용합니다.
+   * - 가중치 결합(FTS 0.4 + Vector 0.6): 정확한 키워드 일치와 문맥·동의어 기반 시맨틱 유사도를 균형 있게 반영합니다.
+   * - NULL 벡터 방어: 아직 백그라운드 임베딩이 생성되지 않은 메모(`embedding IS NULL`)가 FTS로 매칭되었을 때
+   *   코사인 연산 결과가 `NULL`이 되어 `finalScore` 정렬 최상단에 노출(`NULLS FIRST`)되는 현상을 막기 위해
+   *   `CASE WHEN m.embedding IS NOT NULL` 분기로 `0.0`을 보정합니다.
+   * - AI 폴백 지원: Gemini 임베딩 생성이 불가해 `queryVector`가 `null`이면 FTS 단독 검색(가중치 0.4)으로 동작합니다.
+   *
+   * @param params 소유자, 정제된 검색어, 768차원 검색 벡터(또는 null), 유사도 임계값, 최대 반환 건수
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   * @returns 하이브리드 스코어 및 유효 OGP 캐시가 포함된 검색 결과 행 목록
+   */
+  async searchMemosHybrid(
+    params: {
+      owner: OwnerIdentity;
+      queryText: string;
+      queryVector: number[] | null;
+      threshold: number;
+      limit: number;
+    },
+    tx: DbExecutor = db
+  ): Promise<HybridSearchRawRow[]> {
+    const ownerFilter = params.owner.userId
+      ? sql`m.user_id = ${params.owner.userId}`
+      : sql`m.guest_token = ${params.owner.guestToken!}`;
+
+    if (!params.queryVector) {
+      const ftsOnlyResult = await tx.execute(sql`
+        SELECT
+          m.id AS "id",
+          m.content AS "content",
+          m.category_id AS "categoryId",
+          c.name AS "categoryName",
+          LEAST(
+            1.0,
+            COALESCE(
+              ts_rank_cd(
+                to_tsvector('simple', m.content),
+                plainto_tsquery('simple', ${params.queryText})
+              ),
+              0.0
+            )
+          )::float8 AS "ftsScore",
+          0.0::float8 AS "vectorScore",
+          (
+            LEAST(
+              1.0,
+              COALESCE(
+                ts_rank_cd(
+                  to_tsvector('simple', m.content),
+                  plainto_tsquery('simple', ${params.queryText})
+                ),
+                0.0
+              )
+            ) * 0.4
+          )::float8 AS "finalScore",
+          ogp.id AS "ogpId",
+          ogp.target_url AS "ogpTargetUrl",
+          ogp.title AS "ogpTitle",
+          ogp.thumbnail_url AS "ogpThumbnailUrl",
+          ogp.description AS "ogpDescription",
+          ogp.expires_at AS "ogpExpiresAt",
+          ogp.fetched_at AS "ogpFetchedAt",
+          m.created_at AS "createdAt"
+        FROM public.memos m
+        INNER JOIN public.categories c ON c.id = m.category_id
+        LEFT JOIN public.ogp_caches ogp
+          ON ogp.id = m.ogp_id AND ogp.expires_at > NOW()
+        WHERE m.deleted_at IS NULL
+          AND ${ownerFilter}
+          AND to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
+        ORDER BY "finalScore" DESC, m.created_at DESC
+        LIMIT ${params.limit}
+      `);
+
+      return (ftsOnlyResult as unknown as HybridSearchRawRow[]) ?? [];
+    }
+
+    const vectorLiteral = toPgVectorLiteral(params.queryVector);
+    const hybridResult = await tx.execute(sql`
+      SELECT
+        m.id AS "id",
+        m.content AS "content",
+        m.category_id AS "categoryId",
+        c.name AS "categoryName",
+        LEAST(
+          1.0,
+          COALESCE(
+            ts_rank_cd(
+              to_tsvector('simple', m.content),
+              plainto_tsquery('simple', ${params.queryText})
+            ),
+            0.0
+          )
+        )::float8 AS "ftsScore",
+        CASE
+          WHEN m.embedding IS NOT NULL THEN
+            GREATEST(
+              0.0,
+              LEAST(1.0, (1 - (m.embedding <=> ${vectorLiteral}::vector)))
+            )::float8
+          ELSE 0.0
+        END AS "vectorScore",
+        (
+          (
+            LEAST(
+              1.0,
+              COALESCE(
+                ts_rank_cd(
+                  to_tsvector('simple', m.content),
+                  plainto_tsquery('simple', ${params.queryText})
+                ),
+                0.0
+              )
+            ) * 0.4
+          ) +
+          (
+            CASE
+              WHEN m.embedding IS NOT NULL THEN
+                GREATEST(
+                  0.0,
+                  LEAST(1.0, (1 - (m.embedding <=> ${vectorLiteral}::vector)))
+                )
+              ELSE 0.0
+            END * 0.6
+          )
+        )::float8 AS "finalScore",
+        ogp.id AS "ogpId",
+        ogp.target_url AS "ogpTargetUrl",
+        ogp.title AS "ogpTitle",
+        ogp.thumbnail_url AS "ogpThumbnailUrl",
+        ogp.description AS "ogpDescription",
+        ogp.expires_at AS "ogpExpiresAt",
+        ogp.fetched_at AS "ogpFetchedAt",
+        m.created_at AS "createdAt"
+      FROM public.memos m
+      INNER JOIN public.categories c ON c.id = m.category_id
+      LEFT JOIN public.ogp_caches ogp
+        ON ogp.id = m.ogp_id AND ogp.expires_at > NOW()
+      WHERE m.deleted_at IS NULL
+        AND ${ownerFilter}
+        AND (
+          to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
+          OR (
+            m.embedding IS NOT NULL
+            AND (1 - (m.embedding <=> ${vectorLiteral}::vector)) >= ${params.threshold}
+          )
+        )
+      ORDER BY "finalScore" DESC, m.created_at DESC
+      LIMIT ${params.limit}
+    `);
+
+    return (hybridResult as unknown as HybridSearchRawRow[]) ?? [];
+  }
+
+  /**
+   * 연관 메모 추출을 위해 기준 메모의 소유권, 삭제 상태 및 768차원 임베딩 벡터를 조회합니다.
+   *
+   * @param memoId 기준 메모 UUID
+   * @param owner 소유자 식별자
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   * @returns 메모 임베딩 및 삭제 여부 정보 또는 null
+   */
+  async findMemoEmbeddingByIdAndOwner(
+    memoId: string,
+    owner: OwnerIdentity,
+    tx: DbExecutor = db
+  ): Promise<{
+    id: string;
+    embedding: number[] | null;
+    deletedAt: Date | null;
+  } | null> {
+    const rows = await tx
+      .select({
+        id: memos.id,
+        embedding: memos.embedding,
+        deletedAt: memos.deletedAt,
+      })
+      .from(memos)
+      .where(and(eq(memos.id, memoId), this.buildMemoOwnerCondition(owner)))
+      .limit(1);
+
+    return rows[0] ?? null;
+  }
+
+  /**
+   * 기준 메모의 768차원 임베딩 벡터와 pgvector 코사인 유사도(`>= threshold`, 기본 0.8)를 만족하는
+   * 동일 소유자의 1-Depth 연관 메모 목록을 유사도 내림차순으로 조회합니다.
+   *
+   * [연관 메모 임계값(0.8) 및 필터링 원칙]
+   * - 코사인 유사도 0.8 임계값: 단순 주제 공유를 넘어 실질적으로 같은 맥락·아이디어를 다루는
+   *   고유사도 메모만 엄선하여 '관련 메모 N건' 칩 클릭 시 노이즈 없는 1-Depth 탐색 경험을 제공합니다.
+   * - 자기 자신 제외(`m.id != sourceMemoId`) 및 휴지통 제외(`m.deleted_at IS NULL`)로 활성 연관 메모만 노출합니다.
+   *
+   * @param params 소유자, 기준 메모 ID, 기준 벡터, 최소 유사도 임계값, 최대 반환 건수
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   * @returns 유사도 및 유효 OGP 캐시가 조인된 연관 메모 행 목록
+   */
+  async findRelatedMemos(
+    params: {
+      owner: OwnerIdentity;
+      sourceMemoId: string;
+      sourceVector: number[];
+      threshold: number;
+      limit: number;
+    },
+    tx: DbExecutor = db
+  ): Promise<RelatedMemoRawRow[]> {
+    const ownerFilter = params.owner.userId
+      ? sql`m.user_id = ${params.owner.userId}`
+      : sql`m.guest_token = ${params.owner.guestToken!}`;
+    const sourceVectorLiteral = toPgVectorLiteral(params.sourceVector);
+
+    const result = await tx.execute(sql`
+      SELECT
+        m.id AS "id",
+        m.content AS "content",
+        m.category_id AS "categoryId",
+        c.name AS "categoryName",
+        GREATEST(
+          0.0,
+          LEAST(1.0, (1 - (m.embedding <=> ${sourceVectorLiteral}::vector)))
+        )::float8 AS "similarity",
+        ogp.id AS "ogpId",
+        ogp.target_url AS "ogpTargetUrl",
+        ogp.title AS "ogpTitle",
+        ogp.thumbnail_url AS "ogpThumbnailUrl",
+        ogp.description AS "ogpDescription",
+        ogp.expires_at AS "ogpExpiresAt",
+        ogp.fetched_at AS "ogpFetchedAt",
+        m.created_at AS "createdAt"
+      FROM public.memos m
+      INNER JOIN public.categories c ON c.id = m.category_id
+      LEFT JOIN public.ogp_caches ogp
+        ON ogp.id = m.ogp_id AND ogp.expires_at > NOW()
+      WHERE m.id != ${params.sourceMemoId}
+        AND m.deleted_at IS NULL
+        AND m.embedding IS NOT NULL
+        AND ${ownerFilter}
+        AND (1 - (m.embedding <=> ${sourceVectorLiteral}::vector)) >= ${params.threshold}
+      ORDER BY "similarity" DESC, m.created_at DESC
+      LIMIT ${params.limit}
+    `);
+
+    return (result as unknown as RelatedMemoRawRow[]) ?? [];
   }
 }
 
