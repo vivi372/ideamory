@@ -234,6 +234,8 @@ export class CategoryRepository {
       .set({
         name,
         normalizedName,
+        // 이름 변경 후 백그라운드 재임베딩이 실패했을 때 옛 명칭 벡터가 남아 오탐되는 것을 방지하기 위해 NULL로 초기화합니다.
+        embedding: null,
         updatedAt: new Date(),
       })
       .where(
@@ -351,6 +353,41 @@ export class CategoryRepository {
   }
 
   /**
+   * 기준 카테고리(`categoryId`)와 동일 소유자(userId 또는 guestToken)에 속하면서
+   * 임베딩이 NULL 상태로 남아있는 다른 카테고리들을 최대 `limit`건 조회합니다.
+   * 별도 스케줄러 없이 백그라운드 임베딩 동기화 시점에 누락분을 함께 자가 치유(Self-Healing)하기 위해 사용합니다.
+   *
+   * @param categoryId 기준 카테고리 UUID
+   * @param limit 한 번의 배치 임베딩으로 복구할 최대 건수 (기본값: 10)
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   * @returns 임베딩이 누락된 카테고리(id, name) 목록
+   */
+  async findMissingEmbeddingCategoriesForSameOwner(
+    categoryId: string,
+    limit = 10,
+    tx: DbExecutor = db
+  ): Promise<Array<{ id: string; name: string }>> {
+    const result = await tx.execute(sql`
+      SELECT
+        c2.id AS "id",
+        c2.name AS "name"
+      FROM public.categories c1
+      INNER JOIN public.categories c2
+        ON c1.id != c2.id
+        AND (
+          (c1.user_id IS NOT NULL AND c1.user_id = c2.user_id)
+          OR (c1.guest_token IS NOT NULL AND c1.guest_token = c2.guest_token)
+        )
+      WHERE c1.id = ${categoryId}
+        AND c2.embedding IS NULL
+      ORDER BY c2.created_at ASC
+      LIMIT ${limit}
+    `);
+
+    return (result as unknown as Array<{ id: string; name: string }>) ?? [];
+  }
+
+  /**
    * pgvector 코사인 유사도(`1 - (c1.embedding <=> c2.embedding) >= 0.85`)를 기반으로
    * 동일 소유자의 유사 카테고리를 탐지하고 `category_merge_suggestions` 큐에 삽입합니다.
    *
@@ -359,6 +396,8 @@ export class CategoryRepository {
    *   관련성 낮은 오탐을 억제하기 위해 코사인 유사도 0.85 이상을 채택합니다.
    * - 방금 생성·수정된 `categoryId` (`c1`)를 항상 `source`(삭제/흡수 대상)로 고정하고,
    *   기존의 유사 카테고리(`c2`)를 `target`(유지 대상)으로 일관되게 바인딩합니다.
+   * - `NOT EXISTS` 가드로 반대 방향(`source = c2, target = c1`) 제안이 이미 존재할 경우
+   *   배치 복구 과정에서 양방향 중복 제안이 삽입되는 현상을 차단합니다.
    *
    * @param categoryId 방금 임베딩이 생성·갱신된 기준 카테고리 UUID
    * @param tx 트랜잭션 컨텍스트 (기본값: db)
@@ -385,6 +424,12 @@ export class CategoryRepository {
         AND c1.embedding IS NOT NULL
         AND c2.embedding IS NOT NULL
         AND (1 - (c1.embedding <=> c2.embedding)) >= 0.85
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.category_merge_suggestions existing
+          WHERE existing.source_category_id = c2.id
+            AND existing.target_category_id = c1.id
+        )
     `);
 
     const rows = (result as unknown as Array<{

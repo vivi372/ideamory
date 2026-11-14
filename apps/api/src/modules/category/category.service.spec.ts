@@ -111,7 +111,8 @@ describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화,
         deletedCategoryIds.push(categoryId);
         storedCategories = storedCategories.filter((c) => c.id !== categoryId);
       },
-      hasCategoryEmbedding: async () => false,
+      hasCategoryEmbedding: async () => true,
+      findMissingEmbeddingCategoriesForSameOwner: async () => [],
       updateCategoryEmbedding: async (categoryId, embedding) => {
         updatedEmbeddingCalls.push({ categoryId, dims: embedding.length });
       },
@@ -137,6 +138,8 @@ describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화,
 
     const mockAiService: Partial<AiService> = {
       generateEmbedding: async () => new Array(768).fill(0.05),
+      batchEmbedContents: async (contents) =>
+        contents.map(() => new Array(768).fill(0.05)),
     };
 
     categoryService = new CategoryService(
@@ -315,8 +318,24 @@ describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화,
       "018d0000-0000-7000-8000-000000000011",
       { name: "쇼핑 리스트" }
     );
+    await new Promise((r) => setTimeout(r, 15));
     const remainingSuggestions = await categoryService.getMergeSuggestions(owner);
     assert.equal(remainingSuggestions.length, 0);
+
+    // 동일 소유자의 embedding IS NULL 카테고리가 있을 때 syncCategoryEmbeddingAndDetectSimilar가 함께 자가 치유해야 한다
+    const missingId = "018d0000-0000-7000-8000-000000000040";
+    (categoryService as any).categoryRepository.findMissingEmbeddingCategoriesForSameOwner =
+      async () => [{ id: missingId, name: "독서" }];
+    const beforeHealingEmbeddings = updatedEmbeddingCalls.length;
+    await categoryService.syncCategoryEmbeddingAndDetectSimilar(
+      newId,
+      "장보기"
+    );
+    assert.equal(updatedEmbeddingCalls.length, beforeHealingEmbeddings + 2);
+    assert.ok(
+      updatedEmbeddingCalls.some((call) => call.categoryId === missingId)
+    );
+    assert.ok(detectedCategoryIds.includes(missingId));
   });
 
   it("시나리오 6: getMergeSuggestions는 대기 제안 큐를 반올림된 similarity와 함께 반환하고, dismissMergeSuggestion은 즉시 삭제 또는 404 예외를 발생시켜야 한다", async () => {
