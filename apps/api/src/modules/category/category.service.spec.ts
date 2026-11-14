@@ -297,6 +297,18 @@ describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화,
     assert.equal(updatedEmbeddingCalls.length, 2);
     assert.deepEqual(detectedCategoryIds, [newId, newId]);
 
+    // 동일 명칭으로 PATCH 요청 시 기존 유효 제안이 삭제되지 않고 재임베딩도 실행되지 않아야 한다
+    const unchanged = await categoryService.updateCategory(
+      owner,
+      "018d0000-0000-7000-8000-000000000011",
+      { name: "구매 계획" }
+    );
+    await new Promise((r) => setTimeout(r, 15));
+    assert.equal(unchanged.name, "구매 계획");
+    assert.equal((await categoryService.getMergeSuggestions(owner)).length, 1);
+    assert.equal(updatedEmbeddingCalls.length, 2);
+    assert.equal(detectedCategoryIds.length, 2);
+
     // 기존 제안 큐에 포함된 카테고리 수정 시 해당 제안이 즉시 정리되어야 한다
     await categoryService.updateCategory(
       owner,
