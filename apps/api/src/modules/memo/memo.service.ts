@@ -5,12 +5,21 @@ import {
   type UpdateMemoDto,
   type GetMemosQueryDto,
   type MemoResponseDto,
+  type SearchMemoQueryDto,
+  type SearchResultResponseDto,
+  type RelatedMemoQueryDto,
+  type RelatedMemoResponseDto,
 } from "@ideamory/api-spec";
 import { BusinessException } from "../../common/exceptions/business.exception";
 import type { OwnerIdentity } from "../../common/types/owner.type";
 import { AiService } from "../ai/ai.service";
 import { CategoryService } from "../category/category.service";
 import { OgpService } from "../ogp/ogp.service";
+import {
+  sanitizeSearchQuery,
+  toRelatedMemoResponseList,
+  toSearchResultResponseList,
+} from "./memo.helper";
 import { MemoRepository } from "./memo.repository";
 import type { MemoWithRelations } from "./memo.type";
 
@@ -374,6 +383,98 @@ export class MemoService {
       owner
     );
     return this.toMemoResponseDto(record!);
+  }
+
+  /**
+   * Gemini 하이브리드 검색 엔진(FTS 0.4 + Vector 코사인 유사도 0.6)을 실행합니다.
+   *
+   * [처리 흐름]
+   * 1. 검색어 제어문자 제거 및 공백 정제(`sanitizeSearchQuery`)
+   * 2. Gemini 임베딩 API를 호출해 검색어를 768차원 시맨틱 벡터로 변환
+   *    (API 키 미설정 또는 일시 장애로 null이 반환되면 FTS 단독 검색으로 안전 폴백)
+   * 3. Drizzle Raw SQL로 가중치 점수 산출 및 유효 OGP 캐시 LEFT JOIN 조회 후 DTO 직렬화
+   *
+   * @param owner 요청 주체(userId 또는 guestToken)
+   * @param query 검색어(`q`), 최소 벡터 임계값(`threshold`), 반환 상한(`limit`)
+   * @returns 가중치 합산 점수(`finalScore`) 내림차순 검색 결과 목록
+   * @throws BusinessException 인증 주체 누락 시 401 Unauthorized, 정제 후 검색어가 비어 있으면 400 Bad Request 발생
+   */
+  async searchMemos(
+    owner: OwnerIdentity,
+    query: SearchMemoQueryDto
+  ): Promise<SearchResultResponseDto[]> {
+    this.assertOwner(owner);
+
+    const sanitizedQuery = sanitizeSearchQuery(query.q);
+    if (!sanitizedQuery) {
+      throw new BusinessException(
+        "검색어를 입력해 주세요.",
+        ERROR_CODES.COMMON_FIELD_REQUIRED,
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    const queryVector = await this.aiService.generateEmbedding(sanitizedQuery);
+    if (!queryVector) {
+      this.logger.warn(
+        `검색어 임베딩 생성 실패로 FTS 단독 폴백 검색을 수행합니다 (q length: ${sanitizedQuery.length})`
+      );
+    }
+
+    const rows = await this.memoRepository.searchMemosHybrid({
+      owner,
+      queryText: sanitizedQuery,
+      queryVector,
+      threshold: query.threshold ?? 0.3,
+      limit: query.limit ?? 30,
+    });
+
+    return toSearchResultResponseList(rows);
+  }
+
+  /**
+   * 특정 기준 메모의 768차원 임베딩 벡터를 바탕으로 1-Depth 의미론적 연관 메모를 추천합니다.
+   * 코사인 유사도 `>= threshold`(기본값 0.8) 조건을 충족하는 동일 소유자의 활성 메모를 유사도순으로 반환합니다.
+   *
+   * @param owner 요청 주체(userId 또는 guestToken)
+   * @param memoId 기준 메모 UUID v7
+   * @param query 최소 코사인 유사도(`threshold`) 및 반환 상한(`limit`)
+   * @returns 유사도 내림차순 연관 메모 목록 (임베딩 미생성 상태인 경우 빈 배열)
+   * @throws BusinessException 인증 주체 누락 시 401, 기준 메모 미존재·타인 소유·휴지통 상태 시 404 발생
+   */
+  async getRelatedMemos(
+    owner: OwnerIdentity,
+    memoId: string,
+    query: RelatedMemoQueryDto
+  ): Promise<RelatedMemoResponseDto[]> {
+    this.assertOwner(owner);
+
+    const sourceMemo = await this.memoRepository.findMemoEmbeddingByIdAndOwner(
+      memoId,
+      owner
+    );
+    if (!sourceMemo || sourceMemo.deletedAt !== null) {
+      throw new BusinessException(
+        "기준 메모를 찾을 수 없습니다.",
+        ERROR_CODES.MEMO_WARN_NOT_FOUND,
+        HttpStatus.NOT_FOUND
+      );
+    }
+
+    // 백그라운드 임베딩 생성이 아직 완료되지 않았거나 실패해 NULL인 경우 에러 없이 빈 목록 반환
+    if (!sourceMemo.embedding) {
+      return [];
+    }
+
+    const rows = await this.memoRepository.findRelatedMemos({
+      owner,
+      sourceMemoId: sourceMemo.id,
+      sourceVector: sourceMemo.embedding,
+      threshold: query.threshold ?? 0.8,
+      limit: query.limit ?? 10,
+    });
+
+    return toRelatedMemoResponseList(rows);
   }
 
   /**

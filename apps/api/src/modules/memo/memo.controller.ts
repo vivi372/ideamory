@@ -24,11 +24,17 @@ import {
   CreateMemoSchema,
   UpdateMemoSchema,
   GetMemosQuerySchema,
+  SearchMemoQuerySchema,
+  RelatedMemoQuerySchema,
   UuidV7Schema,
   type CreateMemoDto,
   type UpdateMemoDto,
   type GetMemosQueryDto,
+  type SearchMemoQueryDto,
+  type RelatedMemoQueryDto,
   type MemoResponseDto,
+  type SearchResultResponseDto,
+  type RelatedMemoResponseDto,
 } from "@ideamory/api-spec";
 import {
   CurrentUser,
@@ -113,6 +119,68 @@ export class MemoController {
   ): Promise<MemoResponseDto[]> {
     return this.memoService.getMemos(
       { userId: user.userId, guestToken: user.guestToken },
+      query
+    );
+  }
+
+  /**
+   * 명시적 [엔터]/[검색] 실행 시 키워드 FTS(0.4) + Gemini 768차원 Vector(0.6) 하이브리드 검색을 수행합니다.
+   * 정적 라우트 `/search`는 동적 `:id` 파라미터 라우트보다 상단에 선언해 경로 충돌을 방지합니다.
+   *
+   * @param user 인증 가드가 주입한 요청 주체
+   * @param query 검색어(`q`), 최소 벡터 유사도(`threshold`), 최대 반환 건수(`limit`)
+   * @returns 가중치 점수 내림차순으로 정렬된 검색 결과 목록
+   */
+  @Get("search")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Gemini 하이브리드 메모 검색",
+    description:
+      "FTS 키워드 점수(0.4)와 Gemini 768차원 코사인 유사도 점수(0.6)를 가중치 결합해 검색 결과를 반환합니다.",
+  })
+  @ApiQuery({ name: "q", required: true, type: String, description: "검색어 (1~500자)" })
+  @ApiQuery({ name: "threshold", required: false, type: Number, example: 0.3 })
+  @ApiQuery({ name: "limit", required: false, type: Number, example: 30 })
+  @ApiResponse({ status: 200, description: "하이브리드 검색 성공" })
+  async searchMemos(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query(new ZodValidationPipe(SearchMemoQuerySchema))
+    query: SearchMemoQueryDto
+  ): Promise<SearchResultResponseDto[]> {
+    return this.memoService.searchMemos(
+      { userId: user.userId, guestToken: user.guestToken },
+      query
+    );
+  }
+
+  /**
+   * 메모 카드 하단 '관련 메모 N건' 칩 터치 시 코사인 유사도 0.8 이상의 1-Depth 연관 메모를 조회합니다.
+   *
+   * @param user 인증 가드가 주입한 요청 주체
+   * @param id 기준 메모 UUID v7
+   * @param query 최소 코사인 유사도(`threshold`) 및 최대 반환 건수(`limit`)
+   * @returns 유사도 내림차순으로 정렬된 연관 메모 목록
+   */
+  @Get(":id/related")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "1-Depth 연관 메모 추천 조회",
+    description:
+      "특정 메모의 768차원 임베딩 벡터를 기준으로 코사인 유사도 0.8 이상인 동일 소유자의 연관 메모를 추천합니다.",
+  })
+  @ApiParam({ name: "id", type: String, description: "기준 메모 UUID v7" })
+  @ApiQuery({ name: "threshold", required: false, type: Number, example: 0.8 })
+  @ApiQuery({ name: "limit", required: false, type: Number, example: 10 })
+  @ApiResponse({ status: 200, description: "연관 메모 조회 성공" })
+  async getRelatedMemos(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param("id", new ZodValidationPipe(UuidV7Schema)) id: string,
+    @Query(new ZodValidationPipe(RelatedMemoQuerySchema))
+    query: RelatedMemoQueryDto
+  ): Promise<RelatedMemoResponseDto[]> {
+    return this.memoService.getRelatedMemos(
+      { userId: user.userId, guestToken: user.guestToken },
+      id,
       query
     );
   }
