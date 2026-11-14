@@ -9,3 +9,4 @@ export interface ParsedDirectiveResult {
   /** 지시어 제거 후 정돈된 메모 본문 */
   cleanedContent: string;
 }
+

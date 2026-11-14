@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { HttpStatus } from "@nestjs/common";
 import { ERROR_CODES } from "@ideamory/api-spec";
 import { BusinessException } from "../../common/exceptions/business.exception";
+import { AiService } from "../ai/ai.service";
 import { CategoryService } from "./category.service";
 import { CategoryRepository } from "./category.repository";
 
-describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화, 트랜잭션 기반 원클릭 병합)", () => {
+describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화, AI 유사 카테고리 탐지/제안 큐, 트랜잭션 병합)", () => {
   const owner = { userId: "018d0000-0000-7000-8000-000000000001" };
   let categoryService: CategoryService;
   let storedCategories: Array<{
@@ -17,6 +18,16 @@ describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화,
   }>;
   let deletedCategoryIds: string[];
   let reassignedCalls: Array<{ sourceId: string; targetId: string }>;
+  let updatedEmbeddingCalls: Array<{ categoryId: string; dims: number }>;
+  let detectedCategoryIds: string[];
+  let storedSuggestions: Array<{
+    id: string;
+    sourceCategoryId: string;
+    sourceCategoryName: string;
+    targetCategoryId: string;
+    targetCategoryName: string;
+    similarity: number;
+  }>;
 
   beforeEach(() => {
     storedCategories = [
@@ -41,6 +52,18 @@ describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화,
     ];
     deletedCategoryIds = [];
     reassignedCalls = [];
+    updatedEmbeddingCalls = [];
+    detectedCategoryIds = [];
+    storedSuggestions = [
+      {
+        id: "018d0000-0000-7000-8000-000000000099",
+        sourceCategoryId: "018d0000-0000-7000-8000-000000000011",
+        sourceCategoryName: "구매 계획",
+        targetCategoryId: "018d0000-0000-7000-8000-000000000010",
+        targetCategoryName: "쇼핑",
+        similarity: 0.881234,
+      },
+    ];
 
     const mockRepo: Partial<CategoryRepository> = {
       withTransaction: async (cb) => cb({} as any),
@@ -88,9 +111,31 @@ describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화,
         deletedCategoryIds.push(categoryId);
         storedCategories = storedCategories.filter((c) => c.id !== categoryId);
       },
+      hasCategoryEmbedding: async () => false,
+      updateCategoryEmbedding: async (categoryId, embedding) => {
+        updatedEmbeddingCalls.push({ categoryId, dims: embedding.length });
+      },
+      detectAndQueueSimilarCategories: async (categoryId) => {
+        detectedCategoryIds.push(categoryId);
+      },
+      findMergeSuggestions: async () => storedSuggestions,
+      deleteMergeSuggestionById: async (suggestionId) => {
+        const before = storedSuggestions.length;
+        storedSuggestions = storedSuggestions.filter(
+          (s) => s.id !== suggestionId
+        );
+        return storedSuggestions.length < before ? [{ id: suggestionId }] : [];
+      },
     };
 
-    categoryService = new CategoryService(mockRepo as CategoryRepository);
+    const mockAiService: Partial<AiService> = {
+      generateEmbedding: async () => new Array(768).fill(0.05),
+    };
+
+    categoryService = new CategoryService(
+      mockRepo as CategoryRepository,
+      mockAiService as AiService
+    );
   });
 
   it("시나리오 1: getCategories는 활성 메모가 1건 이상인 카테고리만 반환하고, 소유자 미지정 시 401 예외를 발생시켜야 한다", async () => {
@@ -229,5 +274,47 @@ describe("CategoryService (텍스트 전용 카테고리 CRUD, 공백 정규화,
     assert.deepEqual(deletedCategoryIds, [
       "018d0000-0000-7000-8000-000000000011",
     ]);
+  });
+
+  it("시나리오 5: 카테고리 생성/수정 시 비동기 백그라운드에서 임베딩 저장 및 유사 카테고리 탐지 쿼리가 트리거되어야 한다", async () => {
+    const newId = "018d0000-0000-7000-8000-000000000030";
+    await categoryService.createCategory(owner, { id: newId, name: "쇼핑" });
+    await new Promise((r) => setTimeout(r, 15));
+
+    assert.deepEqual(updatedEmbeddingCalls, [{ categoryId: newId, dims: 768 }]);
+    assert.deepEqual(detectedCategoryIds, [newId]);
+
+    await categoryService.updateCategory(owner, newId, { name: "장보기" });
+    await new Promise((r) => setTimeout(r, 15));
+
+    assert.equal(updatedEmbeddingCalls.length, 2);
+    assert.deepEqual(detectedCategoryIds, [newId, newId]);
+  });
+
+  it("시나리오 6: getMergeSuggestions는 대기 제안 큐를 반올림된 similarity와 함께 반환하고, dismissMergeSuggestion은 즉시 삭제 또는 404 예외를 발생시켜야 한다", async () => {
+    const list = await categoryService.getMergeSuggestions(owner);
+    assert.equal(list.length, 1);
+    assert.equal(list[0].similarity, 0.8812);
+
+    await categoryService.dismissMergeSuggestion(
+      owner,
+      "018d0000-0000-7000-8000-000000000099"
+    );
+    const afterDismiss = await categoryService.getMergeSuggestions(owner);
+    assert.equal(afterDismiss.length, 0);
+
+    await assert.rejects(
+      () =>
+        categoryService.dismissMergeSuggestion(
+          owner,
+          "018d0000-0000-7000-8000-000000000099"
+        ),
+      (err: any) => {
+        assert.ok(err instanceof BusinessException);
+        assert.equal(err.getStatus(), HttpStatus.NOT_FOUND);
+        assert.equal(err.errorCode, ERROR_CODES.CATEGORY_WARN_NOT_FOUND);
+        return true;
+      }
+    );
   });
 });

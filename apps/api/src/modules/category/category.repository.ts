@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { v7 as uuidv7 } from "uuid";
 import {
   db,
   eq,
@@ -8,11 +9,13 @@ import {
   asc,
   sql,
   categories,
+  categoryMergeSuggestions,
   memos,
   type DbTransaction,
   type DbExecutor,
 } from "@ideamory/db";
 import type { OwnerIdentity } from "../../common/types/owner.type";
+import type { MergeSuggestionJoinedRow } from "./category.helper";
 
 /**
  * 카테고리 도메인 데이터 접근(Repository) 계층
@@ -282,6 +285,7 @@ export class CategoryRepository {
 
   /**
    * 메모 이전이 완료되어 비어 있는 원본 카테고리를 영구 삭제합니다.
+   * 외래키 ON DELETE CASCADE 설정에 의해 해당 카테고리와 연결된 병합 제안 레코드도 자동 소멸됩니다.
    *
    * @param categoryId 삭제할 카테고리 UUID
    * @param owner 소유자 식별자
@@ -300,5 +304,174 @@ export class CategoryRepository {
           this.buildCategoryOwnerCondition(owner)
         )
       );
+  }
+
+  /**
+   * 특정 카테고리의 임베딩 벡터 보유 여부를 확인합니다.
+   *
+   * @param categoryId 카테고리 UUID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   * @returns embedding이 NULL이 아니면 true
+   */
+  async hasCategoryEmbedding(
+    categoryId: string,
+    tx: DbExecutor = db
+  ): Promise<boolean> {
+    const rows = await tx
+      .select({ id: categories.id })
+      .from(categories)
+      .where(
+        and(eq(categories.id, categoryId), sql`${categories.embedding} IS NOT NULL`)
+      )
+      .limit(1);
+
+    return rows.length > 0;
+  }
+
+  /**
+   * 카테고리의 768차원 시맨틱 임베딩 벡터를 갱신합니다.
+   *
+   * @param categoryId 카테고리 UUID
+   * @param embedding 768차원 실수 벡터
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async updateCategoryEmbedding(
+    categoryId: string,
+    embedding: number[],
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx
+      .update(categories)
+      .set({
+        embedding,
+        updatedAt: new Date(),
+      })
+      .where(eq(categories.id, categoryId));
+  }
+
+  /**
+   * pgvector 코사인 유사도(`1 - (c1.embedding <=> c2.embedding) >= 0.85`)를 기반으로
+   * 동일 소유자의 유사 카테고리를 탐지하고 `category_merge_suggestions` 큐에 삽입합니다.
+   *
+   * [0.85 임계값 및 방향성 규칙]
+   * - 한국어/영문 단문 카테고리명에서 동의어·유사 표현(예: '구매 계획' vs '쇼핑')은 포착하되,
+   *   관련성 낮은 오탐을 억제하기 위해 코사인 유사도 0.85 이상을 채택합니다.
+   * - `c1.created_at > c2.created_at` 조건으로 나중에 생성된 카테고리를 `source`(삭제/흡수 대상),
+   *   먼저 생성된 카테고리를 `target`(유지 대상)으로 일관되게 바인딩합니다.
+   *
+   * @param categoryId 방금 임베딩이 생성·갱신된 기준 카테고리 UUID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async detectAndQueueSimilarCategories(
+    categoryId: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    const result = await tx.execute(sql`
+      SELECT
+        c1.user_id AS "userId",
+        c1.guest_token AS "guestToken",
+        c1.id AS "sourceCategoryId",
+        c2.id AS "targetCategoryId",
+        (1 - (c1.embedding <=> c2.embedding))::float8 AS "similarity"
+      FROM public.categories c1
+      INNER JOIN public.categories c2
+        ON c1.id != c2.id
+        AND c1.created_at > c2.created_at
+        AND (
+          (c1.user_id IS NOT NULL AND c1.user_id = c2.user_id)
+          OR (c1.guest_token IS NOT NULL AND c1.guest_token = c2.guest_token)
+        )
+      WHERE c1.id = ${categoryId}
+        AND c1.embedding IS NOT NULL
+        AND c2.embedding IS NOT NULL
+        AND (1 - (c1.embedding <=> c2.embedding)) >= 0.85
+    `);
+
+    const rows = (result as unknown as Array<{
+      userId: string | null;
+      guestToken: string | null;
+      sourceCategoryId: string;
+      targetCategoryId: string;
+      similarity: number;
+    }>) ?? [];
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    await tx
+      .insert(categoryMergeSuggestions)
+      .values(
+        rows.map((row) => ({
+          id: uuidv7(),
+          userId: row.userId,
+          guestToken: row.guestToken,
+          sourceCategoryId: row.sourceCategoryId,
+          targetCategoryId: row.targetCategoryId,
+          similarity: row.similarity,
+        }))
+      )
+      .onConflictDoNothing({
+        target: [
+          categoryMergeSuggestions.sourceCategoryId,
+          categoryMergeSuggestions.targetCategoryId,
+        ],
+      });
+  }
+
+  /**
+   * 소유자 세션에 대기 중인 유사 카테고리 병합 제안 큐를 유사도 내림차순으로 조회합니다.
+   *
+   * @param owner 소유자 식별자
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   * @returns 카테고리명이 조인된 병합 제안 목록
+   */
+  async findMergeSuggestions(
+    owner: OwnerIdentity,
+    tx: DbExecutor = db
+  ): Promise<MergeSuggestionJoinedRow[]> {
+    const ownerFilter = owner.userId
+      ? sql`s.user_id = ${owner.userId}`
+      : sql`s.guest_token = ${owner.guestToken!}`;
+
+    const result = await tx.execute(sql`
+      SELECT
+        s.id AS "id",
+        s.source_category_id AS "sourceCategoryId",
+        src.name AS "sourceCategoryName",
+        s.target_category_id AS "targetCategoryId",
+        tgt.name AS "targetCategoryName",
+        s.similarity::float8 AS "similarity"
+      FROM public.category_merge_suggestions s
+      INNER JOIN public.categories src ON src.id = s.source_category_id
+      INNER JOIN public.categories tgt ON tgt.id = s.target_category_id
+      WHERE ${ownerFilter}
+      ORDER BY s.similarity DESC, s.created_at DESC
+    `);
+
+    return (result as unknown as MergeSuggestionJoinedRow[]) ?? [];
+  }
+
+  /**
+   * 소유권 검증과 함께 특정 병합 제안 레코드를 DB에서 즉시 영구 삭제(Hard Delete)합니다.
+   *
+   * @param suggestionId 제안 UUID
+   * @param owner 소유자 식별자
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   * @returns 삭제된 제안 ID 목록 (미존재·소유권 불일치 판별용)
+   */
+  async deleteMergeSuggestionById(
+    suggestionId: string,
+    owner: OwnerIdentity,
+    tx: DbExecutor = db
+  ): Promise<Array<{ id: string }>> {
+    const ownerCondition = owner.userId
+      ? eq(categoryMergeSuggestions.userId, owner.userId)
+      : eq(categoryMergeSuggestions.guestToken, owner.guestToken!);
+
+    return tx
+      .delete(categoryMergeSuggestions)
+      .where(and(eq(categoryMergeSuggestions.id, suggestionId), ownerCondition))
+      .returning({ id: categoryMergeSuggestions.id });
   }
 }

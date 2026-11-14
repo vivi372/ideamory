@@ -1,4 +1,4 @@
-import { Injectable, HttpStatus } from "@nestjs/common";
+import { Injectable, Logger, HttpStatus } from "@nestjs/common";
 import {
   ERROR_CODES,
   type CreateCategoryDto,
@@ -6,22 +6,31 @@ import {
   type MergeCategoryDto,
   type CategoryResponseDto,
   type MergeCategoryResponseDto,
+  type MergeSuggestionResponseDto,
 } from "@ideamory/api-spec";
 import { BusinessException } from "../../common/exceptions/business.exception";
 import type { OwnerIdentity } from "../../common/types/owner.type";
+import { AiService } from "../ai/ai.service";
+import { toMergeSuggestionResponseList } from "./category.helper";
 import { CategoryRepository } from "./category.repository";
 
 /**
- * 카테고리 관리 및 유사 카테고리 원클릭 병합 비즈니스 서비스
+ * 카테고리 관리, AI 유사 카테고리 탐지 제안 큐 및 원클릭 병합 비즈니스 서비스
  *
  * [설계 원칙]
  * 1. 공백 정규화(Whitespace Normalization): `name.replace(/\s+/g, "").toLowerCase()` 키로 띄어쓰기 파편화(`예외 사항` vs `예외사항`)를 방지합니다.
  * 2. 실시간 활성 가시성(Zero-Overhead Visibility): 활성 메모(deleted_at IS NULL)가 1건 이상인 카테고리만 목록에 노출합니다.
- * 3. 원자적 병합 트랜잭션: sourceCategoryId의 모든 메모(휴지통 포함)를 targetCategoryId로 이전한 뒤 원본 카테고리를 즉시 제거합니다.
+ * 3. 비동기 탐지 파이프라인: 카테고리 생성/수정 시 즉시 HTTP 응답을 반환한 뒤 백그라운드에서 768차원 임베딩 저장 및 유사 카테고리(코사인 유사도 >= 0.85) 큐잉을 수행합니다.
+ * 4. 원자적 병합 트랜잭션: sourceCategoryId의 모든 메모(휴지통 포함)를 targetCategoryId로 이전한 뒤 원본 카테고리를 삭제하여 ON DELETE CASCADE로 제안 큐도 자동 소멸시킵니다.
  */
 @Injectable()
 export class CategoryService {
-  constructor(private readonly categoryRepository: CategoryRepository) {}
+  private readonly logger = new Logger(CategoryService.name);
+
+  constructor(
+    private readonly categoryRepository: CategoryRepository,
+    private readonly aiService: AiService
+  ) {}
 
   /**
    * 요청 주체(소셜 정회원 또는 게스트)의 식별자가 유효한지 검증합니다.
@@ -97,6 +106,9 @@ export class CategoryService {
       normalizedName,
     });
 
+    // 응답 지연 방지를 위해 백그라운드에서 카테고리 임베딩 생성 및 유사 카테고리 탐지 트리거
+    void this.syncCategoryEmbeddingAndDetectSimilar(created.id, created.name);
+
     return {
       id: created.id,
       name: created.name,
@@ -161,6 +173,9 @@ export class CategoryService {
         categoryId,
         owner
       );
+
+    // 낙관적 200 OK 반환 후 백그라운드 워커에서 새 카테고리명 임베딩 갱신 및 유사 카테고리 재탐지
+    void this.syncCategoryEmbeddingAndDetectSimilar(updated.id, updated.name);
 
     return {
       id: updated.id,
@@ -236,5 +251,91 @@ export class CategoryService {
         affectedMemosCount,
       };
     });
+  }
+
+  /**
+   * 특정 카테고리의 768차원 임베딩 벡터 보유 여부를 반환합니다 (MemoService 배치 임베딩 판별용).
+   *
+   * @param categoryId 카테고리 UUID
+   * @returns embedding이 이미 저장되어 있으면 true
+   */
+  async hasCategoryEmbedding(categoryId: string): Promise<boolean> {
+    return this.categoryRepository.hasCategoryEmbedding(categoryId);
+  }
+
+  /**
+   * 비동기 백그라운드에서 카테고리명 임베딩 벡터를 저장하고 pgvector 유사 카테고리 탐지를 실행합니다.
+   * MemoService 배치 임베딩에서 이미 획득한 벡터가 있으면 재사용하여 중복 API 호출을 방지합니다.
+   * 백그라운드 작업 실패 시에도 메인 요청 흐름에 영향을 주지 않고 안전하게 경고 로그만 남깁니다.
+   *
+   * @param categoryId 임베딩을 저장할 카테고리 UUID
+   * @param categoryName 카테고리 표시명
+   * @param precomputedEmbedding 배치 임베딩으로 선계산된 768차원 벡터 (선택)
+   */
+  async syncCategoryEmbeddingAndDetectSimilar(
+    categoryId: string,
+    categoryName: string,
+    precomputedEmbedding?: number[] | null
+  ): Promise<void> {
+    try {
+      const embedding =
+        precomputedEmbedding ??
+        (await this.aiService.generateEmbedding(categoryName));
+
+      if (!embedding) {
+        return;
+      }
+
+      await this.categoryRepository.updateCategoryEmbedding(
+        categoryId,
+        embedding
+      );
+      await this.categoryRepository.detectAndQueueSimilarCategories(categoryId);
+    } catch (error: any) {
+      this.logger.warn(
+        `비동기 유사 카테고리 탐지 스킵 (categoryId: ${categoryId}): ${error?.message || error}`
+      );
+    }
+  }
+
+  /**
+   * 대기 중인 유사 카테고리 병합 제안 큐를 조회합니다 (사이드바 뱃지 및 상단 1줄 배너용).
+   *
+   * @param owner 요청 주체(userId 또는 guestToken)
+   * @returns 카테고리명이 포함된 병합 제안 목록
+   */
+  async getMergeSuggestions(
+    owner: OwnerIdentity
+  ): Promise<MergeSuggestionResponseDto[]> {
+    this.assertOwner(owner);
+    const rows = await this.categoryRepository.findMergeSuggestions(owner);
+    return toMergeSuggestionResponseList(rows);
+  }
+
+  /**
+   * 사용자가 [합치지 않기]를 선택한 병합 제안 레코드를 DB에서 즉시 완전 영구 삭제합니다.
+   * 영구 삭제를 통해 동일 카테고리 쌍에 대한 재알림 피로도를 원천 차단합니다.
+   *
+   * @param owner 요청 주체(userId 또는 guestToken)
+   * @param suggestionId 삭제할 제안 UUID v7
+   * @throws BusinessException 대상 제안이 없거나 소유권이 불일치할 경우 404 Not Found 발생
+   */
+  async dismissMergeSuggestion(
+    owner: OwnerIdentity,
+    suggestionId: string
+  ): Promise<void> {
+    this.assertOwner(owner);
+
+    const deleted = await this.categoryRepository.deleteMergeSuggestionById(
+      suggestionId,
+      owner
+    );
+    if (deleted.length === 0) {
+      throw new BusinessException(
+        "삭제할 병합 제안을 찾을 수 없습니다.",
+        ERROR_CODES.CATEGORY_WARN_NOT_FOUND,
+        HttpStatus.NOT_FOUND
+      );
+    }
   }
 }
