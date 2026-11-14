@@ -14,7 +14,14 @@ describe("HttpExceptionFilter (표준 ErrorResponseDto 및 UX 태그 자동 분�
    */
   function createMockHost(headers: Record<string, string | undefined> = {}): {
     host: ArgumentsHost;
-    responseMock: { status: (code: number) => any; json: (body: any) => any; capturedStatus?: number; capturedBody?: ErrorResponseDto };
+    responseMock: {
+      setHeader: (name: string, value: string) => void;
+      status: (code: number) => any;
+      json: (body: any) => any;
+      capturedStatus?: number;
+      capturedBody?: ErrorResponseDto;
+      capturedHeaders: Record<string, string>;
+    };
   } {
     const request = {
       headers,
@@ -25,6 +32,10 @@ describe("HttpExceptionFilter (표준 ErrorResponseDto 및 UX 태그 자동 분�
     const responseMock = {
       capturedStatus: undefined as number | undefined,
       capturedBody: undefined as ErrorResponseDto | undefined,
+      capturedHeaders: {} as Record<string, string>,
+      setHeader(name: string, value: string) {
+        this.capturedHeaders[name] = value;
+      },
       status(code: number) {
         this.capturedStatus = code;
         return this;
@@ -117,6 +128,7 @@ describe("HttpExceptionFilter (표준 ErrorResponseDto 및 UX 태그 자동 분�
 
     const body = responseMock.capturedBody!;
     assert.equal(body.traceId, headerTraceId);
+    assert.equal(responseMock.capturedHeaders["X-Trace-Id"], headerTraceId);
   });
 });
 

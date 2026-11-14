@@ -101,6 +101,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       `[${traceId.slice(0, 8)}] [${request.method} ${request.url}] Status: ${status}, ErrorCode: ${errorCode} - ${message}`
     );
 
+    // Guard 등 Interceptor 이전 단계에서 발생한 예외 응답에서도 클라이언트가 X-Trace-Id 헤더를 읽을 수 있도록 보장
+    response.setHeader("X-Trace-Id", traceId);
     response.status(status).json(errorResponse);
   }
 }
