@@ -84,5 +84,32 @@ describe("AiService (문두 @지시어 파싱, Gemini 가변 분류 & 768차원 
     assert.ok(Array.isArray(vector));
     assert.equal(vector.length, 768);
   });
+
+  it("시나리오 6: batchEmbedContents는 메모 본문과 카테고리명을 단일 호출로 동시 벡터화하고 실패 시 null 배열로 폴백해야 한다", async () => {
+    let calledContents: any = null;
+    (aiService as any).getClient = () => ({
+      models: {
+        embedContent: async ({ contents }: { contents: string[] }) => {
+          calledContents = contents;
+          return {
+            embeddings: [
+              { values: new Array(768).fill(0.11) },
+              { values: new Array(768).fill(0.22) },
+            ],
+          };
+        },
+      },
+    });
+
+    const vectors = await aiService.batchEmbedContents(["메모 본문", "개발"]);
+    assert.deepEqual(calledContents, ["메모 본문", "개발"]);
+    assert.equal(vectors.length, 2);
+    assert.equal(vectors[0]?.length, 768);
+    assert.equal(vectors[1]?.length, 768);
+
+    (aiService as any).getClient = () => null;
+    const fallback = await aiService.batchEmbedContents(["메모 본문", "개발"]);
+    assert.deepEqual(fallback, [null, null]);
+  });
 });
 

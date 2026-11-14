@@ -14,3 +14,4 @@ export interface MemoWithRelations {
   createdAt: Date;
   updatedAt: Date;
 }
+

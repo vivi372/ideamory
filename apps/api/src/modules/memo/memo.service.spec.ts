@@ -270,5 +270,52 @@ describe("MemoService & TrashCleanerScheduler (2단계 퀵 캡처 파이프라�
       "withTransaction:end",
     ]);
   });
+
+  it("시나리오 7: 퀵 캡처 시 임베딩이 없는 카테고리가 확정되면 batchEmbedContents 단일 배치 호출로 메모·카테고리 벡터를 동시 생성하고 유사 카테고리 탐지를 트리거해야 한다", async () => {
+    let batchInput: string[] | null = null;
+    const syncedCategories: Array<{
+      id: string;
+      name: string;
+      dims: number;
+    }> = [];
+
+    (aiService as any).batchEmbedContents = async (contents: string[]) => {
+      batchInput = contents;
+      return [new Array(768).fill(0.3), new Array(768).fill(0.4)];
+    };
+
+    const mockCategoryService = {
+      hasCategoryEmbedding: async () => false,
+      syncCategoryEmbeddingAndDetectSimilar: async (
+        id: string,
+        name: string,
+        vec: number[]
+      ) => {
+        syncedCategories.push({ id, name, dims: vec.length });
+      },
+    };
+
+    const memoWithCatService = new MemoService(
+      (memoService as any).memoRepository,
+      aiService,
+      ogpService,
+      mockCategoryService as any
+    );
+
+    await memoWithCatService.createMemo(owner, {
+      id: "018d0000-0000-7000-8000-000000000777",
+      content: "@쇼핑 운동화 구매",
+    });
+    await new Promise((r) => setTimeout(r, 20));
+
+    assert.deepEqual(batchInput, ["운동화 구매", "쇼핑"]);
+    assert.deepEqual(syncedCategories, [
+      { id: "cat-쇼핑", name: "쇼핑", dims: 768 },
+    ]);
+    assert.equal(
+      repoCalls.updateMemoBackgroundEnrichment.at(-1)?.updates?.embedding?.length,
+      768
+    );
+  });
 });
 
