@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   HttpCode,
@@ -27,6 +28,7 @@ import {
   type MergeCategoryDto,
   type CategoryResponseDto,
   type MergeCategoryResponseDto,
+  type MergeSuggestionResponseDto,
 } from "@ideamory/api-spec";
 import {
   CurrentUser,
@@ -67,6 +69,59 @@ export class CategoryController {
       userId: user.userId,
       guestToken: user.guestToken,
     });
+  }
+
+  /**
+   * 대기 중인 AI 유사 카테고리 병합 제안 큐를 조회합니다.
+   *
+   * @param user 인증 가드가 주입한 요청 주체(userId 또는 guestToken)
+   * @returns 사이드바 뱃지 및 상단 1줄 배너용 병합 제안 목록
+   */
+  @Get("merge-suggestions")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "유사 카테고리 병합 제안 큐 조회",
+    description:
+      "pgvector 코사인 유사도 0.85 이상으로 탐지되어 대기 중인 유사 카테고리 병합 제안 목록을 반환합니다.",
+  })
+  @ApiResponse({ status: 200, description: "병합 제안 목록 반환 성공" })
+  async getMergeSuggestions(
+    @CurrentUser() user: CurrentUserPayload
+  ): Promise<MergeSuggestionResponseDto[]> {
+    return this.categoryService.getMergeSuggestions({
+      userId: user.userId,
+      guestToken: user.guestToken,
+    });
+  }
+
+  /**
+   * 유사 카테고리 병합 제안을 거절하고 DB에서 즉시 영구 삭제합니다.
+   *
+   * @param user 인증 가드가 주입한 요청 주체
+   * @param id 거절할 병합 제안 UUID v7
+   */
+  @Delete("merge-suggestions/:id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "유사 카테고리 병합 제안 거절 및 영구 삭제",
+    description:
+      "사용자가 [합치지 않기]를 선택한 제안 레코드를 즉시 영구 삭제(204 No Content)하여 재알림을 방지합니다.",
+  })
+  @ApiParam({
+    name: "id",
+    description: "거절할 병합 제안 UUID v7",
+    example: "018d0000-0000-7000-8000-000000000099",
+  })
+  @ApiResponse({ status: 204, description: "병합 제안 영구 삭제 성공 (Empty Body)" })
+  @ApiResponse({ status: 404, description: "대상 제안 없음 또는 소유권 불일치" })
+  async dismissMergeSuggestion(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param("id", new ZodValidationPipe(UuidV7Schema)) id: string
+  ): Promise<void> {
+    await this.categoryService.dismissMergeSuggestion(
+      { userId: user.userId, guestToken: user.guestToken },
+      id
+    );
   }
 
   /**

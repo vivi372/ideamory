@@ -67,3 +67,19 @@ export const MergeCategoryResponseSchema = z.object({
 
 export type MergeCategoryResponseDto = z.infer<typeof MergeCategoryResponseSchema>;
 
+/**
+ * GET /api/v1/categories/merge-suggestions (유사 카테고리 병합 제안 응답 DTO)
+ */
+export const MergeSuggestionResponseSchema = z.object({
+  id: UuidV7Schema,
+  sourceCategoryId: UuidV7Schema,
+  sourceCategoryName: z.string(),
+  targetCategoryId: UuidV7Schema,
+  targetCategoryName: z.string(),
+  similarity: z.number(),
+});
+
+export type MergeSuggestionResponseDto = z.infer<
+  typeof MergeSuggestionResponseSchema
+>;
+

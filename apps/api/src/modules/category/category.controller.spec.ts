@@ -47,6 +47,22 @@ describe("CategoryController & ZodValidationPipe (라우트 위임 및 텍스트
         );
         return { success: true, affectedMemosCount: 4 };
       },
+      getMergeSuggestions: async () => {
+        calls.push("getMergeSuggestions");
+        return [
+          {
+            id: "018d0000-0000-7000-8000-000000000099",
+            sourceCategoryId: "018d0000-0000-7000-8000-000000000011",
+            sourceCategoryName: "구매 계획",
+            targetCategoryId: "018d0000-0000-7000-8000-000000000010",
+            targetCategoryName: "쇼핑",
+            similarity: 0.88,
+          },
+        ];
+      },
+      dismissMergeSuggestion: async (_owner, id) => {
+        calls.push(`dismissMergeSuggestion:${id}`);
+      },
     };
 
     controller = new CategoryController(mockService as CategoryService);
@@ -75,11 +91,21 @@ describe("CategoryController & ZodValidationPipe (라우트 위임 및 텍스트
     });
     assert.deepEqual(merged, { success: true, affectedMemosCount: 4 });
 
+    const suggestions = await controller.getMergeSuggestions(userPayload);
+    assert.equal(suggestions.length, 1);
+
+    await controller.dismissMergeSuggestion(
+      userPayload,
+      "018d0000-0000-7000-8000-000000000099"
+    );
+
     assert.deepEqual(calls, [
       "getCategories",
       "createCategory:아이디어",
       "updateCategory:018d0000-0000-7000-8000-000000000010:개발",
       "mergeCategories:018d0000-0000-7000-8000-000000000011->018d0000-0000-7000-8000-000000000010",
+      "getMergeSuggestions",
+      "dismissMergeSuggestion:018d0000-0000-7000-8000-000000000099",
     ]);
   });
 

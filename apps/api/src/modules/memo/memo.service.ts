@@ -1,4 +1,4 @@
-import { Injectable, Logger, HttpStatus } from "@nestjs/common";
+import { Injectable, Logger, HttpStatus, Optional } from "@nestjs/common";
 import {
   ERROR_CODES,
   type CreateMemoDto,
@@ -9,6 +9,7 @@ import {
 import { BusinessException } from "../../common/exceptions/business.exception";
 import type { OwnerIdentity } from "../../common/types/owner.type";
 import { AiService } from "../ai/ai.service";
+import { CategoryService } from "../category/category.service";
 import { OgpService } from "../ogp/ogp.service";
 import { MemoRepository } from "./memo.repository";
 import type { MemoWithRelations } from "./memo.type";
@@ -30,7 +31,8 @@ export class MemoService {
   constructor(
     private readonly memoRepository: MemoRepository,
     private readonly aiService: AiService,
-    private readonly ogpService: OgpService
+    private readonly ogpService: OgpService,
+    @Optional() private readonly categoryService?: CategoryService
   ) {}
 
   /**
@@ -118,7 +120,8 @@ export class MemoService {
       dto.id,
       owner,
       directive.cleanedContent,
-      hasExplicitDirective
+      hasExplicitDirective,
+      created.category
     );
 
     return {
@@ -143,11 +146,14 @@ export class MemoService {
     memoId: string,
     owner: OwnerIdentity,
     content: string,
-    hasExplicitDirective: boolean
+    hasExplicitDirective: boolean,
+    initialCategory?: { id: string; name: string }
   ): Promise<void> {
     try {
       // 1) AI 카테고리 분류 작업 (문두 @지시어가 없었을 때만 수행)
-      const classifyTask = (async (): Promise<string | undefined> => {
+      const classifyTask = (async (): Promise<
+        { id: string; name: string } | undefined
+      > => {
         if (hasExplicitDirective) {
           return undefined;
         }
@@ -165,18 +171,14 @@ export class MemoService {
           return undefined;
         }
 
-        const resolvedCategory = await this.memoRepository.findOrCreateCategory(
+        return this.memoRepository.findOrCreateCategory(
           owner,
           suggested.name,
           suggested.normalizedName
         );
-        return resolvedCategory.id;
       })();
 
-      // 2) 768차원 시맨틱 임베딩 생성 작업
-      const embeddingTask = this.aiService.generateEmbedding(content);
-
-      // 3) 본문 내 첫 번째 대표 URL 1개만 추출하여 OGP 크롤링 및 캐싱
+      // 2) 본문 내 첫 번째 대표 URL 1개만 추출하여 OGP 크롤링 및 캐싱
       const ogpTask = (async (): Promise<string | undefined> => {
         const firstUrl = this.ogpService.extractFirstUrl(content);
         if (!firstUrl) {
@@ -193,11 +195,38 @@ export class MemoService {
         }
       })();
 
-      const [resolvedCategoryId, embedding, ogpId] = await Promise.all([
+      const [classifiedCategory, ogpId] = await Promise.all([
         classifyTask,
-        embeddingTask,
         ogpTask,
       ]);
+
+      const resolvedCategoryId = classifiedCategory?.id;
+      const targetCategory = classifiedCategory ?? initialCategory;
+
+      // 3) 768차원 시맨틱 임베딩 생성 (신규 또는 임베딩 미생성 카테고리는 배치 임베딩으로 동시 획득 후 유사 카테고리 탐지 트리거)
+      let embedding: number[] | null = null;
+      const shouldEmbedCategory =
+        !!this.categoryService &&
+        !!targetCategory &&
+        targetCategory.name !== "미분류" &&
+        !(await this.categoryService.hasCategoryEmbedding(targetCategory.id));
+
+      if (shouldEmbedCategory && targetCategory) {
+        const [memoVec, categoryVec] = await this.aiService.batchEmbedContents([
+          content,
+          targetCategory.name,
+        ]);
+        embedding = memoVec ?? null;
+        if (categoryVec) {
+          void this.categoryService!.syncCategoryEmbeddingAndDetectSimilar(
+            targetCategory.id,
+            targetCategory.name,
+            categoryVec
+          );
+        }
+      } else {
+        embedding = await this.aiService.generateEmbedding(content);
+      }
 
       await this.memoRepository.updateMemoBackgroundEnrichment(memoId, {
         ...(resolvedCategoryId ? { categoryId: resolvedCategoryId } : {}),

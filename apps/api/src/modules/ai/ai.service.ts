@@ -165,19 +165,25 @@ export class AiService {
   }
 
   /**
-   * Gemini `gemini-embedding-2` 모델을 사용하여 768차원 시맨틱 임베딩 벡터를 생성합니다.
-   * (3072 미만 outputDimensionality 지정 시 모델 단에서 자동 정규화 지원)
+   * Gemini `gemini-embedding-2` 모델을 사용하여 복수 텍스트의 768차원 시맨틱 임베딩 벡터를 단일 배치 요청으로 생성합니다.
+   * 메모 본문과 신규 카테고리명을 동시에 벡터화해 불필요한 네트워크 왕복 지연을 방지합니다.
    *
-   * @param content 임베딩을 생성할 메모 텍스트
-   * @returns 768차원 실수 벡터 배열 또는 실패 시 null
+   * @param contents 임베딩을 생성할 문자열 배열 (예: [memoContent, categoryName])
+   * @returns 입력 순서에 대응하는 768차원 실수 벡터 배열 (실패 또는 API 키 미설정 항목은 null)
    */
-  async generateEmbedding(content: string): Promise<number[] | null> {
+  async batchEmbedContents(
+    contents: string[]
+  ): Promise<Array<number[] | null>> {
+    if (contents.length === 0) {
+      return [];
+    }
+
     const client = this.getClient();
     if (!client) {
       this.logger.debug(
-        "GEMINI_API_KEY가 설정되지 않아 768차원 임베딩 생성을 건너뜁니다."
+        "GEMINI_API_KEY가 설정되지 않아 768차원 배치 임베딩 생성을 건너뜁니다."
       );
-      return null;
+      return contents.map(() => null);
     }
 
     try {
@@ -186,27 +192,40 @@ export class AiService {
 
       const response = await client.models.embedContent({
         model,
-        contents: content,
+        contents,
         config: {
           outputDimensionality: 768,
         },
       });
 
-      const values = response.embeddings?.[0]?.values;
-      if (!values || values.length !== 768) {
-        this.logger.warn(
-          `비정상적인 임베딩 차원 수신 (기대: 768, 실제: ${values?.length ?? 0})`
-        );
-        return null;
-      }
-
-      return values;
+      return contents.map((_, idx) => {
+        const values = response.embeddings?.[idx]?.values;
+        if (!values || values.length !== 768) {
+          this.logger.warn(
+            `비정상적인 임베딩 차원 수신 (index: ${idx}, 기대: 768, 실제: ${values?.length ?? 0})`
+          );
+          return null;
+        }
+        return values;
+      });
     } catch (error: any) {
       this.logger.warn(
-        `Gemini 임베딩 생성 실패 (비동기 폴백 유지): ${error?.message || error}`
+        `Gemini 배치 임베딩 생성 실패 (비동기 폴백 유지): ${error?.message || error}`
       );
-      return null;
+      return contents.map(() => null);
     }
+  }
+
+  /**
+   * Gemini `gemini-embedding-2` 모델을 사용하여 단일 텍스트의 768차원 시맨틱 임베딩 벡터를 생성합니다.
+   * (3072 미만 outputDimensionality 지정 시 모델 단에서 자동 정규화 지원)
+   *
+   * @param content 임베딩을 생성할 텍스트
+   * @returns 768차원 실수 벡터 배열 또는 실패 시 null
+   */
+  async generateEmbedding(content: string): Promise<number[] | null> {
+    const [embedding] = await this.batchEmbedContents([content]);
+    return embedding ?? null;
   }
 }
 
