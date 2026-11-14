@@ -174,6 +174,12 @@ export class CategoryService {
         owner
       );
 
+    // 카테고리명이 변경되었으므로 기존 명칭 기준으로 생성된 병합 제안 큐 레코드를 즉시 정리합니다.
+    await this.categoryRepository.deleteSuggestionsByCategoryId(
+      categoryId,
+      owner
+    );
+
     // 낙관적 200 OK 반환 후 백그라운드 워커에서 새 카테고리명 임베딩 갱신 및 유사 카테고리 재탐지
     void this.syncCategoryEmbeddingAndDetectSimilar(updated.id, updated.name);
 

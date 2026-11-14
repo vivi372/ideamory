@@ -4,6 +4,7 @@ import {
   db,
   eq,
   and,
+  or,
   ne,
   isNull,
   asc,
@@ -356,8 +357,8 @@ export class CategoryRepository {
    * [0.85 임계값 및 방향성 규칙]
    * - 한국어/영문 단문 카테고리명에서 동의어·유사 표현(예: '구매 계획' vs '쇼핑')은 포착하되,
    *   관련성 낮은 오탐을 억제하기 위해 코사인 유사도 0.85 이상을 채택합니다.
-   * - `c1.created_at > c2.created_at` 조건으로 나중에 생성된 카테고리를 `source`(삭제/흡수 대상),
-   *   먼저 생성된 카테고리를 `target`(유지 대상)으로 일관되게 바인딩합니다.
+   * - 방금 생성·수정된 `categoryId` (`c1`)를 항상 `source`(삭제/흡수 대상)로 고정하고,
+   *   기존의 유사 카테고리(`c2`)를 `target`(유지 대상)으로 일관되게 바인딩합니다.
    *
    * @param categoryId 방금 임베딩이 생성·갱신된 기준 카테고리 UUID
    * @param tx 트랜잭션 컨텍스트 (기본값: db)
@@ -376,7 +377,6 @@ export class CategoryRepository {
       FROM public.categories c1
       INNER JOIN public.categories c2
         ON c1.id != c2.id
-        AND c1.created_at > c2.created_at
         AND (
           (c1.user_id IS NOT NULL AND c1.user_id = c2.user_id)
           OR (c1.guest_token IS NOT NULL AND c1.guest_token = c2.guest_token)
@@ -473,5 +473,35 @@ export class CategoryRepository {
       .delete(categoryMergeSuggestions)
       .where(and(eq(categoryMergeSuggestions.id, suggestionId), ownerCondition))
       .returning({ id: categoryMergeSuggestions.id });
+  }
+
+  /**
+   * 카테고리명 수정 등으로 기존 병합 제안이 더 이상 유효하지 않을 때
+   * 해당 카테고리가 source 또는 target으로 포함된 모든 대기 제안 레코드를 정리합니다.
+   *
+   * @param categoryId 수정된 카테고리 UUID
+   * @param owner 소유자 식별자
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async deleteSuggestionsByCategoryId(
+    categoryId: string,
+    owner: OwnerIdentity,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    const ownerCondition = owner.userId
+      ? eq(categoryMergeSuggestions.userId, owner.userId)
+      : eq(categoryMergeSuggestions.guestToken, owner.guestToken!);
+
+    await tx
+      .delete(categoryMergeSuggestions)
+      .where(
+        and(
+          ownerCondition,
+          or(
+            eq(categoryMergeSuggestions.sourceCategoryId, categoryId),
+            eq(categoryMergeSuggestions.targetCategoryId, categoryId)
+          )
+        )
+      );
   }
 }
