@@ -36,3 +36,6 @@ Thumbs.db
 *.sln
 *.sw?
 
+# Local v0 publishing reference repo
+publishing/
+
