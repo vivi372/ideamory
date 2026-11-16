@@ -1,4 +1,4 @@
-import axios, { type AxiosResponse } from "axios";
+import axios, { AxiosHeaders, type AxiosResponse } from "axios";
 import {
   ERROR_CODES,
   ErrorResponseSchema,
@@ -73,40 +73,23 @@ function extractTraceIdFromHeaders(rawHeaders: unknown): string | undefined {
     return undefined;
   }
 
-  const record = rawHeaders as Record<string, unknown>;
-  const matchedKey = Object.keys(record).find(
-    (key) => key.toLowerCase() === "x-trace-id"
+  const candidate = AxiosHeaders.from(rawHeaders as Record<string, string>).get(
+    "x-trace-id"
   );
-  const candidate = matchedKey ? record[matchedKey] : undefined;
-
-  if (typeof candidate === "string" && isValidTraceId(candidate)) {
-    return candidate;
-  }
-  return undefined;
+  return typeof candidate === "string" && isValidTraceId(candidate)
+    ? candidate
+    : undefined;
 }
 
-/**
- * HTTP 상태 코드에 대응하는 기본 사용자 친화적 한글 안내 메시지를 반환합니다.
- *
- * @param statusCode HTTP 상태 코드
- * @returns 상태 코드별 기본 한글 메시지
- */
-function getFallbackMessageByStatus(statusCode: number): string {
-  switch (statusCode) {
-    case 400:
-      return "입력값을 다시 확인해 주세요.";
-    case 401:
-      return "세션이 만료되었거나 인증이 필요합니다.";
-    case 403:
-      return "해당 작업을 수행할 권한이 없습니다.";
-    case 404:
-      return "요청하신 데이터를 찾을 수 없습니다.";
-    case 409:
-      return "이미 처리되었거나 충돌이 발생했습니다.";
-    default:
-      return "서버 처리 중 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.";
-  }
-}
+const STATUS_FALLBACK_MESSAGES: Record<number, string> = {
+  400: "입력값을 다시 확인해 주세요.",
+  401: "세션이 만료되었거나 인증이 필요합니다.",
+  403: "해당 작업을 수행할 권한이 없습니다.",
+  404: "요청하신 데이터를 찾을 수 없습니다.",
+  409: "이미 처리되었거나 충돌이 발생했습니다.",
+};
+const DEFAULT_STATUS_FALLBACK_MESSAGE =
+  "서버 처리 중 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.";
 
 /**
  * Axios 예외 객체를 백엔드 표준 `ErrorResponseDto` 규격 기반의 `ApiClientError`로 정규화합니다.
@@ -161,7 +144,7 @@ export function normalizeApiError(error: unknown): ApiClientError {
       const message =
         typeof bodyRecord?.message === "string" && bodyRecord.message.trim().length > 0
           ? bodyRecord.message
-          : getFallbackMessageByStatus(statusCode);
+          : (STATUS_FALLBACK_MESSAGES[statusCode] ?? DEFAULT_STATUS_FALLBACK_MESSAGE);
 
       return new ApiClientError({
         statusCode,
@@ -174,8 +157,9 @@ export function normalizeApiError(error: unknown): ApiClientError {
       });
     }
 
-    // 2. 네트워크 단절 또는 요청 타임아웃(응답 객체 없음)
-    const isTimeout = error.code === "ECONNABORTED";
+    // 2. 네트워크 단절 또는 요청 타임아웃(응답 객체 없음: ECONNABORTED 및 ETIMEDOUT 모두 포착)
+    const isTimeout =
+      error.code === "ECONNABORTED" || error.code === "ETIMEDOUT";
     const networkMessage = isTimeout
       ? "서버 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요."
       : "네트워크 연결이 원활하지 않습니다. 연결 상태를 확인해 주세요.";

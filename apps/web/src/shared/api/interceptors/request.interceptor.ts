@@ -3,68 +3,6 @@ import { getAccessToken, getGuestToken } from "../../lib/token-storage";
 import { generateTraceId, isValidTraceId } from "../../lib/trace-id";
 
 /**
- * Axios 요청 헤더 객체에 키-값을 안전하게 설정합니다.
- * Axios v1의 `AxiosHeaders` 인스턴스와 일반 객체 모의(Mock) 모두에서 동일하게 동작하도록 방어합니다.
- *
- * @param headers Axios 요청 설정의 headers 객체
- * @param name 설정할 HTTP 헤더명
- * @param value 설정할 HTTP 헤더 값
- */
-function setRequestHeader(
-  headers: InternalAxiosRequestConfig["headers"],
-  name: string,
-  value: string
-): void {
-  if (typeof (headers as AxiosHeaders).set === "function") {
-    (headers as AxiosHeaders).set(name, value);
-    return;
-  }
-  (headers as Record<string, string>)[name] = value;
-}
-
-/**
- * Axios 요청 헤더 객체에서 특정 헤더를 안전하게 제거합니다.
- * 소셜 JWT와 게스트 토큰이 동시에 전송되어 백엔드 인증 가드에서 혼선이 발생하는 것을 방지합니다.
- *
- * @param headers Axios 요청 설정의 headers 객체
- * @param name 제거할 HTTP 헤더명
- */
-function deleteRequestHeader(
-  headers: InternalAxiosRequestConfig["headers"],
-  name: string
-): void {
-  if (typeof (headers as AxiosHeaders).delete === "function") {
-    (headers as AxiosHeaders).delete(name);
-    return;
-  }
-  delete (headers as Record<string, unknown>)[name];
-}
-
-/**
- * Axios 요청 헤더 객체에서 특정 헤더 값을 대소문자 구분 없이 조회합니다.
- *
- * @param headers Axios 요청 설정의 headers 객체
- * @param name 조회할 HTTP 헤더명
- * @returns 문자열 헤더 값 또는 미존재 시 undefined
- */
-function getRequestHeader(
-  headers: InternalAxiosRequestConfig["headers"],
-  name: string
-): string | undefined {
-  if (typeof (headers as AxiosHeaders).get === "function") {
-    const val = (headers as AxiosHeaders).get(name);
-    return typeof val === "string" ? val : undefined;
-  }
-
-  const record = headers as Record<string, unknown>;
-  const matchedKey = Object.keys(record).find(
-    (key) => key.toLowerCase() === name.toLowerCase()
-  );
-  const value = matchedKey ? record[matchedKey] : undefined;
-  return typeof value === "string" ? value : undefined;
-}
-
-/**
  * 모든 REST API 요청 직전에 실행되는 Axios 요청 인터셉터입니다.
  *
  * 1. **분산 추적(`X-Trace-Id`) 주입**: 호출부에서 유효한 32자리 Hex Trace ID를 이미 지정하지 않은 경우
@@ -78,32 +16,32 @@ function getRequestHeader(
 export function attachRequestContext(
   config: InternalAxiosRequestConfig
 ): InternalAxiosRequestConfig {
-  if (!config.headers) {
-    config.headers = new AxiosHeaders();
-  }
+  // Axios v1 표준 AxiosHeaders 인스턴스로 정규화하여 .get/.set/.delete 메서드를 일관되게 사용합니다.
+  const headers = AxiosHeaders.from(config.headers);
+  config.headers = headers;
 
   // 기존 X-Trace-Id가 유효한 32자리 Hex(All-Zero 제외)인 경우 재사용하고, 아니면 신규 발급
-  const existingTraceId = getRequestHeader(config.headers, "X-Trace-Id");
+  const existingTraceId = headers.get("X-Trace-Id");
   const traceId =
-    existingTraceId && isValidTraceId(existingTraceId)
+    typeof existingTraceId === "string" && isValidTraceId(existingTraceId)
       ? existingTraceId
       : generateTraceId();
-  setRequestHeader(config.headers, "X-Trace-Id", traceId);
+  headers.set("X-Trace-Id", traceId);
 
   // 인증 토큰 배타적 주입: 소셜 JWT 우선 -> 미존재 시 게스트 토큰
   const accessToken = getAccessToken();
   if (accessToken) {
-    setRequestHeader(config.headers, "Authorization", `Bearer ${accessToken}`);
-    deleteRequestHeader(config.headers, "X-Guest-Token");
+    headers.set("Authorization", `Bearer ${accessToken}`);
+    headers.delete("X-Guest-Token");
     return config;
   }
 
-  deleteRequestHeader(config.headers, "Authorization");
+  headers.delete("Authorization");
   const guestToken = getGuestToken();
   if (guestToken) {
-    setRequestHeader(config.headers, "X-Guest-Token", guestToken);
+    headers.set("X-Guest-Token", guestToken);
   } else {
-    deleteRequestHeader(config.headers, "X-Guest-Token");
+    headers.delete("X-Guest-Token");
   }
 
   return config;
