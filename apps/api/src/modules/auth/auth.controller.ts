@@ -33,7 +33,7 @@ import { AuthService } from "./auth.service";
  * 익명 게스트 세션 발급/초기화, 소셜 계정 연동 승격, 소셜 회원탈퇴 엔드포인트를 제공합니다.
  */
 @ApiTags("auth")
-@Controller("api/auth")
+@Controller("api/v1/auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

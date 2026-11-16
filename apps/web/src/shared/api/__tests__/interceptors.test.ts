@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { AxiosError, AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
+import { apiClient, resolveApiBaseUrl } from "../api-client";
 import { attachRequestContext } from "../interceptors/request.interceptor";
 import {
   ApiClientError,
@@ -207,5 +208,43 @@ describe("3-1. 공통 REST API 클라이언트 & 에러 인터셉터", () => {
     } finally {
       unsubscribe();
     }
+  });
+
+  it("ETIMEDOUT 타임아웃 에러도 ECONNABORTED와 동일하게 타임아웃 안내 메시지로 정규화한다", async () => {
+    const dispatched: ApiErrorEvent[] = [];
+    const unsubscribe = subscribeApiError((event) => {
+      dispatched.push(event);
+    });
+
+    const traceId = generateTraceId();
+    const timeoutError = new AxiosError(
+      "timeout of 10000ms exceeded",
+      "ETIMEDOUT",
+      { headers: new AxiosHeaders({ "X-Trace-Id": traceId }) }
+    );
+
+    try {
+      await assert.rejects(
+        () => handleErrorResponse(timeoutError),
+        (err: unknown) => {
+          assert.ok(err instanceof ApiClientError);
+          assert.equal(err.isNetworkError, true);
+          assert.equal(err.uxTag, "WARN");
+          assert.match(err.message, /시간이 초과/);
+          assert.equal(err.traceId, traceId);
+          return true;
+        }
+      );
+      assert.equal(dispatched.length, 1);
+      assert.equal(dispatched[0]?.uxTag, "WARN");
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("apiClient Base URL은 /api/v1 프리픽스를 중복 없이 일관되게 보장한다", () => {
+    assert.ok(apiClient.defaults.baseURL?.endsWith("/api/v1"));
+    assert.equal(resolveApiBaseUrl().endsWith("/api/v1"), true);
+    assert.equal(resolveApiBaseUrl().includes("/api/v1/api/v1"), false);
   });
 });
