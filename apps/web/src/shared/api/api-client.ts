@@ -1,44 +1,41 @@
 import axios from "axios";
+import { attachRequestContext } from "./interceptors/request.interceptor";
+import {
+  handleErrorResponse,
+  handleSuccessResponse,
+} from "./interceptors/response.interceptor";
 
 /**
- * Ideamory 공통 REST API 클라이언트
- * Server Actions를 금지하고 오직 이 클라이언트를 통해 백엔드(apps/api)와 통신합니다.
+ * 환경변수 `NEXT_PUBLIC_API_URL`에 `/api/v1` 프리픽스가 포함되어 있든 없든
+ * 일관된 `/api/v1` Base URL을 반환하도록 정규화합니다.
+ * 백엔드 모든 도메인(`auth`, `memos`, `categories`, `ogp`)이 `/api/v1/*` 프리픽스로 통일되어 있으므로
+ * 호출부에서는 `/auth/...`, `/memos/...` 등 버전 프리픽스 이후 경로만 전달하면 됩니다.
+ *
+ * @returns `/api/v1`이 보장된 REST API Base URL
  */
-export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  timeout: 10000
-});
-
-/**
- * W3C / Sentry 32자리 16진수 표준 Trace ID 생성기
- */
-function generateTraceId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID().replace(/-/g, "");
-  }
-  return (
-    Math.random().toString(16).substring(2, 18) +
-    Math.random().toString(16).substring(2, 18)
-  ).padEnd(32, "0");
+export function resolveApiBaseUrl(): string {
+  const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  const normalizedHost = rawBaseUrl.replace(/\/+$/, "").replace(/\/api\/v1$/, "");
+  return `${normalizedHost}/api/v1`;
 }
 
-// 요청 인터셉터: X-Trace-Id 생성 및 전달
-apiClient.interceptors.request.use((config) => {
-  const traceId = generateTraceId();
-  config.headers["X-Trace-Id"] = traceId;
-  return config;
+/**
+ * Ideamory 공통 REST API 클라이언트 인스턴스입니다.
+ *
+ * Next.js Server Actions(`'use server'`) 및 `@supabase/supabase-js` SDK를 일체 배제하고,
+ * 모든 백엔드(`apps/api`) 통신을 이 단일 Axios 인스턴스로 일원화합니다.
+ */
+export const apiClient = axios.create({
+  baseURL: resolveApiBaseUrl(),
+  timeout: 10000,
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-// 응답 인터셉터: 에러 핸들링 기본 규격
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // 백엔드 UX 태그 표준 에러 처리
-    console.error("[API Error]", error.response?.data || error.message);
-    return Promise.reject(error);
-  }
-);
+// 요청 인터셉터: W3C 32자리 X-Trace-Id 및 소셜/게스트 배타적 인증 헤더 주입
+apiClient.interceptors.request.use(attachRequestContext);
 
+// 응답 인터셉터: 204 No Content 본문 정규화 및 UX 태그 기반 전역 에러 디스패치
+apiClient.interceptors.response.use(handleSuccessResponse, handleErrorResponse);
