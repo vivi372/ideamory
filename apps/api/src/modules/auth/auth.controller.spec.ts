@@ -53,7 +53,7 @@ describe("AuthController (엔드포인트 위임 및 DTO 유효성 검증)", () 
     controller = new AuthController(mockService as AuthService);
   });
 
-  it("시나리오 1: POST /api/auth/guest/init는 유효한 UUID v7 DTO를 통과시키고 서비스에 위임해야 한다", async () => {
+  it("시나리오 1: POST /api/v1/auth/guest/init는 유효한 UUID v7 DTO를 통과시키고 서비스에 위임해야 한다", async () => {
     const pipe = new ZodValidationPipe(GuestInitSchema);
     const rawDto = {
       memoId: "018d0000-0000-7000-8000-000000000001",
@@ -68,7 +68,7 @@ describe("AuthController (엔드포인트 위임 및 DTO 유효성 검증)", () 
     assert.equal(serviceCalls.initGuestSession.length, 1);
   });
 
-  it("시나리오 1-B: POST /api/auth/guest/init는 UUID v7 형식이 아닌 memoId 유입 시 400 COMMON_FIELD_FORMAT 에러를 발생시켜야 한다", () => {
+  it("시나리오 1-B: POST /api/v1/auth/guest/init는 UUID v7 형식이 아닌 memoId 유입 시 400 COMMON_FIELD_FORMAT 에러를 발생시켜야 한다", () => {
     const pipe = new ZodValidationPipe(GuestInitSchema);
     const invalidDto = {
       memoId: "invalid-uuid-format",
@@ -86,14 +86,14 @@ describe("AuthController (엔드포인트 위임 및 DTO 유효성 검증)", () 
     );
   });
 
-  it("시나리오 2: POST /api/auth/guest/reset는 추출된 guestToken을 서비스에 전달해야 한다", async () => {
+  it("시나리오 2: POST /api/v1/auth/guest/reset는 추출된 guestToken을 서비스에 전달해야 한다", async () => {
     const response = await controller.resetGuestData("gst_user_token");
 
     assert.equal(response.success, true);
     assert.equal(serviceCalls.resetGuestData[0], "gst_user_token");
   });
 
-  it("시나리오 3: POST /api/auth/social/link는 provider/idToken DTO 검증 후 서비스에 위임해야 한다", async () => {
+  it("시나리오 3: POST /api/v1/auth/social/link는 provider/idToken DTO 검증 후 서비스에 위임해야 한다", async () => {
     const pipe = new ZodValidationPipe(LinkSocialAuthSchema);
     const rawDto = {
       provider: "kakao",
@@ -108,7 +108,7 @@ describe("AuthController (엔드포인트 위임 및 DTO 유효성 검증)", () 
     assert.equal(serviceCalls.linkSocialAccount[0].guestToken, "gst_token");
   });
 
-  it("시나리오 4: DELETE /api/auth/account는 추출된 userId를 서비스에 전달해야 한다", async () => {
+  it("시나리오 4: DELETE /api/v1/auth/account는 추출된 userId를 서비스에 전달해야 한다", async () => {
     const response = await controller.deleteAccount("auth-user-uuid");
 
     assert.equal(response.success, true);
