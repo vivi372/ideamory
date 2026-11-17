@@ -1,10 +1,13 @@
+import "./instrument";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { Logger } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { setDatabaseLogger } from "@ideamory/db";
 import { AppModule } from "./app.module";
 import { TraceIdInterceptor } from "./common/interceptors/trace-id.interceptor";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { AppDrizzleLogger } from "./database/drizzle.logger";
 
 /**
  * Ideamory NestJS REST API 서버 부트스트랩
@@ -39,7 +42,8 @@ async function bootstrap() {
     exposedHeaders: ["X-Trace-Id"],
   });
 
-  // 2. 전역 인터셉터 & 필터 바인딩
+  // 2. 전역 인터셉터 & 필터 & Drizzle 원시 쿼리 로거 바인딩
+  setDatabaseLogger(new AppDrizzleLogger());
   app.useGlobalInterceptors(new TraceIdInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
 

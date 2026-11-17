@@ -9,6 +9,7 @@ import {
   type MergeSuggestionResponseDto,
 } from "@ideamory/api-spec";
 import { BusinessException } from "../../common/exceptions/business.exception";
+import { LogTrace } from "../../common/decorators/log-trace.decorator";
 import type { OwnerIdentity } from "../../common/types/owner.type";
 import { AiService } from "../ai/ai.service";
 import { toMergeSuggestionResponseList } from "./category.helper";
@@ -63,6 +64,7 @@ export class CategoryService {
    * @param owner 요청 주체(userId 또는 guestToken)
    * @returns 활성 메모 수(`memoCount`)가 포함된 카테고리 목록
    */
+  @LogTrace()
   async getCategories(owner: OwnerIdentity): Promise<CategoryResponseDto[]> {
     this.assertOwner(owner);
     return this.categoryRepository.findActiveCategoriesWithMemoCount(owner);
@@ -77,6 +79,7 @@ export class CategoryService {
    * @returns 생성된 카테고리 응답 DTO
    * @throws BusinessException 중복 카테고리명 존재 시 409 Conflict 발생
    */
+  @LogTrace()
   async createCategory(
     owner: OwnerIdentity,
     dto: CreateCategoryDto
@@ -126,6 +129,7 @@ export class CategoryService {
    * @returns 수정된 카테고리 및 현재 활성 메모 수
    * @throws BusinessException 미존재/타인 소유 시 404, 정규화 이름 중복 시 409 발생
    */
+  @LogTrace()
   async updateCategory(
     owner: OwnerIdentity,
     categoryId: string,
@@ -228,6 +232,7 @@ export class CategoryService {
    * @returns 통합 성공 여부 및 이전된 메모 건수
    * @throws BusinessException 동일 ID 병합 시 400, 미존재/타인 소유 시 404 발생
    */
+  @LogTrace()
   async mergeCategories(
     owner: OwnerIdentity,
     dto: MergeCategoryDto
@@ -307,6 +312,7 @@ export class CategoryService {
    * @param categoryName 기준 카테고리 표시명
    * @param precomputedEmbedding 배치 임베딩으로 선계산된 768차원 벡터 (선택)
    */
+  @LogTrace()
   async syncCategoryEmbeddingAndDetectSimilar(
     categoryId: string,
     categoryName: string,
@@ -385,6 +391,7 @@ export class CategoryService {
    * @param owner 요청 주체(userId 또는 guestToken)
    * @returns 카테고리명이 포함된 병합 제안 목록
    */
+  @LogTrace()
   async getMergeSuggestions(
     owner: OwnerIdentity
   ): Promise<MergeSuggestionResponseDto[]> {
@@ -401,6 +408,7 @@ export class CategoryService {
    * @param suggestionId 삭제할 제안 UUID v7
    * @throws BusinessException 대상 제안이 없거나 소유권이 불일치할 경우 404 Not Found 발생
    */
+  @LogTrace()
   async dismissMergeSuggestion(
     owner: OwnerIdentity,
     suggestionId: string

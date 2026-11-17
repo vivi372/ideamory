@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { Request, Response } from "express";
 import { randomBytes } from "crypto";
+import * as Sentry from "@sentry/nestjs";
 import {
   type ErrorResponseDto,
   ERROR_CODES,
@@ -100,6 +101,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
     this.logger.error(
       `[${traceId.slice(0, 8)}] [${request.method} ${request.url}] Status: ${status}, ErrorCode: ${errorCode} - ${message}`
     );
+
+    // 5. 5xx 서버/시스템 장애 발생 시에만 Sentry로 예외 전송 (4xx 비즈니스 예외 노이즈 차단)
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      Sentry.withScope((scope) => {
+        scope.setTag("trace_id", traceId);
+        scope.setTag("error_code", errorCode);
+        scope.setContext("http", {
+          method: request.method,
+          url: request.url,
+          statusCode: status,
+        });
+        Sentry.captureException(exception);
+      });
+    }
 
     // Guard 등 Interceptor 이전 단계에서 발생한 예외 응답에서도 클라이언트가 X-Trace-Id 헤더를 읽을 수 있도록 보장
     response.setHeader("X-Trace-Id", traceId);

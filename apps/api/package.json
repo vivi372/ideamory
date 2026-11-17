@@ -19,6 +19,7 @@
     "@nestjs/platform-express": "^11.0.9",
     "@nestjs/schedule": "^5.0.1",
     "@nestjs/swagger": "^11.0.3",
+    "@sentry/nestjs": "^11.12.0",
     "jose": "^6.2.17",
     "open-graph-scraper": "^6.13.0",
     "reflect-metadata": "^0.2.2",

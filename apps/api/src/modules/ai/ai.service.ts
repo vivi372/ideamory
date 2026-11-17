@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { GoogleGenAI } from "@google/genai";
+import { LogTrace } from "../../common/decorators/log-trace.decorator";
 import type { ParsedDirectiveResult } from "./ai.type";
 
 /**
@@ -110,6 +111,7 @@ export class AiService {
    * @param existingCategoryNames 사용자가 현재 보유한 카테고리 이름 목록
    * @returns 추천된 카테고리(name, normalizedName) 또는 분류 불가/실패 시 null
    */
+  @LogTrace()
   async classifyMemoCategory(
     content: string,
     existingCategoryNames: string[]
@@ -171,6 +173,7 @@ export class AiService {
    * @param contents 임베딩을 생성할 문자열 배열 (예: [memoContent, categoryName])
    * @returns 입력 순서에 대응하는 768차원 실수 벡터 배열 (실패 또는 API 키 미설정 항목은 null)
    */
+  @LogTrace()
   async batchEmbedContents(
     contents: string[]
   ): Promise<Array<number[] | null>> {
@@ -223,6 +226,7 @@ export class AiService {
    * @param content 임베딩을 생성할 텍스트
    * @returns 768차원 실수 벡터 배열 또는 실패 시 null
    */
+  @LogTrace()
   async generateEmbedding(content: string): Promise<number[] | null> {
     const [embedding] = await this.batchEmbedContents([content]);
     return embedding ?? null;
