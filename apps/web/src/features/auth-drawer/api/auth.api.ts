@@ -5,7 +5,6 @@ import type {
   LinkSocialAuthDto,
   LinkSocialAuthResponseDto,
   MergeSuggestionResponseDto,
-  SimpleSuccessResponseDto,
 } from "@ideamory/api-spec";
 import { apiClient } from "../../../shared/api";
 
@@ -28,15 +27,12 @@ export async function initGuestSessionApi(
 
 /**
  * 현재 게스트 세션이 보유한 모든 메모, 카테고리, 임베딩 데이터를 단일 트랜잭션으로 영구 초기화합니다.
+ * (`204 No Content` 응답)
  *
- * @returns 초기화 성공 여부 응답
  * @throws {ApiClientError} 게스트 토큰 누락/무효(`401`) 시
  */
-export async function resetGuestDataApi(): Promise<SimpleSuccessResponseDto> {
-  const { data } = await apiClient.post<SimpleSuccessResponseDto>(
-    "/auth/guest/reset"
-  );
-  return data;
+export async function resetGuestDataApi(): Promise<void> {
+  await apiClient.delete("/auth/guest/reset");
 }
 
 /**
@@ -58,15 +54,12 @@ export async function linkSocialAccountApi(
 
 /**
  * 정식 소셜 계정의 회원탈퇴를 수행하고 모든 사용자 데이터를 단일 트랜잭션으로 영구 파기합니다.
+ * (`204 No Content` 응답)
  *
- * @returns 탈퇴 완료 여부 응답
  * @throws {ApiClientError} 인증 누락(`401`) 시
  */
-export async function deleteSocialAccountApi(): Promise<SimpleSuccessResponseDto> {
-  const { data } = await apiClient.delete<SimpleSuccessResponseDto>(
-    "/auth/account"
-  );
-  return data;
+export async function deleteSocialAccountApi(): Promise<void> {
+  await apiClient.delete("/auth/account");
 }
 
 /**
