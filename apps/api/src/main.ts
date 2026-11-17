@@ -7,6 +7,7 @@ import { setDatabaseLogger } from "@ideamory/db";
 import { AppModule } from "./app.module";
 import { TraceIdInterceptor } from "./common/interceptors/trace-id.interceptor";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { SentryNestLogger } from "./common/logging/sentry-nest.logger";
 import { AppDrizzleLogger } from "./database/drizzle.logger";
 
 /**
@@ -14,7 +15,9 @@ import { AppDrizzleLogger } from "./database/drizzle.logger";
  */
 async function bootstrap() {
   const logger = new Logger("Bootstrap");
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: new SentryNestLogger(),
+  });
 
   // 1. Vercel 프론트엔드 도메인 및 로컬 개발 환경 CORS 설정
   const configuredOrigins = (process.env.FRONTEND_URL || "")

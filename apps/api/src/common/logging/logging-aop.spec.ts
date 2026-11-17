@@ -4,6 +4,7 @@ import { Logger } from "@nestjs/common";
 import { traceStore } from "./trace-store";
 import { safeStringifyForLog } from "../utils/log-sanitizer.util";
 import { LogTrace } from "../decorators/log-trace.decorator";
+import { SentryNestLogger, type SentryLogSink } from "./sentry-nest.logger";
 import { AppDrizzleLogger } from "../../database/drizzle.logger";
 
 describe("Observability Logging AOP & Sanitizer", () => {
@@ -201,6 +202,50 @@ describe("Observability Logging AOP & Sanitizer", () => {
         logMessages[0],
         '[deadbeef] [Drizzle:Query] SQL: SELECT * FROM memos WHERE guest_token = $1 | PARAMS: ["[MASKED]","[vector(768)]"]'
       );
+    });
+  });
+
+  describe("SentryNestLogger", () => {
+    it("Sentry가 초기화된 경우 터미널 로그를 Sentry.logger 및 Breadcrumb으로 미러링해야 한다", () => {
+      const capturedLogs: Array<{
+        level: string;
+        msg: string;
+        attrs: Record<string, string>;
+      }> = [];
+      const capturedBreadcrumbs: unknown[] = [];
+
+      mock.method(process.stdout, "write", () => true);
+      const fakeSink: SentryLogSink = {
+        isInitialized: () => true,
+        log: (level, msg, attrs) => {
+          capturedLogs.push({ level, msg, attrs });
+        },
+        addBreadcrumb: (crumb) => {
+          capturedBreadcrumbs.push(crumb);
+        },
+      };
+
+      const nestLogger = new SentryNestLogger(fakeSink);
+      const traceId = "cafebabe1234567890abcdef12345678";
+
+      traceStore.run(traceId, () => {
+        nestLogger.log(
+          "[cafebabe] [MemoService.createMemo] [ENTRY] args: []",
+          "LogTrace"
+        );
+      });
+
+      assert.equal(capturedLogs.length, 1);
+      assert.equal(capturedLogs[0]?.level, "info");
+      assert.equal(
+        capturedLogs[0]?.msg,
+        "[LogTrace] [cafebabe] [MemoService.createMemo] [ENTRY] args: []"
+      );
+      assert.deepEqual(capturedLogs[0]?.attrs, {
+        context: "LogTrace",
+        trace_id: traceId,
+      });
+      assert.equal(capturedBreadcrumbs.length, 1);
     });
   });
 });
