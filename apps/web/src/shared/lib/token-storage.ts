@@ -9,6 +9,11 @@ export const ACCESS_TOKEN_STORAGE_KEY = "ideamory_access_token";
 export const GUEST_TOKEN_STORAGE_KEY = "ideamory_guest_token";
 
 /**
+ * 연동된 소셜 로그인 제공자(`kakao` | `google` | `github`)를 저장하는 localStorage 키
+ */
+export const AUTH_PROVIDER_STORAGE_KEY = "ideamory_auth_provider";
+
+/**
  * SSR(Next.js 서버 렌더링) 및 브라우저 프라이빗 모드 보안 정책 환경에서도
  * 예외 없이 안전하게 `window.localStorage` 핸들을 반환합니다.
  *
@@ -101,9 +106,32 @@ export const clearGuestToken = (): void =>
   removeStorageToken(GUEST_TOKEN_STORAGE_KEY);
 
 /**
+ * 저장된 소셜 로그인 제공자명을 조회합니다.
+ *
+ * @returns 소셜 제공자 문자열(`kakao` | `google` | `github`) 또는 게스트/미존재 시 null
+ */
+export const getAuthProvider = (): string | null =>
+  readStorageToken(AUTH_PROVIDER_STORAGE_KEY);
+
+/**
+ * 연동된 소셜 로그인 제공자명을 저장합니다.
+ *
+ * @param provider 소셜 제공자명
+ */
+export const setAuthProvider = (provider: string): void =>
+  writeStorageToken(AUTH_PROVIDER_STORAGE_KEY, provider);
+
+/**
+ * 저장된 소셜 로그인 제공자명을 삭제합니다.
+ */
+export const clearAuthProvider = (): void =>
+  removeStorageToken(AUTH_PROVIDER_STORAGE_KEY);
+
+/**
  * 로그아웃, 회원탈퇴 또는 게스트 데이터 초기화 시 모든 인증 토큰을 일괄 정리합니다.
  */
 export function clearAllAuthTokens(): void {
   clearAccessToken();
   clearGuestToken();
+  clearAuthProvider();
 }
