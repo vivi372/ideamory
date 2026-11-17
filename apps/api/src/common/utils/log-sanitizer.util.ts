@@ -27,6 +27,27 @@ function isSensitiveKey(key: string): boolean {
 }
 
 /**
+ * 객체 키가 없는 위치(Drizzle 바인딩 파라미터 배열, 메서드 단일 인자 등)에서도
+ * 문자열 값 자체의 토큰 패턴(`gst_*`, `Bearer *`, JWT `eyJ...`)을 탐지합니다.
+ *
+ * @param value 검사할 문자열 값
+ * @returns 민감 토큰 패턴 일치 시 true
+ */
+function isSensitiveStringValue(value: string): boolean {
+  const trimmed = value.trim();
+  if (/^gst_[A-Za-z0-9_-]{4,}$/.test(trimmed)) {
+    return true;
+  }
+  if (/^Bearer\s+\S+$/i.test(trimmed)) {
+    return true;
+  }
+  if (/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * 로그 출력 전 민감 정보 마스킹, 768차원 임베딩 벡터 축약, 장문 문자열 절삭 및
  * 순환 참조 방어를 수행하는 재귀 새니타이저입니다.
  *
@@ -43,6 +64,9 @@ export function sanitizeForLog(
   }
 
   if (typeof value === "string") {
+    if (isSensitiveStringValue(value)) {
+      return "[MASKED]";
+    }
     if (value.length > MAX_LOG_STRING_LENGTH) {
       return `${value.slice(0, MAX_LOG_STRING_LENGTH)}...(truncated)`;
     }

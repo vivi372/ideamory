@@ -39,6 +39,20 @@ describe("Observability Logging AOP & Sanitizer", () => {
       assert.equal(parsed.clientSecret, "[MASKED]");
     });
 
+    it("객체 키가 없는 위치의 게스트 토큰(gst_*), Bearer 토큰, JWT 문자열도 [MASKED]로 치환해야 한다", () => {
+      const output = safeStringifyForLog([
+        "gst_ed6ab08df60b7a0f1c123456",
+        "Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig",
+        "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature123",
+        "일반 메모 본문",
+      ]);
+
+      assert.equal(
+        output,
+        '["[MASKED]","[MASKED]","[MASKED]","일반 메모 본문"]'
+      );
+    });
+
     it("768차원 임베딩 벡터 배열을 [vector(768)]로 축약해야 한다", () => {
       const embedding = Array.from({ length: 768 }, (_, i) => i * 0.001);
       const output = safeStringifyForLog({ embedding });
@@ -185,7 +199,7 @@ describe("Observability Logging AOP & Sanitizer", () => {
       assert.equal(logMessages.length, 1);
       assert.equal(
         logMessages[0],
-        '[deadbeef] [Drizzle:Query] SQL: SELECT * FROM memos WHERE guest_token = $1 | PARAMS: ["gst_secret","[vector(768)]"]'
+        '[deadbeef] [Drizzle:Query] SQL: SELECT * FROM memos WHERE guest_token = $1 | PARAMS: ["[MASKED]","[vector(768)]"]'
       );
     });
   });
