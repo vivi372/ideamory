@@ -9,21 +9,8 @@ export const metadata: Metadata = {
   description:
     "떠오른 순간, 정리하지 말고 그대로. Ideamory는 당신의 생각을 위한 초경량 메모 서비스입니다.",
   icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
+    icon: [{ url: "/ideamory-logo.png", type: "image/png" }],
+    apple: "/ideamory-logo.png",
   },
 };
 
