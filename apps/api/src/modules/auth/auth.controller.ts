@@ -21,7 +21,6 @@ import {
   type GuestInitResponseDto,
   type LinkSocialAuthDto,
   type LinkSocialAuthResponseDto,
-  type SimpleSuccessResponseDto,
 } from "@ideamory/api-spec";
 import { Public } from "../../common/decorators/public.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -75,24 +74,24 @@ export class AuthController {
    * @param guestToken 현재 요청 헤더(X-Guest-Token)에서 추출한 게스트 식별자
    * @returns 초기화 완료 여부 및 안내 메시지
    */
-  @Post("guest/reset")
-  @HttpCode(HttpStatus.OK)
+  @Delete("guest/reset")
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiSecurity("X-Guest-Token")
   @ApiOperation({
     summary: "게스트 데이터 원자적 초기화 (Hard Delete)",
     description:
       "게스트가 작성한 모든 메모 및 카테고리를 DB 단일 트랜잭션으로 영구 파기합니다.",
   })
-  @ApiResponse({ status: 200, description: "게스트 데이터 초기화 성공" })
+  @ApiResponse({ status: 204, description: "게스트 데이터 초기화 성공 (No Content)" })
   @ApiResponse({ status: 401, description: "게스트 토큰 누락 또는 무효 (AUTH_ALERT_UNAUTHORIZED)" })
   async resetGuestData(
     @CurrentUser("guestToken") guestToken?: string
-  ): Promise<SimpleSuccessResponseDto> {
-    return this.authService.resetGuestData(guestToken);
+  ): Promise<void> {
+    await this.authService.resetGuestData(guestToken);
   }
 
   /**
-   * 소셜 로그인(카카오/구글/네이버) 완료 시 기존 게스트 데이터를 정식 소셜 계정으로 100% 이관합니다.
+   * 소셜 로그인(카카오/구글/깃허브) 완료 시 기존 게스트 데이터를 정식 소셜 계정으로 100% 이관합니다.
    *
    * @param guestToken 이관 대상 익명 게스트 세션 식별자
    * @param dto 소셜 제공자(provider) 및 검증할 Supabase Access Token(idToken)
@@ -111,7 +110,7 @@ export class AuthController {
       type: "object",
       required: ["provider", "idToken"],
       properties: {
-        provider: { type: "string", enum: ["kakao", "google", "naver"] },
+        provider: { type: "string", enum: ["kakao", "google", "github"] },
         idToken: { type: "string", description: "Supabase Auth ES256 JWT" },
       },
     },
@@ -132,19 +131,19 @@ export class AuthController {
    * @returns 회원 탈퇴 완료 여부 및 안내 메시지
    */
   @Delete("account")
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth("Authorization")
   @ApiOperation({
     summary: "소셜 회원탈퇴 & 전체 데이터 영구 파기 (Hard Delete)",
     description:
       "소셜 회원이 보유한 모든 메모, 카테고리 및 계정 정보를 단일 트랜잭션으로 완전 삭제합니다.",
   })
-  @ApiResponse({ status: 200, description: "회원 탈퇴 및 데이터 파기 완료" })
+  @ApiResponse({ status: 204, description: "회원 탈퇴 및 데이터 파기 완료 (No Content)" })
   @ApiResponse({ status: 401, description: "정회원 JWT 인증 누락 (AUTH_ALERT_UNAUTHORIZED)" })
   async deleteAccount(
     @CurrentUser("userId") userId?: string
-  ): Promise<SimpleSuccessResponseDto> {
-    return this.authService.deleteAccount(userId);
+  ): Promise<void> {
+    await this.authService.deleteAccount(userId);
   }
 }
 

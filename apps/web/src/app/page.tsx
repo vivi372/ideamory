@@ -1,43 +1,155 @@
 "use client";
 
-import React from "react";
-import type { MemoResponseDto } from "@ideamory/api-spec";
+import { Archive, ChevronRight, Menu, Search } from "lucide-react";
+import {
+  LegalWebviewModal,
+  SidebarDrawer,
+  SocialLinkModal,
+  useAuthDrawer,
+  useGuestBootstrap,
+} from "@/features/auth-drawer";
 
+/**
+ * Ideamory 메인 타임라인 홈 페이지입니다.
+ *
+ * 최초 진입 시 `useGuestBootstrap`으로 0.1초 익명 게스트 세션을 자동 발급하고,
+ * 상단 햄버거 메뉴와 연동된 `SidebarDrawer`, `SocialLinkModal`, `LegalWebviewModal`을 조합합니다.
+ * (타임라인 CRUD 및 퀵 캡처 바, 하이브리드 검색은 후속 3-4 / 3-5 단계에서 연동됩니다.)
+ *
+ * @returns Ideamory 메인 셸 JSX
+ */
 export default function HomePage() {
-  // 0단계 연결 검증용 DTO 타입 확인
-  const exampleMemo: MemoResponseDto = {
-    id: "01931f6e-7000-7c3e-8f23-8c4c7a5b3e10",
-    content: "Ideamory 0.1초 퀵 캡처 프로젝트 환경이 성공적으로 초기화되었습니다.",
-    categoryId: "01931f6e-7000-7c3e-8f23-8c4c7a5b3e11",
-    categoryName: "온보딩",
-    deletedAt: null,
-    createdAt: new Date().toISOString()
-  };
+  const { isBootstrapped } = useGuestBootstrap();
+  const {
+    drawerOpen,
+    setDrawerOpen,
+    socialSheetOpen,
+    setSocialSheetOpen,
+    legalModalType,
+    openLegalModal,
+    closeLegalModal,
+    isGuest,
+    accountStatusLabel,
+    categories,
+    totalMemoCount,
+    suggestionCategoryIds,
+    viewMode,
+    selectedCategoryId,
+    selectAllMemos,
+    selectCategory,
+    selectTrash,
+    handleResetGuestData,
+    handleDeleteAccount,
+    handleSocialLogin,
+    isMutating,
+  } = useAuthDrawer();
+
+  const currentLabel =
+    viewMode === "TRASH"
+      ? "휴지통"
+      : viewMode === "CATEGORY"
+        ? (categories.find((cat) => cat.id === selectedCategoryId)?.name ??
+          "카테고리")
+        : "전체 메모";
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-6 text-center">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-        <h1 className="text-2xl font-bold tracking-tight text-white mb-2">
-          Ideamory (아이디모리)
-        </h1>
-        <p className="text-sm text-slate-400 mb-6">
-          모바일 퍼스트 0.1초 퀵 캡처 &amp; AI 하이브리드 지식 서재
-        </p>
+    <main className="ideamory-shell">
+      <div className="ambient ambient-one" />
+      <div className="ambient ambient-two" />
 
-        <div className="bg-slate-950/60 rounded-xl p-4 border border-slate-800/80 text-left">
-          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
-            {exampleMemo.categoryName}
-          </span>
-          <p className="mt-2 text-sm text-slate-200">
-            {exampleMemo.content}
-          </p>
+      <header className="topbar">
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="메뉴 열기"
+          onClick={() => setDrawerOpen(true)}
+        >
+          <Menu size={21} />
+        </button>
+        <div className="brand-lockup">
+          <img src="/ideamory-logo.png" alt="Ideamory 로고" />
+          <span>IDEAMORY</span>
+        </div>
+        <div className="header-search">
+          <Search size={17} aria-hidden="true" />
+          <input
+            type="search"
+            placeholder="기억 속에서 찾기"
+            aria-label="메모 검색"
+            readOnly
+          />
+        </div>
+      </header>
+
+      <section className="content-wrap">
+        <div className="welcome-row">
+          <div>
+            <p className="eyebrow">YOUR MEMORY CACHE</p>
+            <h1>오늘의 생각을 담아보세요</h1>
+            <p className="subcopy">떠오른 순간, 정리하지 말고 그대로.</p>
+          </div>
+          <div className="memory-count">
+            <span>{totalMemoCount}</span>
+            <small>memories</small>
+          </div>
         </div>
 
-        <p className="mt-6 text-xs text-slate-500">
-          0단계 Monorepo (Next.js 15 + NestJS + Supabase) 환경 구성 완료
-        </p>
-      </div>
+        <div className="timeline-label">
+          <span>{currentLabel}</span>
+          <span className="line" />
+          <span className="sort-label">
+            최신순 <ChevronRight size={13} />
+          </span>
+        </div>
+
+        <div className="timeline">
+          <div className="empty-state">
+            <Archive size={24} />
+            <p>
+              {isBootstrapped
+                ? "세션이 준비되었습니다. (메모 타임라인은 3-4 단계에서 연동됩니다)"
+                : "세션을 준비하고 있습니다..."}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <SidebarDrawer
+        open={drawerOpen}
+        viewMode={viewMode}
+        selectedCategoryId={selectedCategoryId}
+        categories={categories}
+        totalMemoCount={totalMemoCount}
+        suggestionCategoryIds={suggestionCategoryIds}
+        accountStatusLabel={accountStatusLabel}
+        isGuest={isGuest}
+        isMutating={isMutating}
+        onClose={() => setDrawerOpen(false)}
+        onSelectAllMemos={selectAllMemos}
+        onSelectCategory={selectCategory}
+        onSelectTrash={selectTrash}
+        onOpenSocialSheet={() => setSocialSheetOpen(true)}
+        onResetGuestData={() => {
+          void handleResetGuestData();
+        }}
+      />
+
+      <SocialLinkModal
+        open={socialSheetOpen}
+        isGuest={isGuest}
+        isMutating={isMutating}
+        onClose={() => setSocialSheetOpen(false)}
+        onSelectProvider={handleSocialLogin}
+        onDeleteAccount={() => {
+          void handleDeleteAccount();
+        }}
+        onOpenLegal={openLegalModal}
+      />
+
+      <LegalWebviewModal
+        legalModalType={legalModalType}
+        onClose={closeLegalModal}
+      />
     </main>
   );
 }
-

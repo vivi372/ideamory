@@ -19,9 +19,12 @@ export { generateTraceId, isValidTraceId } from "../lib/trace-id";
 export {
   clearAccessToken,
   clearAllAuthTokens,
+  clearAuthProvider,
   clearGuestToken,
   getAccessToken,
+  getAuthProvider,
   getGuestToken,
   setAccessToken,
+  setAuthProvider,
   setGuestToken,
 } from "../lib/token-storage";

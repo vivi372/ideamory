@@ -25,7 +25,7 @@ export type GuestInitResponseDto = z.infer<typeof GuestInitResponseSchema>;
  * POST /api/auth/social/link (소셜 계정 연동 및 게스트 데이터 단일 트랜잭션 마이그레이션 요청 DTO)
  */
 export const LinkSocialAuthSchema = z.object({
-  provider: z.enum(["kakao", "google", "naver"]),
+  provider: z.enum(["kakao", "google", "github"]),
   idToken: z.string().min(1, "idToken이 필요합니다."),
 });
 
