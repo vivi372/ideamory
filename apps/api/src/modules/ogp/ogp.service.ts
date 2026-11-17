@@ -6,6 +6,7 @@ import ogs from "open-graph-scraper";
 import { ERROR_CODES, type OgpResponseDto } from "@ideamory/api-spec";
 import { type OgpCache } from "@ideamory/db";
 import { BusinessException } from "../../common/exceptions/business.exception";
+import { LogTrace } from "../../common/decorators/log-trace.decorator";
 import { OgpRepository } from "./ogp.repository";
 
 /** OGP 캐시 기본 TTL (14일, 밀리초 단위) */
@@ -441,6 +442,7 @@ export class OgpService {
    * @param rawUrl 파싱할 대상 URL
    * @returns 캐싱 또는 신규 크롤링된 OGP 응답 DTO
    */
+  @LogTrace()
   async parseAndCacheOgp(rawUrl: string): Promise<OgpResponseDto> {
     const validatedUrl = (
       await this.validateSafeExternalUrlWithDns(rawUrl)
@@ -478,6 +480,7 @@ export class OgpService {
    *
    * @returns 삭제된 레코드 수
    */
+  @LogTrace()
   async cleanupExpiredCaches(): Promise<number> {
     const deleted = await this.ogpRepository.deleteExpiredOgpCaches(new Date());
     return deleted.length;

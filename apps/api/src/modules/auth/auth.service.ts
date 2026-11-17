@@ -15,6 +15,7 @@ import {
   getSharedSupabaseJWKS,
   verifySupabaseJwt,
 } from "../../common/utils/supabase-jwt.util";
+import { LogTrace } from "../../common/decorators/log-trace.decorator";
 import { AuthRepository } from "./auth.repository";
 
 /**
@@ -68,6 +69,7 @@ export class AuthService {
    * @param dto 클라이언트/컨트롤러에서 선발급된 memoId 및 categoryId (UUID v7)
    * @returns 발급된 게스트 토큰(52자) 및 생성된 시드 메모 ID
    */
+  @LogTrace()
   async initGuestSession(dto: GuestInitDto): Promise<GuestInitResponseDto> {
     // 1. 공통 규격 상수 기반 암호학적 게스트 토큰 생성 ("gst_" + 48자 Hex = 52자, VARCHAR 64 이내)
     const guestToken = `${GUEST_TOKEN_PREFIX}${randomBytes(GUEST_TOKEN_RANDOM_BYTES).toString("hex")}`;
@@ -148,6 +150,7 @@ export class AuthService {
    * @returns 초기화 완료 여부 및 안내 메시지
    * @throws BusinessException 게스트 토큰이 누락된 경우 401 Unauthorized 발생
    */
+  @LogTrace()
   async resetGuestData(guestToken?: string): Promise<SimpleSuccessResponseDto> {
     if (!guestToken) {
       throw new BusinessException(
@@ -180,6 +183,7 @@ export class AuthService {
    * @returns 이관 완료 여부 및 검증된 소셜 사용자 UUID
    * @throws BusinessException 게스트 토큰 누락 또는 idToken 검증 실패 시 401 Unauthorized 발생
    */
+  @LogTrace()
   async linkSocialAccount(
     guestToken: string | undefined,
     dto: LinkSocialAuthDto
@@ -261,6 +265,7 @@ export class AuthService {
    * @returns 탈퇴 완료 여부 및 안내 메시지
    * @throws BusinessException 정회원 인증(userId)이 누락된 경우 401 Unauthorized 발생
    */
+  @LogTrace()
   async deleteAccount(userId?: string): Promise<SimpleSuccessResponseDto> {
     if (!userId) {
       throw new BusinessException(

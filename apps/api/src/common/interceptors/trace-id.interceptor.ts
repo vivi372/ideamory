@@ -10,6 +10,7 @@ import { tap } from "rxjs/operators";
 import { Request, Response } from "express";
 import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
+import * as Sentry from "@sentry/nestjs";
 import { traceStore } from "../logging/trace-store";
 
 /**
@@ -88,6 +89,9 @@ export class TraceIdInterceptor implements NestInterceptor {
     const { method, originalUrl } = req;
     const shortTraceId = traceId.slice(0, 8);
 
+    // Sentry 현재 스코프에 32자리 풀 Trace ID 바인딩 (Client <-> Server <-> Sentry 단일 추적)
+    Sentry.getCurrentScope().setTag("trace_id", traceId);
+
     // 3. AsyncLocalStorage 스코프 내에서 핸들러 체인 실행 및 실행 시간 정밀 측정
     return traceStore.run(traceId, () => {
       return next.handle().pipe(
@@ -96,7 +100,7 @@ export class TraceIdInterceptor implements NestInterceptor {
             const duration = (performance.now() - startTime).toFixed(2);
             // 콘솔 로깅 시 터미널 가독성을 위해 앞 8자리 축약 표기 (전체 32자리는 헤더/컨텍스트에 보존)
             this.logger.log(
-              `[${shortTraceId}] ${method} ${originalUrl} - ${duration}ms`
+              `[${shortTraceId}] ${method} ${originalUrl} ${res.statusCode} - ${duration}ms`
             );
           },
           error: (err) => {

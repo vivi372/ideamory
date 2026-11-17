@@ -11,6 +11,7 @@ import {
   type RelatedMemoResponseDto,
 } from "@ideamory/api-spec";
 import { BusinessException } from "../../common/exceptions/business.exception";
+import { LogTrace } from "../../common/decorators/log-trace.decorator";
 import type { OwnerIdentity } from "../../common/types/owner.type";
 import { AiService } from "../ai/ai.service";
 import { CategoryService } from "../category/category.service";
@@ -84,6 +85,7 @@ export class MemoService {
    * @param dto 클라이언트 선발급 UUID v7 및 본문(1~5000자)
    * @returns 즉시 생성된 메모 응답 DTO
    */
+  @LogTrace()
   async createMemo(
     owner: OwnerIdentity,
     dto: CreateMemoDto
@@ -151,6 +153,7 @@ export class MemoService {
    * LLM 가변 카테고리 분류(지시어 미존재 시), Gemini 768차원 임베딩 생성, 대표 URL 1개 OGP 크롤링을 병렬 수행합니다.
    * 백그라운드 작업 중 오류가 발생해도 UnhandledRejection 없이 안전하게 로깅만 남깁니다.
    */
+  @LogTrace()
   protected async runBackgroundEnrichment(
     memoId: string,
     owner: OwnerIdentity,
@@ -256,6 +259,7 @@ export class MemoService {
    * @param query 카테고리 필터 및 휴지통 조회 플래그
    * @returns OGP 메타데이터가 조인된 메모 목록
    */
+  @LogTrace()
   async getMemos(
     owner: OwnerIdentity,
     query: GetMemosQueryDto
@@ -279,6 +283,7 @@ export class MemoService {
    * @returns 수정 완료된 최신 메모 DTO
    * @throws BusinessException 대상 메모 또는 카테고리가 없으면 404 Not Found 발생
    */
+  @LogTrace()
   async updateMemo(
     owner: OwnerIdentity,
     memoId: string,
@@ -331,6 +336,7 @@ export class MemoService {
    * @param memoId 삭제할 메모 UUID
    * @throws BusinessException 대상 메모가 존재하지 않으면 404 Not Found 발생
    */
+  @LogTrace()
   async softDeleteMemo(
     owner: OwnerIdentity,
     memoId: string
@@ -359,6 +365,7 @@ export class MemoService {
    * @returns 복구된 메모 응답 DTO
    * @throws BusinessException 대상 메모가 존재하지 않으면 404 Not Found 발생
    */
+  @LogTrace()
   async restoreMemo(
     owner: OwnerIdentity,
     memoId: string
@@ -399,6 +406,7 @@ export class MemoService {
    * @returns 가중치 합산 점수(`finalScore`) 내림차순 검색 결과 목록
    * @throws BusinessException 인증 주체 누락 시 401 Unauthorized, 정제 후 검색어가 비어 있으면 400 Bad Request 발생
    */
+  @LogTrace()
   async searchMemos(
     owner: OwnerIdentity,
     query: SearchMemoQueryDto
@@ -442,6 +450,7 @@ export class MemoService {
    * @returns 유사도 내림차순 연관 메모 목록 (임베딩 미생성 상태인 경우 빈 배열)
    * @throws BusinessException 인증 주체 누락 시 401, 기준 메모 미존재·타인 소유·휴지통 상태 시 404 발생
    */
+  @LogTrace()
   async getRelatedMemos(
     owner: OwnerIdentity,
     memoId: string,
@@ -483,6 +492,7 @@ export class MemoService {
    *
    * @returns 영구 삭제된 메모 수 및 정리된 고아 카테고리 수
    */
+  @LogTrace()
   async cleanupExpiredTrashAndOrphans(): Promise<{
     deletedMemoCount: number;
     deletedCategoryCount: number;
