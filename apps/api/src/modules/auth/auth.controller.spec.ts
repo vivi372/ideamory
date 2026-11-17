@@ -86,10 +86,10 @@ describe("AuthController (엔드포인트 위임 및 DTO 유효성 검증)", () 
     );
   });
 
-  it("시나리오 2: POST /api/v1/auth/guest/reset는 추출된 guestToken을 서비스에 전달해야 한다", async () => {
+  it("시나리오 2: DELETE /api/v1/auth/guest/reset는 추출된 guestToken을 서비스에 전달해야 한다", async () => {
     const response = await controller.resetGuestData("gst_user_token");
 
-    assert.equal(response.success, true);
+    assert.equal(response, undefined);
     assert.equal(serviceCalls.resetGuestData[0], "gst_user_token");
   });
 
@@ -111,7 +111,7 @@ describe("AuthController (엔드포인트 위임 및 DTO 유효성 검증)", () 
   it("시나리오 4: DELETE /api/v1/auth/account는 추출된 userId를 서비스에 전달해야 한다", async () => {
     const response = await controller.deleteAccount("auth-user-uuid");
 
-    assert.equal(response.success, true);
+    assert.equal(response, undefined);
     assert.equal(serviceCalls.deleteAccount[0], "auth-user-uuid");
   });
 });

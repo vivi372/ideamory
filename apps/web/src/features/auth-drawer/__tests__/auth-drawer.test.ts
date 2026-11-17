@@ -89,7 +89,7 @@ describe("3-3. 익명 게스트 부트스트랩 & 인증 드로어", () => {
         calls.map((c) => `${c.method} ${c.url}`),
         [
           "POST /auth/guest/init",
-          "POST /auth/guest/reset",
+          "DELETE /auth/guest/reset",
           "POST /auth/social/link",
           "DELETE /auth/account",
           "GET /categories",
