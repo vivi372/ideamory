@@ -92,7 +92,7 @@ export class AuthController {
   }
 
   /**
-   * 소셜 로그인(카카오/구글/네이버) 완료 시 기존 게스트 데이터를 정식 소셜 계정으로 100% 이관합니다.
+   * 소셜 로그인(카카오/구글/깃허브) 완료 시 기존 게스트 데이터를 정식 소셜 계정으로 100% 이관합니다.
    *
    * @param guestToken 이관 대상 익명 게스트 세션 식별자
    * @param dto 소셜 제공자(provider) 및 검증할 Supabase Access Token(idToken)
@@ -111,7 +111,7 @@ export class AuthController {
       type: "object",
       required: ["provider", "idToken"],
       properties: {
-        provider: { type: "string", enum: ["kakao", "google", "naver"] },
+        provider: { type: "string", enum: ["kakao", "google", "github"] },
         idToken: { type: "string", description: "Supabase Auth ES256 JWT" },
       },
     },
