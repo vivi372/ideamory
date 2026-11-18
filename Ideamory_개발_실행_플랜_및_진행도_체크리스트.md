@@ -111,7 +111,7 @@
 - [x] **3-3. 익명 게스트 부트스트랩, 사이드바 드로어 & 소셜 계정 연동 플로우**
   - 초기 진입 시 `POST /api/v1/auth/guest/init` 자동 세션 발급 및 온보딩 시드 메모(`/guide` OGP) 로드
   - 사이드바 드로어(`LIBRARY` 카테고리 카운트, `휴지통`), 게스트 초기화(`POST /api/v1/auth/guest/reset`), 소셜 연동 바텀시트(`POST /api/v1/auth/social/link`) 및 회원탈퇴(`DELETE /api/v1/auth/account`) 실 API 연동
-- [ ] **3-4. 0.1초 퀵 캡처 썸존 & 메모 타임라인 낙관적 UI / 인라인 편집 / 휴지통**
+- [x] **3-4. 0.1초 퀵 캡처 썸존 & 메모 타임라인 낙관적 UI / 인라인 편집 / 휴지통**
   - 하단 플로팅 퀵 캡처 바 + 클립보드 링크 포착 칩 + `FIELD` 에러 캡션 + 문두 `@카테고리` 즉시 반영
   - React 19 `useOptimistic` / TanStack Query 낙관적 갱신 기반 `POST/PATCH/DELETE/restore` 연동, 인라인 본문 편집, 비동기 AI 분류/OGP 완료 백그라운드 동기화 및 150ms 레이아웃 애니메이션
 - [ ] **3-5. 하이브리드 검색, 연관 메모 1-Depth 필터 & 0ms 카테고리 시트/병합 제안**
