@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import TextareaAutosize from "react-textarea-autosize";
-import { Check, X } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 export interface InlineEditorProps {
   /** 편집 대상 메모의 기존 본문 */
@@ -17,11 +17,12 @@ export interface InlineEditorProps {
  * 별도 상세 페이지 이동 없이 카드 내부에서 즉시 본문을 수정하는
  * `react-textarea-autosize` 기반 1-Depth 인라인 편집기입니다.
  *
- * 포커스 아웃(Blur) 또는 `[완료]` 버튼 터치 시 기존 텍스트와 다를 경우에만 저장을 호출하고,
- * 공백만 남거나 기존 내용과 동일하면 불필요한 API 호출 없이 편집 모드를 종료합니다.
+ * 포커스 아웃(Blur) 또는 `Enter` 입력 시 기존 텍스트와 다를 경우에만 저장을 호출하고,
+ * `Shift + Enter`로 줄바꿈을 입력할 수 있습니다. 하단에는 수정 내용을 되돌리는
+ * 단일 복원 아이콘 버튼만 배치하여 화면 밀도를 최소화합니다.
  *
  * @param props 초기 본문, 저장/취소 콜백
- * @returns 인라인 텍스트 영역 및 완료/취소 액션 JSX
+ * @returns 인라인 텍스트 영역 및 단일 복원 아이콘 버튼 JSX
  */
 export function InlineEditor({
   initialContent,
@@ -56,11 +57,11 @@ export function InlineEditor({
   };
 
   return (
-    <div className="space-y-2">
+    <div style={{ position: "relative" }}>
       <TextareaAutosize
         ref={textareaRef}
         value={draft}
-        minRows={3}
+        minRows={1}
         maxRows={14}
         aria-label="메모 본문 수정"
         onChange={(event) => setDraft(event.target.value)}
@@ -72,35 +73,31 @@ export function InlineEditor({
             onCancel();
             return;
           }
-          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+          if (
+            event.key === "Enter" &&
+            !event.shiftKey &&
+            !event.nativeEvent.isComposing
+          ) {
             event.preventDefault();
             commitIfChanged();
           }
         }}
       />
-      <div className="flex items-center justify-end gap-2">
+      <div
+        className="note-actions inline-actions inline-editor-actions"
+        style={{ position: "absolute", right: 0, bottom: 2, zIndex: 2, margin: 0 }}
+      >
         <button
           type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-800/80 px-2.5 text-xs text-slate-300 hover:bg-slate-700"
+          aria-label="수정 취소 및 복원"
+          title="수정 취소 및 복원"
           onMouseDown={(event) => {
             event.preventDefault();
             committedRef.current = true;
             onCancel();
           }}
         >
-          <X size={13} aria-hidden="true" />
-          <span>취소</span>
-        </button>
-        <button
-          type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-md bg-cyan-400 px-2.5 text-xs font-semibold text-slate-950 hover:bg-cyan-300"
-          onMouseDown={(event) => {
-            event.preventDefault();
-            commitIfChanged();
-          }}
-        >
-          <Check size={13} aria-hidden="true" />
-          <span>완료</span>
+          <RotateCcw size={14} aria-hidden="true" />
         </button>
       </div>
     </div>
