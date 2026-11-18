@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ChevronRight, Menu, Search } from "lucide-react";
+import { ChevronRight, Menu, Search } from "lucide-react";
 import {
   LegalWebviewModal,
   SidebarDrawer,
@@ -8,6 +8,8 @@ import {
   useAuthDrawer,
   useGuestBootstrap,
 } from "@/features/auth-drawer";
+import { CaptureInput } from "@/features/memo-capture";
+import { MemoTimeline } from "@/widgets/memo-timeline";
 
 /**
  * Ideamory 메인 타임라인 홈 페이지입니다.
@@ -102,17 +104,10 @@ export default function HomePage() {
           </span>
         </div>
 
-        <div className="timeline">
-          <div className="empty-state">
-            <Archive size={24} />
-            <p>
-              {isBootstrapped
-                ? "세션이 준비되었습니다. (메모 타임라인은 3-4 단계에서 연동됩니다)"
-                : "세션을 준비하고 있습니다..."}
-            </p>
-          </div>
-        </div>
+        <MemoTimeline isBootstrapped={isBootstrapped} />
       </section>
+
+      <CaptureInput />
 
       <SidebarDrawer
         open={drawerOpen}
