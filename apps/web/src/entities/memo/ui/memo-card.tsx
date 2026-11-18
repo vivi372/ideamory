@@ -110,7 +110,11 @@ export function MemoCard({
       <span className={`note-marker ${markerClass}`} aria-hidden="true" />
 
       <div className="note-meta">
-        <div className="flex min-w-0 items-center gap-2">
+        <time dateTime={memo.createdAt} className="shrink-0">
+          {formatMemoTimestamp(memo.createdAt)}
+        </time>
+
+        <div className="note-meta-actions">
           <span className="category-label max-w-[160px] truncate">
             {isCategorizing ? (
               <span className="inline-flex items-center gap-1">
@@ -121,14 +125,8 @@ export function MemoCard({
               memo.categoryName
             )}
           </span>
-          <time dateTime={memo.createdAt} className="shrink-0">
-            {formatMemoTimestamp(memo.createdAt)}
-          </time>
+          {actionSlot}
         </div>
-
-        {actionSlot ? (
-          <div className="note-meta-actions">{actionSlot}</div>
-        ) : null}
       </div>
 
       <div className="note-content">

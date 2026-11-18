@@ -63,8 +63,12 @@ export default function HomePage() {
         <button
           type="button"
           className="icon-button"
-          aria-label="메뉴 열기"
-          onClick={() => setDrawerOpen(true)}
+          aria-label={drawerOpen ? "메뉴 닫기" : "메뉴 열기"}
+          aria-expanded={drawerOpen}
+          onClick={(event) => {
+            setDrawerOpen(!drawerOpen);
+            event.currentTarget.blur();
+          }}
         >
           <Menu size={21} />
         </button>
