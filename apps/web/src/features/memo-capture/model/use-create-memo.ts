@@ -3,13 +3,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MemoResponseDto } from "@ideamory/api-spec";
 import { createMemoApi } from "../../../entities/memo";
-import { queryKeys } from "../../../shared/api";
+import { ApiClientError, queryKeys } from "../../../shared/api";
 import { useFeedback } from "../../../shared/lib/feedback/use-feedback";
-import { generateUuidV7 } from "../../../shared/lib/uuid-v7";
 import { useViewStore } from "../../../shared/model/view-store";
 import { parseCaptureContent } from "../lib/capture-parser";
 
 interface CreateMemoVariables {
+  /** 호출부에서 선발급한 단일 UUID v7 (낙관적 카드와 서버 요청이 동일 식별자 공유) */
+  id: string;
   /** 사용자가 입력한 원본 메모 텍스트 */
   rawContent: string;
 }
@@ -44,14 +45,13 @@ export function useCreateMemo() {
     CreateMemoVariables,
     CreateMemoContext
   >({
-    mutationFn: async ({ rawContent }) => {
-      const id = generateUuidV7();
+    mutationFn: async ({ id, rawContent }) => {
       return createMemoApi({
         id,
         content: rawContent.trim(),
       });
     },
-    onMutate: async ({ rawContent }) => {
+    onMutate: async ({ id, rawContent }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.memos.all });
 
       const previousQueries = queryClient.getQueriesData<MemoResponseDto[]>({
@@ -61,7 +61,7 @@ export function useCreateMemo() {
       const { categoryHint, displayContent } = parseCaptureContent(rawContent);
       const nowIso = new Date().toISOString();
       const optimisticMemo: MemoResponseDto = {
-        id: generateUuidV7(),
+        id,
         content: displayContent,
         categoryId:
           viewMode === "CATEGORY" && selectedCategoryId
@@ -89,16 +89,21 @@ export function useCreateMemo() {
 
       return { previousQueries };
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, _variables, context) => {
       if (context?.previousQueries) {
         for (const [key, data] of context.previousQueries) {
           queryClient.setQueryData(key, data);
         }
       }
-      showToast(
-        "error",
-        "메모 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요."
-      );
+      // 비-FIELD ApiClientError는 response.interceptor.ts에서 이미 전역 dispatchApiError로 발행되므로 중복 토스트 방지
+      if (!(error instanceof ApiClientError) || error.uxTag === "FIELD") {
+        showToast(
+          "error",
+          error instanceof ApiClientError
+            ? error.message
+            : "메모 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요."
+        );
+      }
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });

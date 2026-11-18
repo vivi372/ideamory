@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ClipboardPaste, Send, X } from "lucide-react";
 import { useViewStore } from "../../../shared/model/view-store";
+import { generateUuidV7 } from "../../../shared/lib/uuid-v7";
 import { extractValidClipboardUrl } from "../lib/capture-parser";
 import { useCreateMemo } from "../model/use-create-memo";
 
@@ -96,7 +97,7 @@ export function CaptureInput() {
     setFieldError(null);
     setValue("");
     setClipboardUrl(null);
-    createMemo({ rawContent: trimmed });
+    createMemo({ id: generateUuidV7(), rawContent: trimmed });
   };
 
   const handleInsertClipboardUrl = () => {

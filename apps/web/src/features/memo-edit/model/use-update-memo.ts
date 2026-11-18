@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MemoResponseDto } from "@ideamory/api-spec";
 import { updateMemoApi } from "../../../entities/memo";
-import { queryKeys } from "../../../shared/api";
+import { ApiClientError, queryKeys } from "../../../shared/api";
 import { useFeedback } from "../../../shared/lib/feedback/use-feedback";
 
 interface UpdateMemoVariables {
@@ -57,16 +57,21 @@ export function useUpdateMemo() {
 
       return { previousQueries };
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, _variables, context) => {
       if (context?.previousQueries) {
         for (const [key, data] of context.previousQueries) {
           queryClient.setQueryData(key, data);
         }
       }
-      showToast(
-        "error",
-        "메모 수정에 실패했습니다. 변경 전 내용으로 되돌렸습니다."
-      );
+      // 비-FIELD ApiClientError는 response.interceptor.ts에서 이미 전역 dispatchApiError로 발행되므로 중복 토스트 방지
+      if (!(error instanceof ApiClientError) || error.uxTag === "FIELD") {
+        showToast(
+          "error",
+          error instanceof ApiClientError
+            ? error.message
+            : "메모 수정에 실패했습니다. 변경 전 내용으로 되돌렸습니다."
+        );
+      }
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });

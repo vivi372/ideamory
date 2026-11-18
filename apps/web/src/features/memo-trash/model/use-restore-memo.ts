@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MemoResponseDto } from "@ideamory/api-spec";
 import { restoreMemoApi } from "../../../entities/memo";
-import { queryKeys } from "../../../shared/api";
+import { ApiClientError, queryKeys } from "../../../shared/api";
 import { useFeedback } from "../../../shared/lib/feedback/use-feedback";
 
 interface RestoreMemoContext {
@@ -38,14 +38,22 @@ export function useRestoreMemo() {
     onSuccess: () => {
       showToast("info", "메모를 타임라인으로 복구했습니다.");
     },
-    onError: (_error, _id, context) => {
+    onError: (error, _id, context) => {
       if (context?.previousTrash !== undefined) {
         queryClient.setQueryData(
           queryKeys.memos.trash(),
           context.previousTrash
         );
       }
-      showToast("error", "메모 복구에 실패했습니다. 다시 시도해 주세요.");
+      // 비-FIELD ApiClientError는 response.interceptor.ts에서 이미 전역 dispatchApiError로 발행되므로 중복 토스트 방지
+      if (!(error instanceof ApiClientError) || error.uxTag === "FIELD") {
+        showToast(
+          "error",
+          error instanceof ApiClientError
+            ? error.message
+            : "메모 복구에 실패했습니다. 다시 시도해 주세요."
+        );
+      }
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });

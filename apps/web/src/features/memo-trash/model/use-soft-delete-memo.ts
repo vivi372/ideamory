@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CategoryResponseDto, MemoResponseDto } from "@ideamory/api-spec";
 import { softDeleteMemoApi } from "../../../entities/memo";
-import { queryKeys } from "../../../shared/api";
+import { ApiClientError, queryKeys } from "../../../shared/api";
 import { useFeedback } from "../../../shared/lib/feedback/use-feedback";
 import { useViewStore } from "../../../shared/model/view-store";
 
@@ -80,7 +80,7 @@ export function useSoftDeleteMemo() {
 
       return { previousMemoQueries, previousCategories };
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, _variables, context) => {
       if (context?.previousMemoQueries) {
         for (const [key, data] of context.previousMemoQueries) {
           queryClient.setQueryData(key, data);
@@ -92,7 +92,15 @@ export function useSoftDeleteMemo() {
           context.previousCategories
         );
       }
-      showToast("error", "메모 삭제에 실패했습니다. 다시 시도해 주세요.");
+      // 비-FIELD ApiClientError는 response.interceptor.ts에서 이미 전역 dispatchApiError로 발행되므로 중복 토스트 방지
+      if (!(error instanceof ApiClientError) || error.uxTag === "FIELD") {
+        showToast(
+          "error",
+          error instanceof ApiClientError
+            ? error.message
+            : "메모 삭제에 실패했습니다. 다시 시도해 주세요."
+        );
+      }
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });
