@@ -1,15 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Clipboard, Plus, X } from "lucide-react";
+import { isMobileTouchDevice } from "../../../shared/lib/native-bridge";
 import { useViewStore } from "../../../shared/model/view-store";
 import { generateUuidV7 } from "../../../shared/lib/uuid-v7";
 import { useAndroidShareTarget } from "../../native-share";
-import { extractValidClipboardUrl } from "../lib/capture-parser";
+import {
+  extractValidClipboardUrl,
+  splitLeadingCategoryHighlight,
+} from "../lib/capture-parser";
 import { useCreateMemo } from "../model/use-create-memo";
 
 const MAX_MEMO_LENGTH = 5000;
 const BASE_TEXTAREA_HEIGHT = 24;
+/** 1줄 입력 시 Android WebView 폰트 메트릭(25~27px)으로 오탐 확장되는 현상을 막기 위한 2줄 판정 임계치 */
+const MULTILINE_EXPAND_THRESHOLD = 32;
 
 /**
  * 모바일 한 손 조작성(Thumb-Zone)에 최적화된 0.1초 퀵 캡처 하단 입력 바입니다.
@@ -33,7 +39,19 @@ export function CaptureInput() {
   const [clipboardUrl, setClipboardUrl] = useState<string | null>(null);
   const [dismissedUrl, setDismissedUrl] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const backdropRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setIsMobileDevice(isMobileTouchDevice());
+  }, []);
+
+  const directiveHighlight = useMemo(
+    () => splitLeadingCategoryHighlight(value),
+    [value]
+  );
+  const hasDirectiveHighlight = directiveHighlight.directive !== null;
 
   /**
    * 퍼블리싱 규격에 맞춰 입력란 높이를 스크롤 없이 내용량에 맞게 자동 조절합니다.
@@ -44,12 +62,14 @@ export function CaptureInput() {
     }
     el.style.height = "0px";
     const maxHeight = Math.max(BASE_TEXTAREA_HEIGHT, window.innerHeight * 0.35);
-    const nextHeight = nextText
+    const measuredHeight = nextText
       ? Math.max(BASE_TEXTAREA_HEIGHT, Math.min(el.scrollHeight, maxHeight))
       : BASE_TEXTAREA_HEIGHT;
+    const expanded = measuredHeight > MULTILINE_EXPAND_THRESHOLD;
+    const nextHeight = expanded ? measuredHeight : BASE_TEXTAREA_HEIGHT;
     el.style.height = `${nextHeight}px`;
     el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
-    setIsExpanded(nextHeight > BASE_TEXTAREA_HEIGHT);
+    setIsExpanded(expanded);
   }, []);
 
   // 안드로이드 외부 앱 '공유하기(Share Intent)' 유입 시 썸존 입력란에 0ms 즉시 주입 및 포커스
@@ -175,34 +195,61 @@ export function CaptureInput() {
       ) : null}
 
       <div className={`capture-box${isExpanded ? " is-expanded" : ""}`}>
-        <textarea
-          ref={textareaRef}
-          value={value}
-          rows={1}
-          placeholder="지금 떠오른 생각을 기록하세요..."
-          aria-label="빠른 메모 입력"
-          onFocus={() => {
-            void checkClipboardForUrl();
-          }}
-          onChange={(event) => {
-            const nextText = event.target.value;
-            setValue(nextText);
-            syncTextareaHeight(event.currentTarget, nextText);
-            if (fieldError) {
-              setFieldError(null);
-            }
-          }}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              !event.shiftKey &&
-              !event.nativeEvent.isComposing
-            ) {
-              event.preventDefault();
-              handleSubmit();
-            }
-          }}
-        />
+        <div className="capture-input-wrap">
+          {hasDirectiveHighlight ? (
+            <div
+              ref={backdropRef}
+              className="capture-highlight-backdrop"
+              aria-hidden="true"
+            >
+              {directiveHighlight.leadingWhitespace}
+              <span className="capture-directive-highlight">
+                {directiveHighlight.directive}
+              </span>
+              {directiveHighlight.rest}
+              {value.endsWith("\n") ? "\n " : ""}
+            </div>
+          ) : null}
+          <textarea
+            ref={textareaRef}
+            className={hasDirectiveHighlight ? "has-directive-highlight" : undefined}
+            value={value}
+            rows={1}
+            enterKeyHint={isMobileDevice ? "enter" : "send"}
+            placeholder="지금 떠오른 생각을 기록하세요..."
+            aria-label="빠른 메모 입력"
+            onFocus={() => {
+              void checkClipboardForUrl();
+            }}
+            onScroll={(event) => {
+              if (backdropRef.current) {
+                backdropRef.current.scrollTop = event.currentTarget.scrollTop;
+              }
+            }}
+            onChange={(event) => {
+              const nextText = event.target.value;
+              setValue(nextText);
+              syncTextareaHeight(event.currentTarget, nextText);
+              if (backdropRef.current) {
+                backdropRef.current.scrollTop = event.currentTarget.scrollTop;
+              }
+              if (fieldError) {
+                setFieldError(null);
+              }
+            }}
+            onKeyDown={(event) => {
+              if (
+                !isMobileDevice &&
+                event.key === "Enter" &&
+                !event.shiftKey &&
+                !event.nativeEvent.isComposing
+              ) {
+                event.preventDefault();
+                handleSubmit();
+              }
+            }}
+          />
+        </div>
         <button
           type="button"
           className="save-button shrink-0"

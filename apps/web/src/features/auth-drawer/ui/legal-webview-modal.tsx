@@ -52,11 +52,11 @@ const LEGAL_DOCUMENTS: Record<
 };
 
 /**
- * 외부 브라우저로 이탈하지 않고 인앱 오버레이로 서비스 이용약관 및 개인정보 처리방침을
- * 표출하는 `@radix-ui/react-dialog` 기반 모달 컴포넌트입니다.
+ * 외부 브라우저로 이탈하지 않고 화면 하단에서 위로 전체 화면을 채우는
+ * `@radix-ui/react-dialog` 기반 풀스크린 바텀시트 약관 컴포넌트입니다.
  *
  * @param props 문서 유형 및 닫기 핸들러
- * @returns 인앱 약관 오버레이 모달 JSX
+ * @returns 인앱 약관 풀스크린 바텀시트 JSX
  */
 export function LegalWebviewModal({
   legalModalType,
@@ -74,17 +74,15 @@ export function LegalWebviewModal({
       {doc && (
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="sheet-backdrop" />
-          <DialogPrimitive.Content
-            className="demo-modal"
-            style={{ textAlign: "left", maxHeight: "80vh", overflowY: "auto" }}
-          >
-            <div
-              className="sheet-header"
-              style={{ marginBottom: "14px", alignItems: "center" }}
-            >
-              <DialogPrimitive.Title asChild>
-                <h2>{doc.title}</h2>
-              </DialogPrimitive.Title>
+          <DialogPrimitive.Content className="legal-sheet">
+            <div className="sheet-handle" aria-hidden="true" />
+            <div className="sheet-header legal-sheet-header">
+              <div>
+                <p className="sheet-kicker">IDEAMORY POLICY</p>
+                <DialogPrimitive.Title asChild>
+                  <h2>{doc.title}</h2>
+                </DialogPrimitive.Title>
+              </div>
               <DialogPrimitive.Close asChild>
                 <button
                   type="button"
@@ -96,24 +94,22 @@ export function LegalWebviewModal({
               </DialogPrimitive.Close>
             </div>
             <DialogPrimitive.Description asChild>
-              <div style={{ display: "grid", gap: "14px" }}>
+              <div className="legal-sheet-body">
                 {doc.sections.map((section) => (
-                  <div key={section.heading}>
-                    <strong
-                      style={{
-                        display: "block",
-                        color: "#EAFBFF",
-                        fontSize: "13px",
-                        marginBottom: "5px",
-                      }}
-                    >
-                      {section.heading}
-                    </strong>
-                    <p style={{ margin: 0 }}>{section.body}</p>
-                  </div>
+                  <section key={section.heading} className="legal-sheet-section">
+                    <strong>{section.heading}</strong>
+                    <p>{section.body}</p>
+                  </section>
                 ))}
               </div>
             </DialogPrimitive.Description>
+            <div className="legal-sheet-footer">
+              <DialogPrimitive.Close asChild>
+                <button type="button" className="legal-sheet-confirm">
+                  확인
+                </button>
+              </DialogPrimitive.Close>
+            </div>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       )}

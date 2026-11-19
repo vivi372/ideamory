@@ -66,7 +66,7 @@ export function SearchBar() {
         type="search"
         enterKeyHint="search"
         value={draft}
-        placeholder="기억 속에서 찾기"
+        placeholder="아이디어 찾기"
         aria-label="메모 하이브리드 검색"
         onChange={(event) => {
           const next = event.target.value;
