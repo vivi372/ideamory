@@ -23,6 +23,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@ideamory/api-spec"],
   ...(isCapacitorExport
     ? {
+        distDir: ".next-export",
         output: "export",
         images: { unoptimized: true },
       }

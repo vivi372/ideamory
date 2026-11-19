@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ExternalLink, Globe, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, ExternalLink, Globe, Sparkles } from "lucide-react";
 import type { MemoResponseDto } from "@ideamory/api-spec";
 
 const MARKER_CLASSES = [
@@ -60,6 +61,36 @@ function extractHostname(rawUrl: string): string {
     return new URL(rawUrl).hostname.replace(/^www\./, "");
   } catch {
     return rawUrl;
+  }
+}
+
+/**
+ * OGP 대상 URL이 Ideamory 자체 온보딩 가이드(`/guide`)를 가리키는지 판별합니다.
+ * Capacitor 앱(`https://localhost`)이나 LAN IP 접속 시 `localhost:3000/guide` 외부 이탈을 막고
+ * 동일 앱 내부 라우팅으로 이동하기 위해 사용합니다.
+ */
+function isInternalGuideUrl(rawUrl: string): boolean {
+  if (rawUrl.startsWith("/guide")) {
+    return true;
+  }
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.pathname !== "/guide") {
+      return false;
+    }
+    const host = parsed.hostname.toLowerCase();
+    const currentHost =
+      typeof window !== "undefined"
+        ? window.location.hostname.toLowerCase()
+        : "";
+    return (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "ideamory.app" ||
+      (Boolean(currentHost) && host === currentHost)
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -165,35 +196,62 @@ export function MemoCard({
         )}
 
         {memo.ogp ? (
-          <a
-            href={memo.ogp.targetUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ogp-card"
-          >
-            <div className="ogp-icon" aria-hidden="true">
-              {memo.ogp.thumbnailUrl ? (
-                <img
-                  src={memo.ogp.thumbnailUrl}
-                  alt=""
-                  className="h-full w-full rounded-[8px] object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <Globe size={15} />
-              )}
-            </div>
-            <div>
-              <strong className="truncate">
-                {memo.ogp.title || extractHostname(memo.ogp.targetUrl)}
-              </strong>
-              {memo.ogp.description ? (
-                <span>{memo.ogp.description}</span>
-              ) : null}
-              <small>{extractHostname(memo.ogp.targetUrl)}</small>
-            </div>
-            <ExternalLink size={14} aria-hidden="true" />
-          </a>
+          isInternalGuideUrl(memo.ogp.targetUrl) ? (
+            <Link href="/guide" className="ogp-card">
+              <div className="ogp-icon" aria-hidden="true">
+                {memo.ogp.thumbnailUrl ? (
+                  <img
+                    src={memo.ogp.thumbnailUrl}
+                    alt=""
+                    className="h-full w-full rounded-[8px] object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <Globe size={15} />
+                )}
+              </div>
+              <div>
+                <strong className="truncate">
+                  {memo.ogp.title || "Ideamory 사용 가이드"}
+                </strong>
+                {memo.ogp.description ? (
+                  <span>{memo.ogp.description}</span>
+                ) : null}
+                <small>앱 내 사용 가이드</small>
+              </div>
+              <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          ) : (
+            <a
+              href={memo.ogp.targetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ogp-card"
+            >
+              <div className="ogp-icon" aria-hidden="true">
+                {memo.ogp.thumbnailUrl ? (
+                  <img
+                    src={memo.ogp.thumbnailUrl}
+                    alt=""
+                    className="h-full w-full rounded-[8px] object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <Globe size={15} />
+                )}
+              </div>
+              <div>
+                <strong className="truncate">
+                  {memo.ogp.title || extractHostname(memo.ogp.targetUrl)}
+                </strong>
+                {memo.ogp.description ? (
+                  <span>{memo.ogp.description}</span>
+                ) : null}
+                <small>{extractHostname(memo.ogp.targetUrl)}</small>
+              </div>
+              <ExternalLink size={14} aria-hidden="true" />
+            </a>
+          )
         ) : null}
 
         {showOgpSkeleton ? (

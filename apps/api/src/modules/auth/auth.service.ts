@@ -82,8 +82,13 @@ export class AuthService {
     ).replace(/\/+$/, "");
     const guideUrl = `${baseAppUrl}/guide`;
 
-    // 3. 온보딩 가이드 시드 메모 본문 및 100년 TTL 계산
-    const guideContent = `Ideamory 사용 가이드 (${guideUrl}) 💡 이 메모를 직접 터치해 내용을 고쳐보거나, 상단 카테고리 배지를 눌러 분류를 바꿔보세요. 우측 상단 버리기 버튼을 눌러 이 가이드 메모를 직접 지우면 나만의 깨끗한 타임라인이 완성됩니다.`;
+    // 3. 온보딩 가이드 시드 메모 본문 (가독성을 위해 문단 줄바꿈 적용) 및 100년 TTL 계산
+    const guideContent = [
+      `Ideamory 사용 가이드 (${guideUrl})`,
+      "",
+      "💡 이 메모를 직접 터치해 내용을 고쳐보거나, 상단 카테고리 배지를 눌러 분류를 바꿔보세요.",
+      "우측 상단 버리기 버튼을 눌러 이 가이드 메모를 직접 지우면 나만의 깨끗한 타임라인이 완성됩니다.",
+    ].join("\n");
     const hundredYearsLater = new Date(
       Date.now() + 100 * 365 * 24 * 60 * 60 * 1000
     );

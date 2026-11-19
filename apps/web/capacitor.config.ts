@@ -12,7 +12,7 @@ const serverUrl = process.env.CAPACITOR_SERVER_URL?.trim();
 const config: CapacitorConfig = {
   appId: "com.ideamory.app",
   appName: "Ideamory",
-  webDir: "out",
+  webDir: ".next-export",
   ...(serverUrl
     ? {
         server: {

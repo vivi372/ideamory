@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
+import { isCapacitorNative } from "@/shared/lib/native-bridge";
 import { GuideFeatureSections } from "./_components/guide-feature-sections";
 import { GuideHero } from "./_components/guide-hero";
 
@@ -12,16 +13,58 @@ import { GuideHero } from "./_components/guide-hero";
  * @returns 가이드 페이지 JSX 엘리먼트
  */
 export default function GuideExperience() {
+  const router = useRouter();
+
+  /**
+   * 기존 Ideamory 인스턴스로 자연스럽게 복귀합니다.
+   * - 외부 새 탭(`window.opener`)으로 열린 웹 가이드인 경우 탭을 닫아 원래 탭으로 돌아갑니다.
+   * - 동일 앱/탭 내부에서 이동한 경우 히스토리 뒤로가기 또는 메인 타임라인으로 복귀합니다.
+   */
+  const handleReturnToApp = (options?: { focusCapture?: boolean }) => {
+    if (
+      typeof window !== "undefined" &&
+      window.opener &&
+      !window.opener.closed &&
+      !isCapacitorNative()
+    ) {
+      window.close();
+      // 브라우저 보안 정책으로 window.close()가 차단된 경우에만 현재 탭에서 메인으로 폴백
+      window.setTimeout(() => {
+        if (!window.closed) {
+          router.replace(options?.focusCapture ? "/?focus=capture#capture" : "/");
+        }
+      }, 120);
+      return;
+    }
+
+    if (options?.focusCapture) {
+      router.replace("/?focus=capture#capture");
+      return;
+    }
+
+    router.replace("/");
+  };
+
   return (
     <main className="guide-page">
       <header className="guide-header">
-        <Link href="/" className="guide-back" aria-label="메인 타임라인으로 돌아가기">
+        <button
+          type="button"
+          className="guide-back"
+          onClick={() => handleReturnToApp()}
+          aria-label="메인 타임라인으로 돌아가기"
+        >
           <ArrowLeft size={19} />
-        </Link>
-        <Link href="/" className="guide-brand">
+        </button>
+        <button
+          type="button"
+          className="guide-brand"
+          onClick={() => handleReturnToApp()}
+          aria-label="Ideamory 메인으로 돌아가기"
+        >
           <img src="/ideamory-logo.png" alt="Ideamory 로고" />
           <span>IDEAMORY</span>
-        </Link>
+        </button>
         <span className="guide-header-label">QUICK GUIDE</span>
       </header>
 
@@ -41,9 +84,13 @@ export default function GuideExperience() {
       </div>
 
       <div className="guide-cta-wrap">
-        <Link className="guide-cta" href="/?focus=capture#capture">
-          메인으로 돌아가기 <ArrowRight size={17} />
-        </Link>
+        <button
+          type="button"
+          className="guide-cta"
+          onClick={() => handleReturnToApp({ focusCapture: true })}
+        >
+          메모 남기러 돌아가기 <ArrowRight size={17} />
+        </button>
       </div>
     </main>
   );
