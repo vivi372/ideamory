@@ -12,7 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 
-const APK_VERSION = "1.0.3";
+const APK_VERSION = "1.0.4";
 const APK_FILE_NAME = `ideamory-android-v${APK_VERSION}.apk`;
 const APK_DOWNLOAD_HREF = `/downloads/${APK_FILE_NAME}`;
 

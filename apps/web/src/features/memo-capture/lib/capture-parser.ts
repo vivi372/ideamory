@@ -1,5 +1,58 @@
 const LEADING_CATEGORY_REGEX = /^@(\S+)(?:\s+([\s\S]*))?$/;
+const LEADING_DIRECTIVE_TOKEN_REGEX = /^(\s*)(@([^\s@]{1,10}))(?=[\s]|$)/;
+const DOMAIN_LIKE_SUFFIX_REGEX = /\.[a-zA-Z]{2,}$/;
 const VALID_HTTP_URL_REGEX = /^https?:\/\/[^\s<>"{}|\\^`[\]]+$/i;
+
+export interface HighlightedCaptureParts {
+  /** 문두 공백 */
+  leadingWhitespace: string;
+  /** 강조할 `@카테고리` 원문 토큰 (이메일 등 비대상일 경우 null) */
+  directive: string | null;
+  /** `@카테고리` 이후 나머지 텍스트 */
+  rest: string;
+}
+
+/**
+ * 입력창 내 문두 `@카테고리` 지시어만 별도 색상으로 강조하기 위해 문자열을 분리합니다.
+ *
+ * - 문두(`^\\s*@카테고리`)에 위치하고 뒤에 `@`가 중복되지 않으며(예: `@user@gmail.com` 제외),
+ *   도메인 형태(예: `@gmail.com`)가 아닌 1~10자 토큰만 지시어로 인식합니다.
+ * - 문장 중간의 이메일(예: `문의 test@gmail.com`)이나 문두 이메일(`user@naver.com`)은 강조하지 않습니다.
+ *
+ * @param rawContent 입력창 원본 문자열
+ * @returns 강조 분리 결과
+ */
+export function splitLeadingCategoryHighlight(
+  rawContent: string
+): HighlightedCaptureParts {
+  const match = LEADING_DIRECTIVE_TOKEN_REGEX.exec(rawContent);
+  if (!match) {
+    return {
+      leadingWhitespace: "",
+      directive: null,
+      rest: rawContent,
+    };
+  }
+
+  const leadingWhitespace = match[1] ?? "";
+  const directive = match[2] ?? "";
+  const categoryName = match[3] ?? "";
+
+  if (!categoryName || DOMAIN_LIKE_SUFFIX_REGEX.test(categoryName)) {
+    return {
+      leadingWhitespace: "",
+      directive: null,
+      rest: rawContent,
+    };
+  }
+
+  const consumedLength = leadingWhitespace.length + directive.length;
+  return {
+    leadingWhitespace,
+    directive,
+    rest: rawContent.slice(consumedLength),
+  };
+}
 
 export interface ParsedCaptureResult {
   /** 문두 `@카테고리` 지시어가 감지된 경우 추출된 카테고리명 (미감지 시 null) */

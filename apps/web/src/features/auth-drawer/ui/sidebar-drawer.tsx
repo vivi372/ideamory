@@ -6,10 +6,15 @@ import { Archive, Trash2, X } from "lucide-react";
 import type { ViewMode } from "@/shared/model/view-store";
 import { AccountSection } from "./account-section";
 
-/** 좌측 엣지 스와이프로 드로어를 열 때 허용하는 시작 X 좌표 임계치(px) */
-const EDGE_SWIPE_START_MAX_X = 36;
+/** 스와이프로 드로어를 열 때 허용하는 화면 좌측 시작 비율 (45%) 및 최소 너비(160px) */
+const SWIPE_OPEN_ZONE_RATIO = 0.45;
+const SWIPE_OPEN_ZONE_MIN_PX = 160;
 /** 스와이프 열기/닫기 판정을 위한 최소 수평 이동 거리(px) */
-const SWIPE_TRIGGER_DISTANCE_PX = 56;
+const SWIPE_TRIGGER_DISTANCE_PX = 40;
+
+/** 드로어 오픈 스와이프에서 제외해야 하는 입력·오버레이 셀렉터 */
+const SWIPE_IGNORE_SELECTOR =
+  "input, textarea, select, [contenteditable='true'], .category-sheet, .social-sheet, .legal-sheet, .alert-dialog, .demo-modal";
 
 interface SidebarDrawerProps {
   /** 드로어 열림 여부 */
@@ -71,8 +76,9 @@ export function SidebarDrawer({
   const closeTouchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   /**
-   * 드로어가 닫혀 있을 때 화면 좌측 가장자리(36px 이내)에서 우측으로 스와이프하면
-   * 드로어를 자연스럽게 여는 터치 제스처를 바인딩합니다.
+   * 드로어가 닫혀 있을 때 화면 좌측 영역(최소 160px 또는 화면 폭 45% 이내)에서
+   * 우측으로 자연스럽게 스와이프하면 드로어를 여는 터치 제스처를 바인딩합니다.
+   * 입력란이나 다른 시트/모달 위에서 시작한 터치는 무시합니다.
    */
   useEffect(() => {
     if (open || !onOpen || typeof window === "undefined") {
@@ -83,8 +89,18 @@ export function SidebarDrawer({
 
     const handleTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(SWIPE_IGNORE_SELECTOR)) {
+        edgeStart = null;
+        return;
+      }
+
       const touch = event.touches[0];
-      if (touch.clientX <= EDGE_SWIPE_START_MAX_X) {
+      const maxStartX = Math.max(
+        SWIPE_OPEN_ZONE_MIN_PX,
+        Math.round(window.innerWidth * SWIPE_OPEN_ZONE_RATIO)
+      );
+      if (touch.clientX <= maxStartX) {
         edgeStart = { x: touch.clientX, y: touch.clientY };
       } else {
         edgeStart = null;
@@ -97,13 +113,13 @@ export function SidebarDrawer({
       const deltaX = touch.clientX - edgeStart.x;
       const deltaY = Math.abs(touch.clientY - edgeStart.y);
 
-      // 수직 스크롤 의도가 더 크면 엣지 스와이프 추적을 취소합니다.
+      // 수직 스크롤 의도가 더 크면 스와이프 추적을 취소합니다.
       if (deltaY > Math.abs(deltaX) && deltaY > 18) {
         edgeStart = null;
         return;
       }
 
-      if (deltaX >= SWIPE_TRIGGER_DISTANCE_PX && deltaX > deltaY * 1.4) {
+      if (deltaX >= SWIPE_TRIGGER_DISTANCE_PX && deltaX > deltaY * 1.35) {
         edgeStart = null;
         onOpen();
       }
