@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "../../../shared/api";
-import { useViewStore } from "../../../shared/model/view-store";
+import { queryKeys } from "@/shared/api";
+import { useViewStore } from "@/shared/model/view-store";
 import { fetchRelatedMemosApi } from "../api/related.api";
 
 export interface UseRelatedMemosOptions {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
-import { useAuthStore } from "@/features/auth-drawer/model/auth-store";
+import { useAuthStore } from "@/features/auth-drawer";
 import { useFeedbackStore } from "@/shared/lib/feedback/use-feedback";
 import {
   exitAndroidApp,

@@ -4,7 +4,7 @@ import type {
   MemoResponseDto,
   UpdateMemoDto,
 } from "@ideamory/api-spec";
-import { apiClient } from "../../../shared/api";
+import { apiClient } from "@/shared/api";
 
 /**
  * 메모 타임라인 또는 30일 휴지통 목록을 조회합니다.

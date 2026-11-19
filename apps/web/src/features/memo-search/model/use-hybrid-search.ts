@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "../../../shared/api";
-import { useViewStore } from "../../../shared/model/view-store";
+import { queryKeys } from "@/shared/api";
+import { useViewStore } from "@/shared/model/view-store";
 import { searchMemosApi } from "../api/search.api";
 
 export interface UseHybridSearchOptions {

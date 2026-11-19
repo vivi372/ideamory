@@ -7,19 +7,18 @@ import { ERROR_CODES, type OgpResponseDto } from "@ideamory/api-spec";
 import { type OgpCache } from "@ideamory/db";
 import { BusinessException } from "../../common/exceptions/business.exception";
 import { LogTrace } from "../../common/decorators/log-trace.decorator";
+import {
+  extractFirstUrlFromText,
+  isPrivateOrReservedIpAddress,
+  MAX_OGP_HTML_BYTES,
+  MAX_OGP_REDIRECTS,
+  OGP_SCRAPE_TIMEOUT_SECONDS,
+  OGP_TTL_MS,
+  resolveOgpThumbnailUrl,
+  serializeOgpCacheToDto,
+  validateSafeExternalUrlFormat,
+} from "./ogp.helper";
 import { OgpRepository } from "./ogp.repository";
-
-/** OGP 캐시 기본 TTL (14일, 밀리초 단위) */
-const OGP_TTL_MS = 14 * 24 * 60 * 60 * 1000;
-
-/** OGP 크롤러 HTTP 요청 타임아웃 (초 단위) */
-const OGP_SCRAPE_TIMEOUT_SECONDS = 5;
-
-/** OGP 크롤링 시 허용하는 최대 HTTP 리다이렉트 횟수 */
-const MAX_OGP_REDIRECTS = 3;
-
-/** OGP HTML 응답 본문 최대 허용 크기 (2MB) */
-const MAX_OGP_HTML_BYTES = 2 * 1024 * 1024;
 
 /**
  * URL 메타데이터(Open Graph) 크롤링 및 14일 TTL 캐싱 서비스
@@ -42,12 +41,7 @@ export class OgpService {
    * @returns 추출된 첫 번째 URL 문자열 또는 미포함 시 null
    */
   public extractFirstUrl(text: string): string | null {
-    const match = text.match(/https?:\/\/[^\s<>"')]+/i);
-    if (!match) {
-      return null;
-    }
-    // 문장 끝 구두점(.,!?)이 URL 끝에 붙은 경우 정리
-    return match[0].replace(/[.,!?;:]+$/, "");
+    return extractFirstUrlFromText(text);
   }
 
   /**
@@ -58,104 +52,25 @@ export class OgpService {
    * @throws BusinessException 허용되지 않는 프로토콜 또는 내부망 주소인 경우 400 발생
    */
   public validateSafeExternalUrl(rawUrl: string): URL {
-    let parsed: URL;
-    try {
-      parsed = new URL(rawUrl);
-    } catch {
-      throw new BusinessException(
-        "올바른 URL 형식이 아닙니다.",
-        ERROR_CODES.COMMON_FIELD_FORMAT,
-        HttpStatus.BAD_REQUEST
-      );
-    }
-
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      throw new BusinessException(
-        "http 또는 https 프로토콜만 지원합니다.",
-        ERROR_CODES.COMMON_FIELD_FORMAT,
-        HttpStatus.BAD_REQUEST
-      );
-    }
-
-    const rawHostname = parsed.hostname.toLowerCase();
-    const hostname =
-      rawHostname.startsWith("[") && rawHostname.endsWith("]")
-        ? rawHostname.slice(1, -1)
-        : rawHostname;
-
-    const isBlockedHostname =
-      hostname === "localhost" ||
-      hostname.endsWith(".localhost") ||
-      hostname.endsWith(".local") ||
-      hostname.endsWith(".internal") ||
-      (isIP(hostname) !== 0 && this.isPrivateOrReservedIp(hostname));
-
-    if (isBlockedHostname) {
-      throw new BusinessException(
-        "내부 네트워크 또는 허용되지 않은 호스트로의 접근은 차단됩니다.",
-        ERROR_CODES.OGP_ERROR_PARSE_FAILED,
-        HttpStatus.BAD_REQUEST
-      );
-    }
-
-    return parsed;
+    return validateSafeExternalUrlFormat(rawUrl);
   }
 
   /**
    * IPv4/IPv6 주소가 사설망, 루프백, 링크로컬(클라우드 메타데이터), 예약 대역인지 판별합니다.
    * IPv4-mapped IPv6(::ffff:127.0.0.1 등) 우회 주소도 함께 차단합니다.
+   *
+   * @param rawIp 검사할 IP 주소 문자열
+   * @returns 내부망 또는 예약 대역 여부
    */
   public isPrivateOrReservedIp(rawIp: string): boolean {
-    const ip = rawIp.toLowerCase().trim();
-
-    if (ip.startsWith("::ffff:")) {
-      const mappedIpv4 = ip.slice("::ffff:".length);
-      if (isIP(mappedIpv4) === 4) {
-        return this.isPrivateOrReservedIpv4(mappedIpv4);
-      }
-    }
-
-    if (isIP(ip) === 4) {
-      return this.isPrivateOrReservedIpv4(ip);
-    }
-
-    if (isIP(ip) === 6) {
-      return (
-        ip === "::" ||
-        ip === "::1" ||
-        ip.startsWith("fc") ||
-        ip.startsWith("fd") ||
-        /^fe[89ab]/.test(ip) ||
-        ip.startsWith("ff")
-      );
-    }
-
-    return true;
-  }
-
-  private isPrivateOrReservedIpv4(ipv4: string): boolean {
-    const octets = ipv4.split(".").map(Number);
-    if (octets.length !== 4 || octets.some((o) => Number.isNaN(o))) {
-      return true;
-    }
-    const [a, b] = octets;
-
-    return (
-      a === 0 || // 0.0.0.0/8
-      a === 10 || // 10.0.0.0/8
-      (a === 100 && b >= 64 && b <= 127) || // 100.64.0.0/10 (CGNAT)
-      a === 127 || // 127.0.0.0/8 (Loopback)
-      (a === 169 && b === 254) || // 169.254.0.0/16 (Link-local / Cloud metadata)
-      (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12
-      (a === 192 && b === 0 && octets[2] === 0) || // 192.0.0.0/24
-      (a === 192 && b === 168) || // 192.168.0.0/16
-      (a === 198 && (b === 18 || b === 19)) || // 198.18.0.0/15
-      a >= 224 // Multicast / Reserved
-    );
+    return isPrivateOrReservedIpAddress(rawIp);
   }
 
   /**
    * 호스트명의 실제 DNS A/AAAA 레코드를 조회합니다 (테스트 대역 주입 가능).
+   *
+   * @param hostname DNS 조회 대상 호스트명
+   * @returns 해석된 IP 주소 배열
    */
   protected async lookupHostIps(hostname: string): Promise<string[]> {
     const records = await lookup(hostname, { all: true });
@@ -167,6 +82,7 @@ export class OgpService {
    *
    * @param rawUrl 검증할 외부 URL 문자열
    * @returns 검증 완료된 URL 객체
+   * @throws BusinessException DNS 해석 실패 또는 내부망 IP로 해석될 경우 400 Bad Request 발생
    */
   public async validateSafeExternalUrlWithDns(rawUrl: string): Promise<URL> {
     const parsed = this.validateSafeExternalUrl(rawUrl);
@@ -205,6 +121,10 @@ export class OgpService {
 
   /**
    * HTTP 요청을 수행합니다 (단위 테스트에서 리다이렉트 응답 모킹 가능).
+   *
+   * @param url 요청 대상 URL
+   * @param signal 타임아웃 AbortSignal
+   * @returns Fetch Response 객체
    */
   protected async performHttpGet(
     url: string,
@@ -223,6 +143,11 @@ export class OgpService {
 
   /**
    * 응답 본문을 최대 허용 바이트 상한(maxBytes) 내에서 스트림으로 안전하게 읽습니다.
+   *
+   * @param response HTTP 응답 객체
+   * @param maxBytes 허용 최대 바이트 수 (기본값: 2MB)
+   * @returns UTF-8 디코딩된 HTML 문자열
+   * @throws BusinessException 본문 크기가 상한을 초과한 경우 502 Bad Gateway 발생
    */
   protected async readResponseTextWithLimit(
     response: Response,
@@ -285,29 +210,23 @@ export class OgpService {
 
   /**
    * 상대 경로 또는 프로토콜 생략(`//`) 썸네일 URL을 최종 페이지 URL 기준 절대 http(s) URL로 변환합니다.
+   *
+   * @param rawThumbnail 추출된 원본 썸네일 URL
+   * @param baseUrl 최종 페이지 URL
+   * @returns 절대 http(s) URL 또는 null
    */
   public resolveThumbnailUrl(
     rawThumbnail: string | null,
     baseUrl: string
   ): string | null {
-    const trimmed = rawThumbnail?.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    try {
-      const resolved = new URL(trimmed, baseUrl);
-      if (resolved.protocol !== "http:" && resolved.protocol !== "https:") {
-        return null;
-      }
-      return resolved.toString();
-    } catch {
-      return null;
-    }
+    return resolveOgpThumbnailUrl(rawThumbnail, baseUrl);
   }
 
   /**
    * 리다이렉트(3xx) 매 홉마다 SSRF 검증을 수행하며 안전하게 HTML 본문과 최종 URL을 가져옵니다.
+   *
+   * @param targetUrl 최초 요청 URL
+   * @returns HTML 문자열과 리다이렉트가 반영된 최종 URL
    */
   protected async fetchSafeHtml(
     targetUrl: string
@@ -423,17 +342,12 @@ export class OgpService {
 
   /**
    * DB OgpCache 엔티티를 API 응답 규격(OgpResponseDto)으로 직렬화합니다.
+   *
+   * @param record OgpCache 엔티티
+   * @returns OgpResponseDto
    */
   public toOgpResponseDto(record: OgpCache): OgpResponseDto {
-    return {
-      id: record.id,
-      targetUrl: record.targetUrl,
-      title: record.title,
-      thumbnailUrl: record.thumbnailUrl,
-      description: record.description,
-      expiresAt: record.expiresAt.toISOString(),
-      fetchedAt: record.fetchedAt.toISOString(),
-    };
+    return serializeOgpCacheToDto(record);
   }
 
   /**
@@ -486,4 +400,3 @@ export class OgpService {
     return deleted.length;
   }
 }
-

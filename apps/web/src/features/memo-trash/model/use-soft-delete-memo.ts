@@ -2,10 +2,10 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CategoryResponseDto, MemoResponseDto } from "@ideamory/api-spec";
-import { softDeleteMemoApi } from "../../../entities/memo";
-import { ApiClientError, queryKeys } from "../../../shared/api";
-import { useFeedback } from "../../../shared/lib/feedback/use-feedback";
-import { useViewStore } from "../../../shared/model/view-store";
+import { softDeleteMemoApi } from "@/entities/memo";
+import { ApiClientError, queryKeys } from "@/shared/api";
+import { useFeedback } from "@/shared/lib/feedback/use-feedback";
+import { useViewStore } from "@/shared/model/view-store";
 
 interface SoftDeleteVariables {
   id: string;

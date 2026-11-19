@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuthStore } from "@/features/auth-drawer/model/auth-store";
+import { useAuthStore } from "@/features/auth-drawer";
 import { dismissAndroidNativeSplash } from "@/shared/lib/native-bridge";
 
 const SPLASH_FALLBACK_DELAY_MS = 300;
