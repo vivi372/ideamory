@@ -1,9 +1,15 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { CategoryResponseDto } from "@ideamory/api-spec";
 import { Archive, Trash2, X } from "lucide-react";
 import type { ViewMode } from "@/shared/model/view-store";
 import { AccountSection } from "./account-section";
+
+/** 좌측 엣지 스와이프로 드로어를 열 때 허용하는 시작 X 좌표 임계치(px) */
+const EDGE_SWIPE_START_MAX_X = 36;
+/** 스와이프 열기/닫기 판정을 위한 최소 수평 이동 거리(px) */
+const SWIPE_TRIGGER_DISTANCE_PX = 56;
 
 interface SidebarDrawerProps {
   /** 드로어 열림 여부 */
@@ -24,6 +30,8 @@ interface SidebarDrawerProps {
   isGuest: boolean;
   /** 초기화/탈퇴 진행 중 여부 */
   isMutating: boolean;
+  /** 좌측 엣지 스와이프로 드로어를 여는 콜백 */
+  onOpen?: () => void;
   onClose: () => void;
   onSelectAllMemos: () => void;
   onSelectCategory: (categoryId: string) => void;
@@ -50,6 +58,7 @@ export function SidebarDrawer({
   accountStatusLabel,
   isGuest,
   isMutating,
+  onOpen,
   onClose,
   onSelectAllMemos,
   onSelectCategory,
@@ -57,13 +66,134 @@ export function SidebarDrawer({
   onOpenSocialSheet,
   onResetGuestData,
 }: SidebarDrawerProps) {
+  const [dragOffsetX, setDragOffsetX] = useState(0);
+  const [isDraggingClose, setIsDraggingClose] = useState(false);
+  const closeTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  /**
+   * 드로어가 닫혀 있을 때 화면 좌측 가장자리(36px 이내)에서 우측으로 스와이프하면
+   * 드로어를 자연스럽게 여는 터치 제스처를 바인딩합니다.
+   */
+  useEffect(() => {
+    if (open || !onOpen || typeof window === "undefined") {
+      return;
+    }
+
+    let edgeStart: { x: number; y: number } | null = null;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      if (touch.clientX <= EDGE_SWIPE_START_MAX_X) {
+        edgeStart = { x: touch.clientX, y: touch.clientY };
+      } else {
+        edgeStart = null;
+      }
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!edgeStart || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - edgeStart.x;
+      const deltaY = Math.abs(touch.clientY - edgeStart.y);
+
+      // 수직 스크롤 의도가 더 크면 엣지 스와이프 추적을 취소합니다.
+      if (deltaY > Math.abs(deltaX) && deltaY > 18) {
+        edgeStart = null;
+        return;
+      }
+
+      if (deltaX >= SWIPE_TRIGGER_DISTANCE_PX && deltaX > deltaY * 1.4) {
+        edgeStart = null;
+        onOpen();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      edgeStart = null;
+    };
+
+    window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("touchend", handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [onOpen, open]);
+
+  const handleDrawerTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    if (!open || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    closeTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    setIsDraggingClose(false);
+  };
+
+  const handleDrawerTouchMove = (event: React.TouchEvent<HTMLElement>) => {
+    if (!open || !closeTouchStartRef.current || event.touches.length !== 1) {
+      return;
+    }
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - closeTouchStartRef.current.x;
+    const deltaY = Math.abs(touch.clientY - closeTouchStartRef.current.y);
+
+    if (!isDraggingClose) {
+      if (deltaY > Math.abs(deltaX) && deltaY > 14) {
+        closeTouchStartRef.current = null;
+        return;
+      }
+      if (deltaX < -10) {
+        setIsDraggingClose(true);
+      }
+    }
+
+    if (deltaX < 0) {
+      setDragOffsetX(deltaX);
+    }
+  };
+
+  const handleDrawerTouchEnd = () => {
+    if (isDraggingClose && dragOffsetX <= -SWIPE_TRIGGER_DISTANCE_PX) {
+      setDragOffsetX(0);
+      setIsDraggingClose(false);
+      closeTouchStartRef.current = null;
+      onClose();
+      return;
+    }
+
+    setDragOffsetX(0);
+    setIsDraggingClose(false);
+    closeTouchStartRef.current = null;
+  };
+
   return (
     <>
-      {open && <div className="drawer-backdrop" onClick={onClose} />}
+      {open && (
+        <div
+          className="drawer-backdrop"
+          onClick={onClose}
+          onTouchStart={handleDrawerTouchStart}
+          onTouchMove={handleDrawerTouchMove}
+          onTouchEnd={handleDrawerTouchEnd}
+        />
+      )}
       <aside
         className={`drawer ${open ? "open" : ""}`}
         aria-label="사이드바 내비게이션"
         aria-hidden={!open}
+        onTouchStart={handleDrawerTouchStart}
+        onTouchMove={handleDrawerTouchMove}
+        onTouchEnd={handleDrawerTouchEnd}
+        style={
+          open && isDraggingClose
+            ? {
+                transform: `translateX(${Math.min(0, dragOffsetX)}px)`,
+                transition: "none",
+              }
+            : undefined
+        }
       >
         <div className="drawer-header">
           <div className="drawer-brand">

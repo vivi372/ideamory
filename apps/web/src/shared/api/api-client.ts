@@ -14,9 +14,23 @@ import {
  * @returns `/api/v1`이 보장된 REST API Base URL
  */
 export function resolveApiBaseUrl(): string {
-  const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-  const normalizedHost = rawBaseUrl.replace(/\/+$/, "").replace(/\/api\/v1$/, "");
-  return `${normalizedHost}/api/v1`;
+  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configuredUrl) {
+    const normalizedHost = configuredUrl
+      .replace(/\/+$/, "")
+      .replace(/\/api\/v1$/, "");
+    return `${normalizedHost}/api/v1`;
+  }
+
+  // 실기기 테스트 시 브라우저가 PC의 LAN IP(예: 192.168.x.x:3000)로 접속한 경우 동일 호스트의 :3001 API를 자동 타겟팅
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname && hostname !== "localhost" && hostname !== "127.0.0.1") {
+      return `http://${hostname}:3001/api/v1`;
+    }
+  }
+
+  return "http://localhost:3001/api/v1";
 }
 
 /**
