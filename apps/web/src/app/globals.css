@@ -17,6 +17,8 @@ button { cursor: pointer; }
 .brand-lockup img { width: 42px; height: 42px; object-fit: contain; object-position: center; border-radius: 0; }
 .header-search { margin-left: auto; width: min(420px, 43vw); height: 42px; display: flex; align-items: center; gap: 10px; padding: 0 7px 0 14px; border: 1px solid #dce7ee; border-radius: 13px; background: #fff; color: #8ca0b2; box-shadow: 0 5px 18px rgba(16, 51, 74, .04); }
 .header-search input { min-width: 0; flex: 1; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 13px; }
+.header-search input[type="search"]::-webkit-search-cancel-button,
+.header-search input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
 .header-search input::placeholder { color: #9aabba; }
 .header-search button { border: 0; background: transparent; color: #91a3b3; display: grid; place-items: center; padding: 5px; }
 .header-search .search-submit { background: var(--navy); color: #fff; border-radius: 8px; width: 30px; height: 30px; }
