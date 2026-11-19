@@ -57,6 +57,27 @@ export function isCapacitorNative(): boolean {
 }
 
 /**
+ * 현재 기기가 터치 기반 모바일 환경(Capacitor 앱 또는 coarse 포인터/모바일 UA)인지 판별합니다.
+ * PC에서는 Enter=저장 / Shift+Enter=줄바꿈, 모바일에서는 Enter=줄바꿈 / 버튼=저장으로 분리할 때 사용합니다.
+ */
+export function isMobileTouchDevice(): boolean {
+  if (!isBrowserClient()) {
+    return false;
+  }
+  if (isCapacitorNative()) {
+    return true;
+  }
+  const hasCoarsePointer =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: coarse)").matches;
+  const isMobileUa =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      window.navigator.userAgent
+    );
+  return hasCoarsePointer || isMobileUa;
+}
+
+/**
  * URL 쿼리스트링(`?share_text=...&share_url=...&share_title=...`)에서
  * 안드로이드 Share Intent 페이로드를 파싱합니다.
  *

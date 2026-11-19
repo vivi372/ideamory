@@ -5,6 +5,7 @@ export {
   formatShareDraftText,
   isBrowserClient,
   isCapacitorNative,
+  isMobileTouchDevice,
   parseShareTargetFromQuery,
   tryShowNativeExitToast,
   type AndroidNativeBridge,

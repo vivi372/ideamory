@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   extractValidClipboardUrl,
   parseCaptureContent,
+  splitLeadingCategoryHighlight,
 } from "../lib/capture-parser";
 
 describe("0.1초 퀵 캡처 파서 (capture-parser)", () => {
@@ -48,6 +49,47 @@ describe("0.1초 퀵 캡처 파서 (capture-parser)", () => {
       assert.equal(extractValidClipboardUrl("그냥 복사한 메모"), null);
       assert.equal(extractValidClipboardUrl("javascript:alert(1)"), null);
       assert.equal(extractValidClipboardUrl("ftp://example.com/file"), null);
+    });
+  });
+
+  describe("splitLeadingCategoryHighlight", () => {
+    it("문두 @카테고리 입력 시 지시어 토큰만 정확히 분리해 강조 대상으로 반환해야 한다", () => {
+      assert.deepEqual(splitLeadingCategoryHighlight("@아이디어"), {
+        leadingWhitespace: "",
+        directive: "@아이디어",
+        rest: "",
+      });
+      assert.deepEqual(splitLeadingCategoryHighlight("  @개발 다음 주 회의"), {
+        leadingWhitespace: "  ",
+        directive: "@개발",
+        rest: " 다음 주 회의",
+      });
+    });
+
+    it("문두 이메일, 본문 중간 이메일, 도메인 형태(@gmail.com)는 강조하지 않아야 한다", () => {
+      assert.deepEqual(splitLeadingCategoryHighlight("user@gmail.com 문의"), {
+        leadingWhitespace: "",
+        directive: null,
+        rest: "user@gmail.com 문의",
+      });
+      assert.deepEqual(
+        splitLeadingCategoryHighlight("연락처는 dev@ideamory.app 입니다"),
+        {
+          leadingWhitespace: "",
+          directive: null,
+          rest: "연락처는 dev@ideamory.app 입니다",
+        }
+      );
+      assert.deepEqual(splitLeadingCategoryHighlight("@gmail.com 주소"), {
+        leadingWhitespace: "",
+        directive: null,
+        rest: "@gmail.com 주소",
+      });
+      assert.deepEqual(splitLeadingCategoryHighlight("@user@gmail.com"), {
+        leadingWhitespace: "",
+        directive: null,
+        rest: "@user@gmail.com",
+      });
     });
   });
 });
