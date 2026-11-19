@@ -223,6 +223,7 @@ export class MemoRepository {
       conditions.push(eq(memos.categoryId, options.categoryId));
     }
 
+    // 활성 타임라인 조회 시에만 768차원 임베딩 코사인 유사도(>= 0.8) 기준 연관 메모 개수를 계산해 0건 칩 숨김에 활용
     const relatedCountExpr = options.deleted
       ? sql<number>`0`
       : sql<number>`(

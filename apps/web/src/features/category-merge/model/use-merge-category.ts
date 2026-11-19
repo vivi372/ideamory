@@ -68,6 +68,7 @@ export function useMergeCategory() {
       await queryClient.cancelQueries({ queryKey: queryKeys.memos.all });
       await queryClient.cancelQueries({ queryKey: queryKeys.categories.all });
 
+      // 실패 시 롤백할 메모·카테고리·병합제안 스냅샷 저장
       const previousMemoQueries = queryClient.getQueriesData<MemoResponseDto[]>({
         queryKey: queryKeys.memos.all,
       });
@@ -78,6 +79,7 @@ export function useMergeCategory() {
         MergeSuggestionResponseDto[]
       >(queryKeys.categories.mergeSuggestions());
 
+      // 1단계: 삭제될 sourceCategory와 연결된 병합 제안을 즉시 제거해 배너와 오렌지 닷을 0ms 소멸
       queryClient.setQueryData<MergeSuggestionResponseDto[]>(
         queryKeys.categories.mergeSuggestions(),
         (old) =>
@@ -89,6 +91,7 @@ export function useMergeCategory() {
           )
       );
 
+      // 2단계: 타임라인에 표시된 원본 카테고리 메모들의 배지를 대상 카테고리로 일괄 전환
       queryClient.setQueriesData<MemoResponseDto[]>(
         { queryKey: queryKeys.memos.all },
         (old) =>
@@ -103,6 +106,7 @@ export function useMergeCategory() {
           )
       );
 
+      // 3단계: 사이드바 목록에서 원본 카테고리를 제거하고 대상 카테고리의 메모 카운트를 합산
       queryClient.setQueryData<CategoryResponseDto[]>(
         queryKeys.categories.list(),
         (old) => {
@@ -121,6 +125,7 @@ export function useMergeCategory() {
         }
       );
 
+      // 삭제되는 원본 카테고리 뷰에 머물러 있었다면 통합된 대상 카테고리 뷰로 자연스럽게 이동
       if (selectedCategoryId === sourceCategoryId) {
         setSelectedCategory(targetCategoryId);
       }

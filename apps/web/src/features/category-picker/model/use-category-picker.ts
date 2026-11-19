@@ -56,6 +56,7 @@ export function useCategoryPicker() {
   const [searchTerm, setSearchTerm] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  // 바텀시트가 열릴 때 캐시된 활성 카테고리 목록을 0ms로 구독 (staleTime: Infinity로 불필요한 재조회 방지)
   const { data: cachedCategories } = useQuery({
     queryKey: queryKeys.categories.list(),
     queryFn: fetchCategoriesListApi,
@@ -67,6 +68,7 @@ export function useCategoryPicker() {
     [cachedCategories]
   );
 
+  // 네트워크 호출 없이 클라이언트 메모리에서 match-sorter로 초성/부분 일치 즉시 필터링
   const filteredCategories = useMemo(() => {
     const trimmed = searchTerm.trim();
     if (!trimmed) {
@@ -75,6 +77,7 @@ export function useCategoryPicker() {
     return matchSorter(categories, trimmed, { keys: ["name"] });
   }, [categories, searchTerm]);
 
+  // 공백·대소문자 차이('예외 사항' vs '예외사항')로 인한 중복 카테고리 생성을 막기 위한 정규화 비교
   const normalizedInput = searchTerm.replace(/\s+/g, "").toLowerCase();
   const hasExactNormalizedMatch = useMemo(
     () =>
@@ -92,6 +95,7 @@ export function useCategoryPicker() {
     AssignCategoryContext
   >({
     mutationFn: async ({ memoId, targetCategory, isNew }) => {
+      // 신규 카테고리인 경우 먼저 서버에 생성한 뒤 반환된 실제 ID로 메모 카테고리를 연결
       if (isNew) {
         const created = await createCategoryApi({
           id: targetCategory.id,
@@ -102,9 +106,11 @@ export function useCategoryPicker() {
       return updateMemoApi(memoId, { categoryId: targetCategory.id });
     },
     onMutate: async ({ memoId, targetCategory }) => {
+      // 진행 중인 조회 요청이 낙관적 캐시를 덮어쓰지 않도록 선제 취소
       await queryClient.cancelQueries({ queryKey: queryKeys.memos.all });
       await queryClient.cancelQueries({ queryKey: queryKeys.categories.list() });
 
+      // 실패 시 원복할 이전 메모·카테고리 캐시 스냅샷 저장
       const previousMemoQueries = queryClient.getQueriesData<MemoResponseDto[]>({
         queryKey: queryKeys.memos.all,
       });
@@ -112,6 +118,7 @@ export function useCategoryPicker() {
         CategoryResponseDto[]
       >(queryKeys.categories.list());
 
+      // 1단계: 모든 타임라인 캐시에서 해당 메모의 카테고리 배지를 즉시 교체하고 기존 카테고리 ID를 확보
       let sourceCategoryId: string | null = null;
       queryClient.setQueriesData<MemoResponseDto[]>(
         { queryKey: queryKeys.memos.all },
@@ -129,6 +136,7 @@ export function useCategoryPicker() {
           })
       );
 
+      // 2단계: 사이드바 카테고리 목록의 메모 개수를 증감하고, 활성 메모가 0건이 된 기존 카테고리는 0ms 자동 숨김
       queryClient.setQueryData<CategoryResponseDto[]>(
         queryKeys.categories.list(),
         (old) => {
@@ -161,6 +169,7 @@ export function useCategoryPicker() {
       return { previousMemoQueries, previousCategories };
     },
     onError: (error, _variables, context) => {
+      // 서버 요청 실패 시 백업해 둔 스냅샷으로 메모 및 카테고리 캐시를 즉시 롤백
       if (context?.previousMemoQueries) {
         for (const [key, data] of context.previousMemoQueries) {
           queryClient.setQueryData(key, data);
@@ -172,6 +181,7 @@ export function useCategoryPicker() {
           context.previousCategories
         );
       }
+      // 비-FIELD ApiClientError는 response.interceptor.ts에서 전역 알림이 이미 발행되므로 중복 토스트 방지
       if (!(error instanceof ApiClientError) || error.uxTag === "FIELD") {
         showToast(
           "error",
@@ -182,6 +192,7 @@ export function useCategoryPicker() {
       }
     },
     onSettled: () => {
+      // 카테고리 이동으로 새 유사 카테고리 병합 제안이 생성될 수 있으므로 mergeSuggestions도 함께 동기화
       void queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.categories.list(),

@@ -31,6 +31,7 @@ export function MergeSuggestionBanner() {
     return null;
   }
 
+  // source/target 양방향으로 매칭해 사이드바에서 두 카테고리 중 어느 쪽으로 진입해도 제안을 노출
   const matched = suggestions.find(
     (item) =>
       item.sourceCategoryId === selectedCategoryId ||

@@ -29,6 +29,7 @@ export function SearchBar() {
     setDraft(searchQuery);
   }, [searchQuery]);
 
+  // Cmd+K / Ctrl+K 단축키 입력 시 어느 스크롤 위치에서든 상단 검색 인풋으로 즉시 포커스 이동
   useEffect(() => {
     const handleGlobalShortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -81,6 +82,7 @@ export function SearchBar() {
             inputRef.current?.blur();
             return;
           }
+          // 한글 IME 조합 중 Enter 입력 시 미완성 글자로 중복 검색되는 현상을 방어
           if (event.key === "Enter" && !event.nativeEvent.isComposing) {
             event.preventDefault();
             executeSearch();
