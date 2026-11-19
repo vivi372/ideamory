@@ -14,6 +14,8 @@ import { useCreateMemo } from "../model/use-create-memo";
 
 const MAX_MEMO_LENGTH = 5000;
 const BASE_TEXTAREA_HEIGHT = 24;
+/** 1줄 입력 시 Android WebView 폰트 메트릭(25~27px)으로 오탐 확장되는 현상을 막기 위한 2줄 판정 임계치 */
+const MULTILINE_EXPAND_THRESHOLD = 32;
 
 /**
  * 모바일 한 손 조작성(Thumb-Zone)에 최적화된 0.1초 퀵 캡처 하단 입력 바입니다.
@@ -60,12 +62,14 @@ export function CaptureInput() {
     }
     el.style.height = "0px";
     const maxHeight = Math.max(BASE_TEXTAREA_HEIGHT, window.innerHeight * 0.35);
-    const nextHeight = nextText
+    const measuredHeight = nextText
       ? Math.max(BASE_TEXTAREA_HEIGHT, Math.min(el.scrollHeight, maxHeight))
       : BASE_TEXTAREA_HEIGHT;
+    const expanded = measuredHeight > MULTILINE_EXPAND_THRESHOLD;
+    const nextHeight = expanded ? measuredHeight : BASE_TEXTAREA_HEIGHT;
     el.style.height = `${nextHeight}px`;
     el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
-    setIsExpanded(nextHeight > BASE_TEXTAREA_HEIGHT);
+    setIsExpanded(expanded);
   }, []);
 
   // 안드로이드 외부 앱 '공유하기(Share Intent)' 유입 시 썸존 입력란에 0ms 즉시 주입 및 포커스
