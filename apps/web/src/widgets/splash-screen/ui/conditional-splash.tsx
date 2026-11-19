@@ -58,7 +58,7 @@ export function ConditionalSplash() {
         justifyContent: "center",
         gap: 18,
         background:
-          "radial-gradient(circle at 50% 38%, rgba(39, 215, 242, 0.14), transparent 52%), #020B18",
+          "radial-gradient(circle at 50% 38%, rgba(229, 169, 92, 0.12), transparent 52%), #121110",
       }}
     >
       <img
@@ -69,15 +69,15 @@ export function ConditionalSplash() {
           height: 88,
           borderRadius: 22,
           objectFit: "cover",
-          border: "1px solid rgba(39, 215, 242, 0.3)",
-          boxShadow: "0 16px 40px rgba(0, 0, 0, 0.45)",
+          border: "1px solid rgba(229, 169, 92, 0.28)",
+          boxShadow: "0 16px 40px rgba(0, 0, 0, 0.48)",
         }}
       />
       <div style={{ textAlign: "center" }}>
         <p
           style={{
             margin: 0,
-            color: "#EAFBFF",
+            color: "#F4EFEA",
             fontSize: 13,
             fontWeight: 700,
             letterSpacing: "0.22em",
@@ -88,7 +88,7 @@ export function ConditionalSplash() {
         <p
           style={{
             margin: "8px 0 0",
-            color: "#8BA8BA",
+            color: "#A69D93",
             fontSize: 12,
           }}
         >
