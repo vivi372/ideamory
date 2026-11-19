@@ -3,24 +3,24 @@
 import { useMemo, useState } from "react";
 import { Archive, Search, Sparkles, Trash2 } from "lucide-react";
 import type { MemoResponseDto } from "@ideamory/api-spec";
-import { MemoCard } from "../../../entities/memo";
-import { MergeSuggestionBanner } from "../../../features/category-merge";
-import { InlineEditor, useUpdateMemo } from "../../../features/memo-edit";
+import { MemoCard } from "@/entities/memo";
+import { MergeSuggestionBanner } from "@/features/category-merge";
+import { InlineEditor, useUpdateMemo } from "@/features/memo-edit";
 import {
   SearchResultBanner,
   useHybridSearch,
-} from "../../../features/memo-search";
+} from "@/features/memo-search";
 import {
   TrashButton,
   useRestoreMemo,
   useSoftDeleteMemo,
-} from "../../../features/memo-trash";
+} from "@/features/memo-trash";
 import {
   RelatedFilterBanner,
   RelatedMemosChip,
   useRelatedMemos,
-} from "../../../features/related-memos";
-import { useViewStore } from "../../../shared/model/view-store";
+} from "@/features/related-memos";
+import { useViewStore } from "@/shared/model/view-store";
 import { useTimelineMemos } from "../model/use-timeline-memos";
 
 export interface MemoTimelineProps {

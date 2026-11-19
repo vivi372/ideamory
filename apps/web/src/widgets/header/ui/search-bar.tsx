@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
-import { useViewStore } from "../../../shared/model/view-store";
+import { useViewStore } from "@/shared/model/view-store";
 
 /**
  * 상단 통합 헤더에 상시 노출되는 글로벌 하이브리드 검색바 위젯입니다.

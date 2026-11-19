@@ -11,3 +11,4 @@ export {
   type AndroidNativeBridge,
   type ShareTargetPayload,
 } from "./android-bridge";
+export { useAndroidShareTarget } from "./use-android-share-target";

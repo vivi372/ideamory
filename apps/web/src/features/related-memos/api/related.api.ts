@@ -2,7 +2,7 @@ import type {
   RelatedMemoQueryDto,
   RelatedMemoResponseDto,
 } from "@ideamory/api-spec";
-import { apiClient } from "../../../shared/api";
+import { apiClient } from "@/shared/api";
 
 /**
  * 기준 메모의 768차원 임베딩과 코사인 유사도 0.8 이상인 연관 메모 목록을 조회합니다.

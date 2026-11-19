@@ -2,7 +2,7 @@ import type {
   SearchMemoQueryDto,
   SearchResultResponseDto,
 } from "@ideamory/api-spec";
-import { apiClient } from "../../../shared/api";
+import { apiClient } from "@/shared/api";
 
 /**
  * Gemini 768차원 벡터 코사인 유사도(0.6)와 PostgreSQL FTS 키워드 점수(0.4)를

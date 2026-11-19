@@ -6,7 +6,7 @@ import type {
   LinkSocialAuthResponseDto,
   MergeSuggestionResponseDto,
 } from "@ideamory/api-spec";
-import { apiClient } from "../../../shared/api";
+import { apiClient } from "@/shared/api";
 
 /**
  * 0.1초 익명 게스트 세션을 발급받고 온보딩 시드 메모를 생성합니다.

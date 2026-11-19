@@ -2,7 +2,7 @@ import type {
   CategoryResponseDto,
   CreateCategoryDto,
 } from "@ideamory/api-spec";
-import { apiClient } from "../../../shared/api";
+import { apiClient } from "@/shared/api";
 
 /**
  * 활성 메모가 1건 이상 존재하는 카테고리 목록을 조회합니다.
