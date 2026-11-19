@@ -25,16 +25,29 @@ async function bootstrap() {
     .map((o) => o.trim())
     .filter(Boolean);
 
-  const defaultOrigins = ["http://localhost:3000", "http://localhost:3001"];
+  const defaultOrigins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost",
+    "https://localhost",
+    "capacitor://localhost",
+  ];
   const allowedOrigins = Array.from(new Set([...configuredOrigins, ...defaultOrigins]));
+  // 로컬 개발 환경에서 안드로이드 실기기·에뮬레이터의 사설 LAN IP 접속을 허용하기 위한 패턴
+  const privateLanOriginRegex =
+    /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/;
 
   app.enableCors({
     origin: (
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void
     ) => {
-      // Postman, cURL, 모바일 앱 등 origin 헤더가 없는 서버 간 호출이거나 허용 목록에 포함된 경우
-      if (!origin || allowedOrigins.includes(origin)) {
+      const isAllowedLanOrigin =
+        process.env.NODE_ENV !== "production" &&
+        Boolean(origin && privateLanOriginRegex.test(origin));
+
+      // Postman, cURL, 모바일 앱 등 origin 헤더가 없는 서버 간 호출이거나 허용 목록·LAN 오리진에 포함된 경우
+      if (!origin || allowedOrigins.includes(origin) || isAllowedLanOrigin) {
         callback(null, true);
       } else {
         logger.warn(`CORS 요청 차단됨: ${origin}`);
@@ -94,8 +107,9 @@ async function bootstrap() {
   SwaggerModule.setup("api/docs", app, document);
 
   const port = process.env.PORT || 3001;
-  await app.listen(port);
-  logger.log(`Ideamory Backend is running on: http://localhost:${port}`);
+  // 로컬호스트뿐만 아니라 동일 네트워크(LAN)의 안드로이드 실기기에서도 접근 가능하도록 0.0.0.0 바인딩
+  await app.listen(port, "0.0.0.0");
+  logger.log(`Ideamory Backend is running on: http://localhost:${port} (0.0.0.0)`);
   logger.log(`Swagger documentation available at: http://localhost:${port}/api/docs`);
 }
 

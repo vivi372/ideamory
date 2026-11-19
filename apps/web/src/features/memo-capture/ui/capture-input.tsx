@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Clipboard, Plus, X } from "lucide-react";
 import { useViewStore } from "../../../shared/model/view-store";
 import { generateUuidV7 } from "../../../shared/lib/uuid-v7";
+import { useAndroidShareTarget } from "../../native-share";
 import { extractValidClipboardUrl } from "../lib/capture-parser";
 import { useCreateMemo } from "../model/use-create-memo";
 
@@ -50,6 +51,21 @@ export function CaptureInput() {
     el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
     setIsExpanded(nextHeight > BASE_TEXTAREA_HEIGHT);
   }, []);
+
+  // 안드로이드 외부 앱 '공유하기(Share Intent)' 유입 시 썸존 입력란에 0ms 즉시 주입 및 포커스
+  useAndroidShareTarget(
+    useCallback(
+      (sharedDraft: string) => {
+        setValue(sharedDraft);
+        setFieldError(null);
+        requestAnimationFrame(() => {
+          syncTextareaHeight(textareaRef.current, sharedDraft);
+          textareaRef.current?.focus();
+        });
+      },
+      [syncTextareaHeight]
+    )
+  );
 
   /**
    * 브라우저 클립보드에서 유효한 URL을 비침투적으로 감지합니다.
