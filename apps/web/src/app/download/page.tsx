@@ -12,7 +12,9 @@ import {
   Zap,
 } from "lucide-react";
 
-const APK_DOWNLOAD_HREF = "/downloads/ideamory-android-latest.apk";
+const APK_VERSION = "1.0.3";
+const APK_FILE_NAME = `ideamory-android-v${APK_VERSION}.apk`;
+const APK_DOWNLOAD_HREF = `/downloads/${APK_FILE_NAME}`;
 
 /**
  * Ideamory Android(Capacitor) 앱 임시 배포 및 실기기 설치 안내 페이지(`/download`)입니다.
@@ -68,7 +70,7 @@ export default function AppDownloadPage() {
           }}
         >
           <Sparkles size={13} aria-hidden="true" />
-          <span>Capacitor Android Preview · v0.1.0</span>
+          <span>Capacitor Android Preview · v{APK_VERSION}</span>
         </div>
 
         <div style={{ marginTop: 28, display: "grid", placeItems: "center" }}>
@@ -145,7 +147,7 @@ export default function AppDownloadPage() {
             }}
           >
             <Download size={17} aria-hidden="true" />
-            <span>Android APK 다운로드</span>
+            <span>Android APK 다운로드 (v{APK_VERSION})</span>
           </a>
 
           <Link
@@ -172,8 +174,8 @@ export default function AppDownloadPage() {
         </div>
 
         <p style={{ marginTop: 12, color: "#64748B", fontSize: 11 }}>
-          지원 환경: Android 8.0 이상 · 테스트 빌드 (APK 파일 배치 경로:{" "}
-          <code>public/downloads/ideamory-android-latest.apk</code>)
+          지원 환경: Android 8.0 이상 · 테스트 빌드 (파일명:{" "}
+          <code>{APK_FILE_NAME}</code>)
         </p>
 
         <div

@@ -1,21 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDown, ArrowUpRight, Check } from "lucide-react";
+import { ArrowDown, Check, Plus, Trash2 } from "lucide-react";
 
 /**
  * `/guide` 페이지 상단 Hero 섹션 컴포넌트입니다.
- * 0.1초 퀵 캡처 인터랙션 데모(`saved` 토글 상태)를 자체적으로 캡슐화합니다.
+ * 실제 Ideamory 메모 카드(`.note-card`)와 하단 퀵 캡처 바(`.capture-box`) 구조를
+ * 동일하게 재현한 인터랙티브 데모를 제공합니다.
  *
  * @returns Hero 섹션 JSX 엘리먼트
  */
 export function GuideHero() {
+  const [draft, setDraft] = useState("다음 주 회의 안건에 넣을 것");
+  const [memoText, setMemoText] = useState("다음 주 회의 안건에 넣을 것");
   const [saved, setSaved] = useState(false);
+
+  const handleSaveDemo = () => {
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+    setMemoText(trimmed);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1800);
+  };
 
   return (
     <section className="guide-hero" aria-labelledby="guide-title">
       <div className="guide-kicker">
-        <span className="guide-kicker-dot" /> YOUR THOUGHTS, IN CONTEXT
+        <span className="guide-kicker-dot" /> YOUR MEMORY CACHE
       </div>
       <h1 id="guide-title">
         생각은 가볍게 담고,
@@ -29,28 +40,48 @@ export function GuideHero() {
       </p>
       <div className="guide-hero-demo">
         <div className="hero-demo-top">
-          <span className="demo-live-dot" /> QUICK CAPTURE <span>00:00.1</span>
+          <span className="demo-live-dot" /> 퀵 캡처 미리보기 <span>00:00.1</span>
         </div>
-        <div className={`hero-note-preview ${saved ? "is-saved" : ""}`}>
-          <span className="mini-category">아이디어</span>
-          <p>다음 주 회의 안건에 넣을 것</p>
-          <Check size={16} />
+
+        <div className={`note-card guide-note-preview ${saved ? "is-saved" : ""}`}>
+          <div className="note-meta">
+            <time>방금 전</time>
+            <div className="note-meta-actions">
+              <span className="category-label">아이디어</span>
+              <span className="guide-trash-icon" aria-hidden="true">
+                {saved ? <Check size={13} /> : <Trash2 size={13} />}
+              </span>
+            </div>
+          </div>
+          <div className="note-copy">{memoText}</div>
         </div>
-        <div className="hero-input-mock">
-          <span>떠오른 생각을 기록하세요...</span>
+
+        <div className="capture-box guide-capture-mock">
+          <input
+            type="text"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                handleSaveDemo();
+              }
+            }}
+            placeholder="지금 떠오른 생각을 기록하세요..."
+            aria-label="퀵 캡처 미리보기 입력"
+          />
           <button
             type="button"
-            onClick={() => {
-              setSaved(true);
-              window.setTimeout(() => setSaved(false), 1800);
-            }}
-            aria-label="빠르게 메모 저장"
+            className="save-button shrink-0"
+            onClick={handleSaveDemo}
+            aria-label="빠르게 메모 저장 체험"
           >
-            <ArrowUpRight size={17} />
+            {draft.trim() ? <Check size={17} /> : <Plus size={18} />}
           </button>
         </div>
+
         <span className="hero-demo-caption">
-          적고, 누르고, 다시 생각으로 돌아가기
+          적고, Enter로 저장하고, 다시 생각으로 돌아가기
         </span>
       </div>
       <a className="guide-scroll-link" href="#guide-features">
