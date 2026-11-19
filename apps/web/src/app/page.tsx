@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Menu } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import {
   LegalWebviewModal,
   SidebarDrawer,
@@ -12,6 +12,7 @@ import { CategoryPickerSheet } from "@/features/category-picker";
 import { CaptureInput } from "@/features/memo-capture";
 import { SearchBar } from "@/widgets/header";
 import { MemoTimeline } from "@/widgets/memo-timeline";
+import { ConditionalSplash } from "@/widgets/splash-screen";
 
 /**
  * Ideamory 메인 타임라인 홈 페이지입니다.
@@ -58,6 +59,7 @@ export default function HomePage() {
 
   return (
     <main className="ideamory-shell">
+      <ConditionalSplash />
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
@@ -93,6 +95,19 @@ export default function HomePage() {
           <img src="/ideamory-logo.png" alt="Ideamory 로고" />
           <span>IDEAMORY</span>
         </div>
+        {viewMode !== "ALL" ? (
+          <button
+            type="button"
+            className="topbar-view-pill"
+            onClick={selectAllMemos}
+            title="전체 메모로 돌아가기"
+            aria-label={`${currentLabel} 필터 해제하고 전체 메모 보기`}
+          >
+            <span className="topbar-view-dot" aria-hidden="true" />
+            <span className="topbar-view-text">{currentLabel}</span>
+            <X size={12} aria-hidden="true" />
+          </button>
+        ) : null}
         <SearchBar />
       </header>
 
@@ -106,14 +121,6 @@ export default function HomePage() {
             </div>
           </div>
         ) : null}
-
-        <div className="timeline-label">
-          <span>{currentLabel}</span>
-          <span className="line" />
-          <span className="sort-label">
-            최신순 <ChevronRight size={13} />
-          </span>
-        </div>
 
         <MemoTimeline isBootstrapped={isBootstrapped} />
       </section>
@@ -130,6 +137,7 @@ export default function HomePage() {
         accountStatusLabel={accountStatusLabel}
         isGuest={isGuest}
         isMutating={isMutating}
+        onOpen={() => setDrawerOpen(true)}
         onClose={() => setDrawerOpen(false)}
         onSelectAllMemos={selectAllMemos}
         onSelectCategory={selectCategory}

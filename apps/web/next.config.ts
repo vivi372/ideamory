@@ -15,10 +15,18 @@ for (const envFileName of [".env.local", ".env"]) {
   }
 }
 
+const isCapacitorExport = process.env.CAPACITOR_EXPORT === "true";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
   transpilePackages: ["@ideamory/api-spec"],
+  ...(isCapacitorExport
+    ? {
+        output: "export",
+        images: { unoptimized: true },
+      }
+    : {}),
 };
 
 export default nextConfig;
