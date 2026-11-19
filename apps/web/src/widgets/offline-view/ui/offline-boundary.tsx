@@ -44,8 +44,8 @@ export function OfflineBoundary({ children }: OfflineBoundaryProps) {
         padding: "32px 24px",
         textAlign: "center",
         background:
-          "radial-gradient(circle at 50% 35%, rgba(39, 215, 242, 0.1), transparent 55%), #020B18",
-        color: "#EAFBFF",
+          "radial-gradient(circle at 50% 35%, rgba(229, 169, 92, 0.09), transparent 55%), #121110",
+        color: "#F4EFEA",
       }}
     >
       <div
@@ -65,7 +65,7 @@ export function OfflineBoundary({ children }: OfflineBoundaryProps) {
             borderRadius: 22,
             objectFit: "cover",
             opacity: 0.45,
-            border: "1px solid rgba(56, 189, 248, 0.25)",
+            border: "1px solid rgba(229, 169, 92, 0.24)",
           }}
         />
         <span
@@ -78,9 +78,9 @@ export function OfflineBoundary({ children }: OfflineBoundaryProps) {
             borderRadius: "50%",
             display: "grid",
             placeItems: "center",
-            background: "#0A2744",
-            border: "1px solid rgba(39, 215, 242, 0.4)",
-            color: "#27D7F2",
+            background: "#221F1C",
+            border: "1px solid rgba(229, 169, 92, 0.35)",
+            color: "#E5A95C",
           }}
         >
           <WifiOff size={16} aria-hidden="true" />
@@ -93,7 +93,7 @@ export function OfflineBoundary({ children }: OfflineBoundaryProps) {
           fontSize: 20,
           fontWeight: 700,
           letterSpacing: "-0.03em",
-          color: "#EAFBFF",
+          color: "#F4EFEA",
         }}
       >
         인터넷 연결이 원활하지 않습니다
@@ -104,7 +104,7 @@ export function OfflineBoundary({ children }: OfflineBoundaryProps) {
           maxWidth: 300,
           fontSize: 13,
           lineHeight: 1.65,
-          color: "#94A3B8",
+          color: "#A69D93",
         }}
       >
         Wi-Fi 또는 모바일 데이터 연결 상태를 확인한 뒤 다시 시도해 주세요.
@@ -119,13 +119,13 @@ export function OfflineBoundary({ children }: OfflineBoundaryProps) {
           display: "inline-flex",
           alignItems: "center",
           gap: 8,
-          border: "1px solid rgba(39, 215, 242, 0.4)",
+          border: "0",
           borderRadius: 999,
-          background: "linear-gradient(135deg, #27D7F2, #12E7F5)",
-          color: "#03172E",
+          background: "linear-gradient(135deg, #E5A95C, #F0BE78)",
+          color: "#1C150C",
           fontSize: 13,
           fontWeight: 700,
-          boxShadow: "0 8px 24px rgba(39, 215, 242, 0.24)",
+          boxShadow: "0 8px 24px rgba(229, 169, 92, 0.22)",
         }}
       >
         <RefreshCw size={15} aria-hidden="true" />

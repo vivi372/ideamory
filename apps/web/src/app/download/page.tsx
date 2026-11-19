@@ -12,7 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 
-const APK_VERSION = "1.0.5";
+const APK_VERSION = "1.0.6";
 const APK_FILE_NAME = `ideamory-android-v${APK_VERSION}.apk`;
 const APK_DOWNLOAD_HREF = `/downloads/${APK_FILE_NAME}`;
 
@@ -33,7 +33,7 @@ export default function AppDownloadPage() {
         minHeight: "100vh",
         paddingBottom: 72,
         background:
-          "radial-gradient(circle at 50% 10%, rgba(39, 215, 242, 0.12), transparent 48%), #020B18",
+          "radial-gradient(circle at 50% 10%, rgba(229, 169, 92, 0.1), transparent 48%), #121110",
       }}
     >
       <header className="guide-header">
@@ -62,9 +62,9 @@ export default function AppDownloadPage() {
             gap: 8,
             padding: "6px 12px",
             borderRadius: 999,
-            border: "1px solid rgba(39, 215, 242, 0.28)",
-            background: "rgba(39, 215, 242, 0.08)",
-            color: "#7DD3FC",
+            border: "1px solid rgba(229, 169, 92, 0.28)",
+            background: "rgba(229, 169, 92, 0.1)",
+            color: "#F0BE78",
             fontSize: 11,
             fontWeight: 600,
           }}
@@ -82,8 +82,9 @@ export default function AppDownloadPage() {
               height: 108,
               borderRadius: 26,
               objectFit: "cover",
-              border: "1px solid rgba(39, 215, 242, 0.35)",
-              boxShadow: "0 20px 55px rgba(18, 231, 245, 0.18)",
+              border: "1px solid rgba(229, 169, 92, 0.32)",
+              background: "#1A1816",
+              boxShadow: "0 20px 55px rgba(0, 0, 0, 0.45)",
             }}
           />
         </div>
@@ -92,7 +93,7 @@ export default function AppDownloadPage() {
           style={{
             marginTop: 22,
             marginBottom: 12,
-            color: "#EAFBFF",
+            color: "#F4EFEA",
             fontSize: "clamp(26px, 6vw, 38px)",
             fontWeight: 700,
             letterSpacing: "-0.04em",
@@ -101,20 +102,20 @@ export default function AppDownloadPage() {
         >
           주머니 속 0.1초 기억 캐시,
           <br />
-          <span style={{ color: "#27D7F2" }}>Ideamory Android</span>
+          <span style={{ color: "#E5A95C" }}>Ideamory Android</span>
         </h1>
 
         <p
           style={{
             margin: "0 auto",
             maxWidth: 440,
-            color: "#94A3B8",
+            color: "#A69D93",
             fontSize: 14,
             lineHeight: 1.7,
           }}
         >
           웹 브라우저뿐만 아니라 유튜브·인스타·뉴스 앱에서{" "}
-          <strong style={{ color: "#BAE6FD" }}>공유하기</strong> 한 번으로
+          <strong style={{ color: "#F4EFEA" }}>공유하기</strong> 한 번으로
           생각과 링크를 즉시 담아보세요.
         </p>
 
@@ -138,12 +139,12 @@ export default function AppDownloadPage() {
               justifyContent: "center",
               gap: 9,
               borderRadius: 999,
-              background: "linear-gradient(135deg, #27D7F2, #12E7F5)",
-              color: "#03172E",
+              background: "linear-gradient(135deg, #E5A95C, #F0BE78)",
+              color: "#1C150C",
               fontSize: 14,
               fontWeight: 700,
               textDecoration: "none",
-              boxShadow: "0 10px 28px rgba(39, 215, 242, 0.25)",
+              boxShadow: "0 10px 28px rgba(229, 169, 92, 0.22)",
             }}
           >
             <Download size={17} aria-hidden="true" />
@@ -160,9 +161,9 @@ export default function AppDownloadPage() {
               justifyContent: "center",
               gap: 8,
               borderRadius: 999,
-              border: "1px solid rgba(56, 189, 248, 0.28)",
-              background: "rgba(10, 39, 68, 0.55)",
-              color: "#BAE6FD",
+              border: "1px solid rgba(235, 225, 212, 0.16)",
+              background: "#221F1C",
+              color: "#F4EFEA",
               fontSize: 13,
               fontWeight: 600,
               textDecoration: "none",
@@ -173,7 +174,7 @@ export default function AppDownloadPage() {
           </Link>
         </div>
 
-        <p style={{ marginTop: 12, color: "#64748B", fontSize: 11 }}>
+        <p style={{ marginTop: 12, color: "#A69D93", fontSize: 11 }}>
           지원 환경: Android 8.0 이상 · 테스트 빌드 (파일명:{" "}
           <code>{APK_FILE_NAME}</code>)
         </p>
@@ -193,7 +194,7 @@ export default function AppDownloadPage() {
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                color: "#27D7F2",
+                color: "#E5A95C",
                 fontSize: 13,
                 fontWeight: 700,
               }}
@@ -204,7 +205,7 @@ export default function AppDownloadPage() {
             <p
               style={{
                 margin: "10px 0 0",
-                color: "#94A3B8",
+                color: "#A69D93",
                 fontSize: 12,
                 lineHeight: 1.65,
               }}
@@ -220,7 +221,7 @@ export default function AppDownloadPage() {
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                color: "#27D7F2",
+                color: "#E5A95C",
                 fontSize: 13,
                 fontWeight: 700,
               }}
@@ -231,7 +232,7 @@ export default function AppDownloadPage() {
             <p
               style={{
                 margin: "10px 0 0",
-                color: "#94A3B8",
+                color: "#A69D93",
                 fontSize: 12,
                 lineHeight: 1.65,
               }}
@@ -247,7 +248,7 @@ export default function AppDownloadPage() {
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                color: "#27D7F2",
+                color: "#E5A95C",
                 fontSize: 13,
                 fontWeight: 700,
               }}
@@ -258,7 +259,7 @@ export default function AppDownloadPage() {
             <p
               style={{
                 margin: "10px 0 0",
-                color: "#94A3B8",
+                color: "#A69D93",
                 fontSize: 12,
                 lineHeight: 1.65,
               }}
@@ -282,17 +283,17 @@ export default function AppDownloadPage() {
         >
           <ShieldCheck
             size={18}
-            style={{ color: "#27D7F2", flexShrink: 0, marginTop: 2 }}
+            style={{ color: "#E5A95C", flexShrink: 0, marginTop: 2 }}
             aria-hidden="true"
           />
           <div>
-            <strong style={{ color: "#E6F4F8", fontSize: 13 }}>
+            <strong style={{ color: "#F4EFEA", fontSize: 13 }}>
               실기기 테스트 시 설치 안내
             </strong>
             <p
               style={{
                 margin: "6px 0 0",
-                color: "#94A3B8",
+                color: "#A69D93",
                 fontSize: 12,
                 lineHeight: 1.65,
               }}
