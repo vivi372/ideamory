@@ -10,6 +10,7 @@ export interface MemoWithRelations {
   categoryName: string;
   ogpId: string | null;
   ogp: OgpCache | null;
+  relatedCount?: number;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;

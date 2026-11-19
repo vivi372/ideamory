@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Menu, Search } from "lucide-react";
+import { ChevronRight, Menu } from "lucide-react";
 import {
   LegalWebviewModal,
   SidebarDrawer,
@@ -8,7 +8,9 @@ import {
   useAuthDrawer,
   useGuestBootstrap,
 } from "@/features/auth-drawer";
+import { CategoryPickerSheet } from "@/features/category-picker";
 import { CaptureInput } from "@/features/memo-capture";
+import { SearchBar } from "@/widgets/header";
 import { MemoTimeline } from "@/widgets/memo-timeline";
 
 /**
@@ -62,7 +64,7 @@ export default function HomePage() {
       <header className="topbar">
         <button
           type="button"
-          className="icon-button"
+          className="icon-button relative"
           aria-label={drawerOpen ? "메뉴 닫기" : "메뉴 열기"}
           aria-expanded={drawerOpen}
           onClick={(event) => {
@@ -71,34 +73,39 @@ export default function HomePage() {
           }}
         >
           <Menu size={21} />
+          {suggestionCategoryIds.size > 0 ? (
+            <span
+              aria-label="유사 카테고리 병합 제안 알림"
+              style={{
+                position: "absolute",
+                top: 6,
+                right: 6,
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: "#E9A14E",
+                boxShadow: "0 0 8px rgba(233, 161, 78, 0.7)",
+              }}
+            />
+          ) : null}
         </button>
         <div className="brand-lockup">
           <img src="/ideamory-logo.png" alt="Ideamory 로고" />
           <span>IDEAMORY</span>
         </div>
-        <div className="header-search">
-          <Search size={17} aria-hidden="true" />
-          <input
-            type="search"
-            placeholder="기억 속에서 찾기"
-            aria-label="메모 검색"
-            readOnly
-          />
-        </div>
+        <SearchBar />
       </header>
 
       <section className="content-wrap">
-        <div className="welcome-row">
-          <div>
-            <p className="eyebrow">YOUR MEMORY CACHE</p>
-            <h1>오늘의 생각을 담아보세요</h1>
-            <p className="subcopy">떠오른 순간, 정리하지 말고 그대로.</p>
+        {totalMemoCount === 0 && viewMode === "ALL" ? (
+          <div className="welcome-row">
+            <div>
+              <p className="eyebrow">YOUR MEMORY CACHE</p>
+              <h1>오늘의 생각을 담아보세요</h1>
+              <p className="subcopy">떠오른 순간, 정리하지 말고 그대로.</p>
+            </div>
           </div>
-          <div className="memory-count">
-            <span>{totalMemoCount}</span>
-            <small>memories</small>
-          </div>
-        </div>
+        ) : null}
 
         <div className="timeline-label">
           <span>{currentLabel}</span>
@@ -149,6 +156,8 @@ export default function HomePage() {
         legalModalType={legalModalType}
         onClose={closeLegalModal}
       />
+
+      <CategoryPickerSheet />
     </main>
   );
 }

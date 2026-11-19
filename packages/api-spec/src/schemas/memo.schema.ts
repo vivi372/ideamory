@@ -54,6 +54,7 @@ export const MemoResponseSchema = z.object({
   categoryName: z.string(),
   ogpId: UuidV7Schema.nullable().optional(),
   ogp: OgpResponseSchema.nullable().optional(),
+  relatedCount: z.number().int().nonnegative().optional(),
   deletedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime().optional(),

@@ -71,6 +71,9 @@ export class MemoService {
       categoryName: record.categoryName,
       ogpId: record.ogpId,
       ogp: record.ogp ? this.ogpService.toOgpResponseDto(record.ogp) : null,
+      ...(record.relatedCount !== undefined
+        ? { relatedCount: Number(record.relatedCount) }
+        : {}),
       deletedAt: record.deletedAt ? record.deletedAt.toISOString() : null,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
