@@ -223,6 +223,24 @@ export class MemoRepository {
       conditions.push(eq(memos.categoryId, options.categoryId));
     }
 
+    // 활성 타임라인 조회 시에만 768차원 임베딩 코사인 유사도(>= 0.8) 기준 연관 메모 개수를 계산해 0건 칩 숨김에 활용
+    const relatedCountExpr = options.deleted
+      ? sql<number>`0`
+      : sql<number>`(
+          SELECT COUNT(*)::int
+          FROM memos m2
+          WHERE m2.id <> ${memos.id}
+            AND m2.deleted_at IS NULL
+            AND m2.embedding IS NOT NULL
+            AND ${memos.embedding} IS NOT NULL
+            AND ${
+              owner.userId
+                ? sql`m2.user_id = ${owner.userId}`
+                : sql`m2.guest_token = ${owner.guestToken!}`
+            }
+            AND (1 - (m2.embedding <=> ${memos.embedding})) >= 0.8
+        )`;
+
     const rows = await tx
       .select({
         id: memos.id,
@@ -231,6 +249,7 @@ export class MemoRepository {
         categoryName: categories.name,
         ogpId: memos.ogpId,
         ogp: ogpCaches,
+        relatedCount: relatedCountExpr,
         deletedAt: memos.deletedAt,
         createdAt: memos.createdAt,
         updatedAt: memos.updatedAt,

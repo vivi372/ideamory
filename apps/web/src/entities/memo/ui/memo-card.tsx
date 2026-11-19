@@ -68,16 +68,20 @@ export interface MemoCardProps {
   memo: MemoResponseDto;
   /** 인라인 편집 활성화 여부 */
   isEditing?: boolean;
-  /** 휴지통 뷰 여부 (편집 비활성화) */
+  /** 휴지통 뷰 여부 (편집 및 카테고리 피커 비활성화) */
   isTrash?: boolean;
   /** AI 백그라운드 분류/임베딩 대기 여부 */
   isCategorizing?: boolean;
   /** 본문 터치 시 인라인 편집 진입 콜백 */
   onStartEdit?: (memo: MemoResponseDto) => void;
+  /** 상단 카테고리 배지 터치 시 카테고리 피커 오픈 콜백 */
+  onCategoryClick?: (memo: MemoResponseDto) => void;
   /** 인라인 편집기 슬롯 (`features/memo-edit`에서 주입) */
   editorSlot?: ReactNode;
   /** 우측 상단 액션 버튼 슬롯 (`features/memo-trash`에서 주입) */
   actionSlot?: ReactNode;
+  /** 카드 하단 푸터 슬롯 (`features/related-memos` 칩 등 주입) */
+  footerSlot?: ReactNode;
 }
 
 /**
@@ -95,8 +99,10 @@ export function MemoCard({
   isTrash = false,
   isCategorizing = false,
   onStartEdit,
+  onCategoryClick,
   editorSlot,
   actionSlot,
+  footerSlot,
 }: MemoCardProps) {
   const markerClass = pickMarkerClass(memo.categoryName || "미분류");
   const hasUrlInContent = URL_EXTRACT_REGEX.test(memo.content);
@@ -115,7 +121,17 @@ export function MemoCard({
         </time>
 
         <div className="note-meta-actions">
-          <span className="category-label max-w-[160px] truncate">
+          <button
+            type="button"
+            className="category-label max-w-[160px] truncate"
+            onClick={() => {
+              if (!isTrash) {
+                onCategoryClick?.(memo);
+              }
+            }}
+            disabled={isTrash}
+            aria-label={isTrash ? `카테고리 ${memo.categoryName}` : `${memo.categoryName} 카테고리 변경`}
+          >
             {isCategorizing ? (
               <span className="inline-flex items-center gap-1">
                 <Sparkles size={11} className="animate-pulse" />
@@ -124,7 +140,7 @@ export function MemoCard({
             ) : (
               memo.categoryName
             )}
-          </span>
+          </button>
           {actionSlot}
         </div>
       </div>
@@ -194,6 +210,8 @@ export function MemoCard({
             </div>
           </div>
         ) : null}
+
+        {footerSlot}
       </div>
     </article>
   );
