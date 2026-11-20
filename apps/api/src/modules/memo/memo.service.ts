@@ -12,7 +12,10 @@ import {
 } from "@ideamory/api-spec";
 import { BusinessException } from "../../common/exceptions/business.exception";
 import { LogTrace } from "../../common/decorators/log-trace.decorator";
-import type { OwnerIdentity } from "../../common/types/owner.type";
+import {
+  assertOwnerIdentity,
+  type OwnerIdentity,
+} from "../../common/types/owner.type";
 import { AiService } from "../ai/ai.service";
 import { CategoryService } from "../category/category.service";
 import { OgpService } from "../ogp/ogp.service";
@@ -51,13 +54,7 @@ export class MemoService {
    * @throws BusinessException userId와 guestToken이 모두 누락된 경우 401 Unauthorized 발생
    */
   private assertOwner(owner: OwnerIdentity): void {
-    if (!owner.userId && !owner.guestToken) {
-      throw new BusinessException(
-        "인증 토큰 또는 게스트 토큰이 필요합니다.",
-        ERROR_CODES.AUTH_ALERT_UNAUTHORIZED,
-        HttpStatus.UNAUTHORIZED
-      );
-    }
+    assertOwnerIdentity(owner);
   }
 
   /**

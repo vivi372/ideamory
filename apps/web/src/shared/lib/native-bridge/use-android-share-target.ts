@@ -8,11 +8,11 @@ import {
   isCapacitorNative,
   parseShareTargetFromQuery,
   type ShareTargetPayload,
-} from "../../../shared/lib/native-bridge";
+} from "./android-bridge";
 
 /**
  * 외부 안드로이드 앱(브라우저, 유튜브, SNS 등)에서 '공유하기'로 전달된
- * 텍스트 및 URL(Share Intent)을 수신해 0.1초 퀵 캡처 입력창에 바인딩하는 훅입니다.
+ * 텍스트 및 URL(Share Intent)을 수신해 0.1초 퀵 캡처 입력창에 바인딩하는 브릿지 훅입니다.
  *
  * [수신 채널]
  * 1. **URL 쿼리스트링**: `/?share_text=...&share_url=...&share_title=...` 진입 시 즉시 파싱 후

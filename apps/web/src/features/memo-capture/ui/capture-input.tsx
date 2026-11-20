@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Clipboard, Plus, X } from "lucide-react";
-import { isMobileTouchDevice } from "../../../shared/lib/native-bridge";
-import { useViewStore } from "../../../shared/model/view-store";
-import { generateUuidV7 } from "../../../shared/lib/uuid-v7";
-import { useAndroidShareTarget } from "../../native-share";
+import {
+  isMobileTouchDevice,
+  useAndroidShareTarget,
+} from "@/shared/lib/native-bridge";
+import { generateUuidV7 } from "@/shared/lib/uuid-v7";
+import { useViewStore } from "@/shared/model/view-store";
 import {
   extractValidClipboardUrl,
   splitLeadingCategoryHighlight,

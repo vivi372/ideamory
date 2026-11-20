@@ -2,9 +2,9 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MemoResponseDto } from "@ideamory/api-spec";
-import { restoreMemoApi } from "../../../entities/memo";
-import { ApiClientError, queryKeys } from "../../../shared/api";
-import { useFeedback } from "../../../shared/lib/feedback/use-feedback";
+import { restoreMemoApi } from "@/entities/memo";
+import { ApiClientError, queryKeys } from "@/shared/api";
+import { useFeedback } from "@/shared/lib/feedback/use-feedback";
 
 interface RestoreMemoContext {
   previousTrash: MemoResponseDto[] | undefined;

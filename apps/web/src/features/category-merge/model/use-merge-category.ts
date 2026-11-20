@@ -7,9 +7,9 @@ import type {
   MergeCategoryResponseDto,
   MergeSuggestionResponseDto,
 } from "@ideamory/api-spec";
-import { ApiClientError, queryKeys } from "../../../shared/api";
-import { useFeedback } from "../../../shared/lib/feedback/use-feedback";
-import { useViewStore } from "../../../shared/model/view-store";
+import { ApiClientError, queryKeys } from "@/shared/api";
+import { useFeedback } from "@/shared/lib/feedback/use-feedback";
+import { useViewStore } from "@/shared/model/view-store";
 import {
   dismissMergeSuggestionApi,
   mergeCategoriesApi,

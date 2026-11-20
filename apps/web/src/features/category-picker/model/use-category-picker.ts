@@ -6,9 +6,9 @@ import {
   CreateCategorySchema,
   type CategoryResponseDto,
 } from "@ideamory/api-spec";
-import { queryKeys } from "../../../shared/api";
-import { generateUuidV7 } from "../../../shared/lib/uuid-v7";
-import { useViewStore } from "../../../shared/model/view-store";
+import { queryKeys } from "@/shared/api";
+import { generateUuidV7 } from "@/shared/lib/uuid-v7";
+import { useViewStore } from "@/shared/model/view-store";
 import { fetchCategoriesListApi } from "../api/category.api";
 import {
   filterCategoriesByTerm,

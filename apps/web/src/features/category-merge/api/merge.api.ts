@@ -3,7 +3,7 @@ import type {
   MergeCategoryResponseDto,
   MergeSuggestionResponseDto,
 } from "@ideamory/api-spec";
-import { apiClient } from "../../../shared/api";
+import { apiClient } from "@/shared/api";
 
 /**
  * 대기 중인 유사 카테고리 병합 제안 목록을 조회합니다.

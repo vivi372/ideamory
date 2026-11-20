@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { fetchMemosApi } from "../../../entities/memo";
-import { queryKeys } from "../../../shared/api";
-import { useViewStore } from "../../../shared/model/view-store";
+import { fetchMemosApi } from "@/entities/memo";
+import { queryKeys } from "@/shared/api";
+import { useViewStore } from "@/shared/model/view-store";
 
 export interface UseTimelineMemosOptions {
   /** 게스트/소셜 인증 부트스트랩 완료 여부 */

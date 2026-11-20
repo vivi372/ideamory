@@ -8,6 +8,11 @@ export { AccountSection } from "./ui/account-section";
 export { useGuestBootstrap } from "./hooks/use-guest-bootstrap";
 export { useAuthDrawer } from "./hooks/use-auth-drawer";
 export {
+  useDrawerSwipe,
+  type UseDrawerSwipeOptions,
+  type UseDrawerSwipeResult,
+} from "./hooks/use-drawer-swipe";
+export {
   getAccountStatusLabel,
   useAuthStore,
   type LegalDocumentType,
