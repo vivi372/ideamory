@@ -1,0 +1,28 @@
+# Git & 로컬 환경
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.agent
+.agents
+
+# 의존성 & 빌드 캐시
+node_modules
+**/node_modules
+.turbo
+**/.turbo
+.next
+**/.next
+.next-export
+**/.next-export
+dist
+**/dist
+
+# 프론트엔드 / Android / 문서 / 테스트 증적
+apps/web/android
+apps/web/public/downloads
+integration-tests
+publishing
+*.apk
+*.log
