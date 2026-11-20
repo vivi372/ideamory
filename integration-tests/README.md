@@ -39,7 +39,7 @@ integration-tests/
 ## 3. 회차 진행 절차
 
 1. `TEST_REPORT_TEMPLATE.md`를 복사해 `reports/round-N-report.md`를 생성합니다.
-2. `INTEGRATION_TEST_SCENARIOS.md`의 `TC-01` ~ `TC-10`을 순서대로 실행합니다.
+2. `INTEGRATION_TEST_SCENARIOS.md`의 `TC-01` ~ `TC-11`을 순서대로 실행합니다.
 3. 각 TC 실행 후:
    - 화면 스크린샷을 `evidence/round-N/screenshots/`에 저장합니다.
    - `★ README 영상` 대상 TC는 시연 영상을 `evidence/round-N/videos/`에 저장합니다.
