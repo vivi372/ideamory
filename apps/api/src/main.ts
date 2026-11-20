@@ -36,6 +36,9 @@ async function bootstrap() {
   // 로컬 개발 환경에서 안드로이드 실기기·에뮬레이터의 사설 LAN IP 접속을 허용하기 위한 패턴
   const privateLanOriginRegex =
     /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/;
+  // Vercel 프로덕션 및 배포 Preview URL(예: ideamory-<hash>-vivi372s-projects.vercel.app) 허용 패턴
+  const vercelIdeamoryOriginRegex =
+    /^https:\/\/ideamory(-[a-z0-9-]+)*\.vercel\.app$/;
 
   app.enableCors({
     origin: (
@@ -45,9 +48,17 @@ async function bootstrap() {
       const isAllowedLanOrigin =
         process.env.NODE_ENV !== "production" &&
         Boolean(origin && privateLanOriginRegex.test(origin));
+      const isAllowedVercelOrigin = Boolean(
+        origin && vercelIdeamoryOriginRegex.test(origin)
+      );
 
-      // Postman, cURL, 모바일 앱 등 origin 헤더가 없는 서버 간 호출이거나 허용 목록·LAN 오리진에 포함된 경우
-      if (!origin || allowedOrigins.includes(origin) || isAllowedLanOrigin) {
+      // Postman, cURL, 모바일 앱 등 origin 헤더가 없는 서버 간 호출이거나 허용 목록·Vercel·LAN 오리진에 포함된 경우
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        isAllowedVercelOrigin ||
+        isAllowedLanOrigin
+      ) {
         callback(null, true);
       } else {
         logger.warn(`CORS 요청 차단됨: ${origin}`);
