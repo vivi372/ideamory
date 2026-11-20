@@ -145,6 +145,12 @@
   SELECT * FROM category_merge_suggestions
   WHERE source_category_id IN ('<병합원본_id>', '<거절원본_id>')
      OR target_category_id IN ('<병합원본_id>', '<거절원본_id>');
+  -- 3) (제안 큐 미생성 시 참고) 두 카테고리의 실제 코사인 유사도 >= 0.85 충족 여부 확인
+  SELECT c1.name AS source_name, c2.name AS target_name,
+         1 - (c1.embedding <=> c2.embedding) AS cosine_similarity
+  FROM categories c1
+  JOIN categories c2 ON c1.id <> c2.id
+  WHERE c1.id = '<원본_id>' AND c2.id = '<대상_id>';
   ```
 - **증적**:
   - 스크린샷: `screenshots/tc05-category-merge.png`
@@ -200,17 +206,22 @@
 - **화면 수행 절차**:
   1. 사이드바 드로어 하단 `데이터 초기화` 버튼 클릭 ➔ 확인 모달에서 최종 승인합니다.
 - **기대 결과 (UI)**:
-  - 기존 게스트 메모가 모두 제거되고 초기 온보딩 상태(새 세션 또는 빈 상태)로 리셋됩니다.
+  - 기존 게스트 메모가 모두 제거되고, 클라이언트 `localStorage`에 **새로운 `guest_token`**이 재발급되어 초기 온보딩 시드 상태(`/guide` 메모)로 리셋됩니다.
 - **Supabase MCP DB 검증 (`execute_sql`)**:
   ```sql
+  -- 1) 이전 guest_token 잔여 레코드 0건 확인
   SELECT COUNT(*) AS remaining_memos FROM memos WHERE guest_token = '<이전_guest_token>';
   SELECT COUNT(*) AS remaining_cats FROM categories WHERE guest_token = '<이전_guest_token>';
+  -- 2) 재발급된 신규 guest_token으로 온보딩 시드 메모 1건 복원 확인
+  SELECT id, left(content, 40) AS preview FROM memos WHERE guest_token = '<신규_guest_token>';
   ```
-  - 두 카운트 모두 `0`이어야 합니다 (고아 레코드 0건).
+  - 이전 세션 카운트는 모두 `0`이고, 신규 `guest_token`에는 온보딩 시드 메모 1건이 정상 복원되어야 합니다.
 - **증적**: `screenshots/tc08-guest-reset.png`
 
 ### `TC-09`: 소셜 계정 연동(이관), Zero-Profile UI, 인앱 약관 모달 & 회원탈퇴
-- **사전 조건**: 게스트 세션에 테스트 메모 1건 이상 작성된 상태
+- **사전 조건**:
+  - 게스트 세션에 테스트 메모 1건 이상 작성된 상태
+  - **OAuth 사전 확인**: Supabase Auth 대시보드에 테스트 대상 도메인(로컬 또는 Vercel 프로덕션 URL)의 Redirect URI 및 소셜 공급자(Google / GitHub / Kakao) 설정이 활성화되어 있는지 확인
 - **화면 수행 절차**:
   1. 사이드바 드로어 하단 `계정 연동하기` ➔ `[서비스 이용약관]` 및 `[개인정보 처리방침]` 링크를 클릭해 인앱 약관 모달(`.legal-sheet`)이 열리는지 확인합니다.
   2. Google/GitHub 소셜 로그인을 진행해 계정 연동을 완료합니다.
@@ -247,10 +258,10 @@
 - **사전 조건**: 메인 페이지 실행 상태
 - **화면 수행 절차**:
   1. **Share Intent 주입**: `/?share_text=공유테스트&share_url=https://nextjs.org` URL로 진입하여 하단 썸존 입력란 주입 및 주소창 쿼리스트링 정리를 확인합니다.
-  2. **뒤로가기 스택**: 연관 메모/검색 필터 활성화 ➔ 카테고리 시트 오픈 ➔ 사이드바 드로어 오픈 상태에서 브라우저 뒤로가기(`popstate` 또는 Capacitor `backButton`)를 순차 실행합니다.
+  2. **뒤로가기 스택**: 연관 메모/검색 필터 활성화 ➔ 카테고리 피커 오픈 ➔ 사이드바 드로어 오픈 ➔ 소셜 연동 시트 ➔ 약관 모달(`.legal-sheet`)까지 다중 오픈한 상태에서 브라우저 뒤로가기(`popstate` 또는 Capacitor `backButton`)를 순차 실행합니다.
   3. **오프라인 바운더리**: DevTools `Network` ➔ `Offline` 전환 후 `OfflineBoundary` 커스텀 화면 노출을 확인하고, 다시 `Online` 전환 후 `[다시 시도]` 클릭 복구를 점검합니다.
 - **기대 결과 (UI)**:
   - 공유 텍스트와 URL이 썸존에 즉시 채워지고 주소창은 `/`로 깔끔히 정리됩니다.
-  - 뒤로가기 시 열려 있던 오버레이·필터가 역순으로 1개씩 닫히며, 홈 타임라인에서는 2초 내 2회 입력 시 종료 안내가 동작합니다.
+  - 뒤로가기 시 최상위 오버레이부터 우선순위(`약관 모달 ➔ 소셜 연동 시트 ➔ 카테고리 피커 ➔ 사이드바 드로어 ➔ 검색/관련 메모 필터 ➔ 서브 뷰`) 순으로 1개씩 닫히며, 홈 타임라인에서는 2초 내 2회 입력 시 종료 안내가 동작합니다.
   - 오프라인 시 하얀 에러 페이지 대신 Warm Dark 브랜드 오프라인 뷰가 표시되고 `[다시 시도]`로 정상 복구됩니다.
 - **증적**: `screenshots/tc11-bridge-and-offline.png`
