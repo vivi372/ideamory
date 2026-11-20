@@ -13,6 +13,8 @@
    - 따라서 전송 직후 즉시 조회해 `embedding IS NULL` 오탐이 나지 않도록 **화면 폴링 반영(약 3~5초) 완료를 확인한 뒤** Supabase MCP `execute_sql`을 실행합니다.
 3. **3-Tier 분산 트레이싱(`X-Trace-Id`) & CORS 헤더 병행 확인**:
    - 테스트 진행 중 브라우저 DevTools `Network` 탭에서 프론트엔드(Vercel/Web) ➔ 백엔드(Northflank/API) 요청·응답의 32자리 Hex `X-Trace-Id` 전파 및 CORS 헤더 노출 여부를 함께 확인합니다.
+4. **세션 파괴 테스트(`TC-08`, `TC-09`) 실행 순서 격리**:
+   - `TC-08`(게스트 초기화)과 `TC-09`(회원탈퇴)는 기존 세션의 메모·카테고리를 영구 파기하므로, 반드시 `TC-01`~`TC-07`의 화면 점검·DB 교차 검증·스크린샷 및 README 영상 녹화를 모두 완료한 뒤 마지막 단계에서 실행합니다.
 
 ---
 
@@ -34,7 +36,7 @@
   WHERE guest_token = '<발급된_guest_token>'
   ORDER BY created_at DESC;
   ```
-  - `memos`에 시드 메모 1건, `categories`에 해당 카테고리 1건, `ogp_caches`에 `/guide` OGP가 정상 연결(`ogp_id IS NOT NULL`)되어 있어야 합니다.
+  - `memos`에 `[사용 가이드]` 온보딩 시드 메모가 정확히 **1건** 생성되었는지, `categories`에 해당 카테고리 1건, `ogp_caches`에 `/guide` OGP가 정상 연결(`ogp_id IS NOT NULL`)되어 있는지 확인합니다.
 - **증적**: `screenshots/tc01-onboarding-and-drawer.png`
 
 ---
@@ -235,8 +237,10 @@
   ```sql
   -- 연동 직후: guest_token은 NULL, user_id로 이관 확인
   SELECT id, user_id, guest_token, left(content, 30) FROM memos WHERE user_id = '<연동된_user_id>';
-  -- 탈퇴 직후: users 및 소유 memos/categories 0건 확인
-  SELECT COUNT(*) FROM users WHERE id = '<탈퇴한_user_id>';
+  -- 탈퇴 직후: auth.users 및 소유 memos/categories ON DELETE CASCADE 0건 확인
+  SELECT COUNT(*) AS remaining_users FROM auth.users WHERE id = '<탈퇴한_user_id>';
+  SELECT COUNT(*) AS remaining_memos FROM memos WHERE user_id = '<탈퇴한_user_id>';
+  SELECT COUNT(*) AS remaining_cats FROM categories WHERE user_id = '<탈퇴한_user_id>';
   ```
 - **증적**: `screenshots/tc09-social-link-and-withdraw.png`
 
