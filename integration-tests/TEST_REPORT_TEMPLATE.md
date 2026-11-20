@@ -15,7 +15,7 @@
 
 | 구분 | 전체 TC 수 | Pass | Fail | Blocked / Skip | 판정 |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **화면(UI) & 기능 점검** | 10 | 0 | 0 | 0 | ⏳ 대기 |
+| **화면(UI) & 기능 점검** | 11 | 0 | 0 | 0 | ⏳ 대기 |
 | **Supabase MCP DB 정합성** | 9 | 0 | 0 | 0 | ⏳ 대기 |
 | **README 시연 영상 확보** | 4 | 0 | 0 | 0 | ⏳ 대기 |
 
@@ -35,8 +35,9 @@
 | `TC-06` | 메모 30일 휴지통 이동 & 원클릭 복구 | Pass / Fail | Pass / Fail | `screenshots/tc06-*.png` | - | |
 | `TC-07` | 하이브리드 검색(`Enter`) & 1-Depth 연관 메모 필터 | Pass / Fail | Pass / Fail | `screenshots/tc07-*.png` | `videos/04-search-and-related.webm` | |
 | `TC-08` | 게스트 데이터 전체 초기화(Hard Delete) | Pass / Fail | Pass / Fail | `screenshots/tc08-*.png` | - | |
-| `TC-09` | 소셜 계정 연동(게스트 데이터 이관) & 회원탈퇴 | Pass / Fail | Pass / Fail | `screenshots/tc09-*.png` | - | |
+| `TC-09` | 소셜 연동(이관), Zero-Profile, 인앱 약관 & 탈퇴 | Pass / Fail | Pass / Fail | `screenshots/tc09-*.png` | - | |
 | `TC-10` | 모바일 3종 뷰포트 & `/guide`, `/download` 페이지 점검 | Pass / Fail | - | `screenshots/tc10-*.png` | - | |
+| `TC-11` | 웹뷰 브릿지(Share Intent·뒤로가기) & 오프라인 뷰 | Pass / Fail | - | `screenshots/tc11-*.png` | - | |
 
 ---
 
