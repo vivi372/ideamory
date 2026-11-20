@@ -1,8 +1,9 @@
 /**
  * Ideamory Android APK 배포 버전 및 다운로드 경로 단일 진실 공급원(SSOT)
- * APK 신규 빌드 시 `APK_VERSION` 상수를 `android/app/build.gradle`의 `versionName`과 동기화합니다.
+ * `next.config.ts`가 `android/app/build.gradle`의 `versionName`을 읽어 `NEXT_PUBLIC_APK_VERSION`으로 주입하므로,
+ * Gradle 버전업 시 `/download` 페이지 표기 버전과 다운로드 링크가 자동으로 동기화됩니다.
  */
-export const APK_VERSION = "1.0.6";
+export const APK_VERSION = process.env.NEXT_PUBLIC_APK_VERSION || "1.0.6";
 export const APK_FILE_NAME = `ideamory-android-v${APK_VERSION}.apk`;
 export const APK_DOWNLOAD_HREF = `/downloads/${APK_FILE_NAME}`;
 

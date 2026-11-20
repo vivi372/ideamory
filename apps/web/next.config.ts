@@ -15,12 +15,38 @@ for (const envFileName of [".env.local", ".env"]) {
   }
 }
 
+/**
+ * Android Gradle 설정(`android/app/build.gradle`)의 `versionName`을 읽어
+ * `/download` 페이지 APK 버전 표기의 단일 진실 공급원(SSOT)으로 동기화합니다.
+ *
+ * @returns 추출된 `versionName` 문자열 (파일 미존재 또는 파싱 실패 시 기본 폴백 `"1.0.6"`)
+ */
+function resolveAndroidApkVersion(): string {
+  const gradlePath = path.join(__dirname, "android/app/build.gradle");
+  try {
+    if (fs.existsSync(gradlePath)) {
+      const gradleContent = fs.readFileSync(gradlePath, "utf-8");
+      const match = gradleContent.match(/versionName\s+["']([^"']+)["']/);
+      if (match?.[1]) {
+        return match[1];
+      }
+    }
+  } catch {
+    // Gradle 파일 읽기 실패 시 폴백 버전 사용
+  }
+  return "1.0.6";
+}
+
 const isCapacitorExport = process.env.CAPACITOR_EXPORT === "true";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   devIndicators: false,
   transpilePackages: ["@ideamory/api-spec"],
+  env: {
+    NEXT_PUBLIC_APK_VERSION:
+      process.env.NEXT_PUBLIC_APK_VERSION ?? resolveAndroidApkVersion(),
+  },
   ...(isCapacitorExport
     ? {
         distDir: ".next-export",
