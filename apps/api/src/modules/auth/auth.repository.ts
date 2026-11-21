@@ -124,6 +124,7 @@ export class AuthRepository {
       categoryId: params.categoryId,
       ogpId: params.ogpId ?? null,
       content: params.content,
+      aiStatus: "COMPLETED",
       deletedAt: null,
     });
   }
