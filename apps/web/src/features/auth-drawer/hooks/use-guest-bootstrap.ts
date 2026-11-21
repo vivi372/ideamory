@@ -21,6 +21,41 @@ import { initGuestSessionApi, linkSocialAccountApi } from "../api/auth.api";
 import { useAuthStore, type SocialProvider } from "../model/auth-store";
 
 const PENDING_PROVIDER_STORAGE_KEY = "ideamory_pending_oauth_provider";
+const PENDING_PROVIDER_CLEANUP_DELAY_MS = 1500;
+
+function clearPendingProviderStorage(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(PENDING_PROVIDER_STORAGE_KEY);
+  } catch {
+    // localStorage 접근 불가 환경 폴백
+  }
+  try {
+    window.sessionStorage.removeItem(PENDING_PROVIDER_STORAGE_KEY);
+  } catch {
+    // sessionStorage 정리 실패 무시
+  }
+}
+
+function hasPendingProviderInStorage(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    if (window.localStorage.getItem(PENDING_PROVIDER_STORAGE_KEY)) {
+      return true;
+    }
+  } catch {
+    // 무시
+  }
+  try {
+    return Boolean(window.sessionStorage.getItem(PENDING_PROVIDER_STORAGE_KEY));
+  } catch {
+    return false;
+  }
+}
 
 /**
  * React 19 StrictMode 개발 환경에서 마운트 2회 실행 시 `POST /api/v1/auth/guest/init`가
@@ -268,6 +303,9 @@ export function useGuestBootstrap(): { isBootstrapped: boolean } {
           if (handled) {
             return;
           }
+        } else {
+          // 콜드 스타트 시 OAuth 콜백 URL이 없다면 이전 세션에서 취소된 잔류 제공자 키를 정리
+          clearPendingProviderStorage();
         }
 
         // 2. 기존 소셜 JWT 보유 시 소셜 세션 복원
@@ -313,31 +351,83 @@ export function useGuestBootstrap(): { isBootstrapped: boolean } {
 
   // Capacitor 네이티브 환경: 외부 브라우저에서 로그인 후 딥링크(com.ideamory.app://auth/callback#access_token=...)로
   // 포그라운드 복귀할 때 실시간으로 OAuth 토큰을 수신해 게스트 데이터 이관 및 세션 전환을 수행합니다.
+  // 사용자가 인증을 취소하고 딥링크 없이 앱으로 복귀한 경우에는 유예 시간 후 잔류 제공자 키를 정리합니다.
   useEffect(() => {
-    if (!isCapacitorNative()) {
+    if (typeof window === "undefined") {
       return;
     }
 
-    let removeUrlListener: (() => Promise<void>) | undefined;
-    let isUnmounted = false;
+    let cleanupTimer: number | null = null;
 
-    void CapacitorApp.addListener("appUrlOpen", ({ url }) => {
-      const oauthCallback = parseOAuthCallbackFromUrlString(url, false);
-      if (oauthCallback) {
-        void handleOAuthCallback(oauthCallback, queryClient);
+    const cancelPendingCleanup = () => {
+      if (cleanupTimer !== null) {
+        window.clearTimeout(cleanupTimer);
+        cleanupTimer = null;
       }
-    }).then((handle) => {
-      if (isUnmounted) {
-        void handle.remove();
+    };
+
+    const schedulePendingCleanup = () => {
+      if (!hasPendingProviderInStorage()) {
         return;
       }
-      removeUrlListener = () => handle.remove();
-    });
+      cancelPendingCleanup();
+      cleanupTimer = window.setTimeout(() => {
+        cleanupTimer = null;
+        if (!oauthCallbackInFlight) {
+          clearPendingProviderStorage();
+        }
+      }, PENDING_PROVIDER_CLEANUP_DELAY_MS);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        schedulePendingCleanup();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    let removeUrlListener: (() => Promise<void>) | undefined;
+    let removeStateListener: (() => Promise<void>) | undefined;
+    let isUnmounted = false;
+
+    if (isCapacitorNative()) {
+      void CapacitorApp.addListener("appUrlOpen", ({ url }) => {
+        cancelPendingCleanup();
+        const oauthCallback = parseOAuthCallbackFromUrlString(url, false);
+        if (oauthCallback) {
+          void handleOAuthCallback(oauthCallback, queryClient);
+        }
+      }).then((handle) => {
+        if (isUnmounted) {
+          void handle.remove();
+          return;
+        }
+        removeUrlListener = () => handle.remove();
+      });
+
+      void CapacitorApp.addListener("appStateChange", ({ isActive }) => {
+        if (isActive) {
+          schedulePendingCleanup();
+        }
+      }).then((handle) => {
+        if (isUnmounted) {
+          void handle.remove();
+          return;
+        }
+        removeStateListener = () => handle.remove();
+      });
+    }
 
     return () => {
       isUnmounted = true;
+      cancelPendingCleanup();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (removeUrlListener) {
         void removeUrlListener();
+      }
+      if (removeStateListener) {
+        void removeStateListener();
       }
     };
   }, [queryClient]);

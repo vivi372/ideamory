@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, type PointerEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type PointerEvent,
+  type ReactNode,
+  type TouchEvent,
+} from "react";
 import Link from "next/link";
 import { ArrowRight, ExternalLink, Globe, Sparkles } from "lucide-react";
 import type { MemoResponseDto } from "@ideamory/api-spec";
@@ -162,6 +169,22 @@ export function MemoCard({
     }
   };
 
+  const handleCopyTouchMove = (event: TouchEvent<HTMLButtonElement>) => {
+    if (event.touches.length !== 1) {
+      cancelLongPress();
+      return;
+    }
+    if (!pointerOriginRef.current) {
+      return;
+    }
+    const touch = event.touches[0];
+    const dx = touch.clientX - pointerOriginRef.current.x;
+    const dy = touch.clientY - pointerOriginRef.current.y;
+    if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_TOLERANCE_PX) {
+      cancelLongPress();
+    }
+  };
+
   return (
     <article
       className={`note-card${isEditing ? " is-editing" : ""}`}
@@ -217,6 +240,8 @@ export function MemoCard({
             onPointerUp={cancelLongPress}
             onPointerCancel={cancelLongPress}
             onPointerLeave={cancelLongPress}
+            onTouchMove={handleCopyTouchMove}
+            onTouchCancel={cancelLongPress}
             onContextMenu={(event) => {
               if (longPressedRef.current) {
                 event.preventDefault();

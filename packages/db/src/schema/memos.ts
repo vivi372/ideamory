@@ -80,6 +80,10 @@ export const memos = pgTable(
     index("idx_memos_category_timeline")
       .on(table.categoryId, table.createdAt.desc())
       .where(sql`deleted_at IS NULL`),
+    // AI 분류 대기(PENDING) 상태 메모 조회 최적화를 위한 부분 인덱스
+    index("idx_memos_ai_status")
+      .on(table.aiStatus, table.createdAt)
+      .where(sql`ai_status = 'PENDING'`),
     // 한국어/영어 통합 검색을 위한 PostgreSQL simple 사전 Full-Text Search GIN 인덱스
     index("idx_memos_content_fts").using(
       "gin",

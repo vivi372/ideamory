@@ -21,3 +21,8 @@ CONSTRAINT chk_memos_ai_status CHECK (ai_status IN ('PENDING', 'COMPLETED', 'FAI
 UPDATE memos
 SET ai_status = 'COMPLETED'
 WHERE ai_status = 'PENDING';
+
+-- 4. AI 분류 대기(PENDING) 상태 메모 조회 최적화를 위한 부분 인덱스 생성
+CREATE INDEX IF NOT EXISTS idx_memos_ai_status
+ON memos (ai_status, created_at)
+WHERE ai_status = 'PENDING';
