@@ -48,8 +48,33 @@ export default function HomePage() {
     handleDeleteAccount,
     handleSocialLogin,
     isLinkingSocial,
+    isResettingGuest,
+    isDeletingAccount,
     isMutating,
   } = useAuthDrawer();
+
+  const authOverlayProps = isLinkingSocial
+    ? {
+        open: true,
+        title: "소셜 계정 연동 중...",
+        description:
+          "메모 데이터를 안전하게 이관하고 있습니다.\n잠시만 기다려 주세요.",
+      }
+    : isDeletingAccount
+      ? {
+          open: true,
+          title: "회원탈퇴 처리 중...",
+          description:
+            "계정 및 모든 메모 데이터를 영구 삭제하고 있습니다.\n잠시만 기다려 주세요.",
+        }
+      : isResettingGuest
+        ? {
+            open: true,
+            title: "게스트 데이터 초기화 중...",
+            description:
+              "기존 메모를 정리하고 새 시작 화면을 준비하고 있습니다.",
+          }
+        : { open: false };
 
   const currentLabel =
     viewMode === "TRASH"
@@ -62,7 +87,7 @@ export default function HomePage() {
   return (
     <main className="ideamory-shell">
       <ConditionalSplash />
-      <SocialLinkOverlay open={isLinkingSocial} />
+      <SocialLinkOverlay {...authOverlayProps} />
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
