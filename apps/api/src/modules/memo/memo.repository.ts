@@ -17,7 +17,7 @@ import {
   type MemoAiStatus,
 } from "@ideamory/db";
 import type { OwnerIdentity } from "../../common/types/owner.type";
-import { toPgVectorLiteral } from "./memo.helper";
+import { escapeLikePattern, toPgVectorLiteral } from "./memo.helper";
 import type {
   HybridSearchRawRow,
   MemoWithRelations,
@@ -462,6 +462,25 @@ export class MemoRepository {
     const ownerFilter = params.owner.userId
       ? sql`m.user_id = ${params.owner.userId}`
       : sql`m.guest_token = ${params.owner.guestToken!}`;
+    const likePattern = `%${escapeLikePattern(params.queryText)}%`;
+    const ftsRankExpr = sql`
+      LEAST(
+        1.0,
+        GREATEST(
+          COALESCE(
+            ts_rank_cd(
+              to_tsvector('simple', m.content),
+              plainto_tsquery('simple', ${params.queryText})
+            ),
+            0.0
+          ),
+          CASE
+            WHEN m.content ILIKE ${likePattern} ESCAPE '!' THEN 0.5
+            ELSE 0.0
+          END
+        )
+      )
+    `;
 
     if (!params.queryVector) {
       const ftsOnlyResult = await tx.execute(sql`
@@ -470,29 +489,9 @@ export class MemoRepository {
           m.content AS "content",
           m.category_id AS "categoryId",
           c.name AS "categoryName",
-          LEAST(
-            1.0,
-            COALESCE(
-              ts_rank_cd(
-                to_tsvector('simple', m.content),
-                plainto_tsquery('simple', ${params.queryText})
-              ),
-              0.0
-            )
-          )::float8 AS "ftsScore",
+          (${ftsRankExpr})::float8 AS "ftsScore",
           0.0::float8 AS "vectorScore",
-          (
-            LEAST(
-              1.0,
-              COALESCE(
-                ts_rank_cd(
-                  to_tsvector('simple', m.content),
-                  plainto_tsquery('simple', ${params.queryText})
-                ),
-                0.0
-              )
-            ) * 0.4
-          )::float8 AS "finalScore",
+          ((${ftsRankExpr}) * 0.4)::float8 AS "finalScore",
           ogp.id AS "ogpId",
           ogp.target_url AS "ogpTargetUrl",
           ogp.title AS "ogpTitle",
@@ -507,7 +506,10 @@ export class MemoRepository {
           ON ogp.id = m.ogp_id AND ogp.expires_at > NOW()
         WHERE m.deleted_at IS NULL
           AND ${ownerFilter}
-          AND to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
+          AND (
+            to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
+            OR m.content ILIKE ${likePattern} ESCAPE '!'
+          )
         ORDER BY "finalScore" DESC, m.created_at DESC
         LIMIT ${params.limit}
       `);
@@ -522,16 +524,7 @@ export class MemoRepository {
         m.content AS "content",
         m.category_id AS "categoryId",
         c.name AS "categoryName",
-        LEAST(
-          1.0,
-          COALESCE(
-            ts_rank_cd(
-              to_tsvector('simple', m.content),
-              plainto_tsquery('simple', ${params.queryText})
-            ),
-            0.0
-          )
-        )::float8 AS "ftsScore",
+        (${ftsRankExpr})::float8 AS "ftsScore",
         CASE
           WHEN m.embedding IS NOT NULL THEN
             GREATEST(
@@ -541,18 +534,7 @@ export class MemoRepository {
           ELSE 0.0
         END AS "vectorScore",
         (
-          (
-            LEAST(
-              1.0,
-              COALESCE(
-                ts_rank_cd(
-                  to_tsvector('simple', m.content),
-                  plainto_tsquery('simple', ${params.queryText})
-                ),
-                0.0
-              )
-            ) * 0.4
-          ) +
+          ((${ftsRankExpr}) * 0.4) +
           (
             CASE
               WHEN m.embedding IS NOT NULL THEN
@@ -580,6 +562,7 @@ export class MemoRepository {
         AND ${ownerFilter}
         AND (
           to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
+          OR m.content ILIKE ${likePattern} ESCAPE '!'
           OR (
             m.embedding IS NOT NULL
             AND (1 - (m.embedding <=> ${vectorLiteral}::vector)) >= ${params.threshold}

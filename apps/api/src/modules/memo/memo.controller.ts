@@ -139,7 +139,7 @@ export class MemoController {
       "FTS 키워드 점수(0.4)와 Gemini 768차원 코사인 유사도 점수(0.6)를 가중치 결합해 검색 결과를 반환합니다.",
   })
   @ApiQuery({ name: "q", required: true, type: String, description: "검색어 (1~500자)" })
-  @ApiQuery({ name: "threshold", required: false, type: Number, example: 0.3 })
+  @ApiQuery({ name: "threshold", required: false, type: Number, example: 0.72 })
   @ApiQuery({ name: "limit", required: false, type: Number, example: 30 })
   @ApiResponse({ status: 200, description: "하이브리드 검색 성공" })
   async searchMemos(

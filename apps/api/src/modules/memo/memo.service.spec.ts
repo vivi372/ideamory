@@ -9,6 +9,7 @@ import { MemoService } from "./memo.service";
 import { MemoRepository } from "./memo.repository";
 import {
   clampAndRoundScore,
+  escapeLikePattern,
   sanitizeSearchQuery,
   toPgVectorLiteral,
 } from "./memo.helper";
@@ -500,6 +501,37 @@ describe("MemoService & TrashCleanerScheduler (2단계 퀵 캡처 파이프라�
     assert.equal(clampAndRoundScore(1.0000002), 1);
     assert.equal(clampAndRoundScore(-0.05), 0);
     assert.equal(clampAndRoundScore(0.854321), 0.8543);
+    assert.equal(escapeLikePattern("100%_test!"), "100!%!_test!!");
+  });
+
+  it("시나리오 13: classifyCategoryInBackground는 '사용 가이드'를 후보에서 제외하고, searchMemos는 threshold 미지정 시 기본 0.72를 적용해야 한다", async () => {
+    const repo = (memoService as any).memoRepository;
+    repo.findCategoriesByOwner = async () => [
+      { id: "cat-uncat", name: "미분류", normalizedName: "미분류" },
+      { id: "cat-guide", name: "사용 가이드", normalizedName: "사용가이드" },
+      { id: "cat-dev", name: "개발", normalizedName: "개발" },
+    ];
+
+    let passedCandidates: string[] = [];
+    (aiService as any).classifyMemoCategory = async (
+      _content: string,
+      candidates: string[]
+    ) => {
+      passedCandidates = candidates;
+      return null;
+    };
+    (aiService as any).batchEmbedContents = async () => [null];
+
+    await memoService.createMemo(owner, {
+      id: "018d0000-0000-7000-8000-000000000888",
+      content: "사용 가이드 제외 테스트 메모",
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    assert.deepEqual(passedCandidates, ["개발"]);
+
+    (aiService as any).generateEmbedding = async () => new Array(768).fill(0.1);
+    await memoService.searchMemos(owner, { q: "개발" } as any);
+    assert.equal(repoCalls.searchMemosHybrid[0].threshold, 0.72);
   });
 });
 

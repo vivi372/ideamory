@@ -178,14 +178,22 @@ export class MemoService {
     const existingCategories =
       await this.memoRepository.findCategoriesByOwner(owner);
     const candidateNames = existingCategories
-      .map((cat) => cat.name)
-      .filter((name) => name !== "미분류");
+      .filter(
+        (cat) =>
+          cat.normalizedName !== "미분류" &&
+          cat.normalizedName !== "사용가이드"
+      )
+      .map((cat) => cat.name);
 
     const suggested = await this.aiService.classifyMemoCategory(
       content,
       candidateNames
     );
-    if (!suggested) {
+    if (
+      !suggested ||
+      suggested.normalizedName === "미분류" ||
+      suggested.normalizedName === "사용가이드"
+    ) {
       return undefined;
     }
 
@@ -495,7 +503,7 @@ export class MemoService {
       owner,
       queryText: sanitizedQuery,
       queryVector,
-      threshold: query.threshold ?? 0.3,
+      threshold: query.threshold ?? 0.72,
       limit: query.limit ?? 30,
     });
 

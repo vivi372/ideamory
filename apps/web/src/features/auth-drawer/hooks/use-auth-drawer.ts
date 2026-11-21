@@ -7,6 +7,7 @@ import {
   setGuestToken,
 } from "@/shared/api";
 import { useFeedbackStore } from "@/shared/lib/feedback/use-feedback";
+import { isCapacitorNative } from "@/shared/lib/native-bridge";
 import { generateUuidV7 } from "@/shared/lib/uuid-v7";
 import { useViewStore } from "@/shared/model/view-store";
 import {
@@ -149,7 +150,10 @@ export function useAuthDrawer() {
     }
 
     rememberPendingOAuthProvider(provider);
-    const redirectTo = encodeURIComponent(window.location.origin);
+    const redirectUrl = isCapacitorNative()
+      ? "com.ideamory.app://auth/callback"
+      : window.location.origin;
+    const redirectTo = encodeURIComponent(redirectUrl);
     window.location.assign(
       `${supabaseUrl.replace(/\/+$/, "")}/auth/v1/authorize?provider=${provider}&redirect_to=${redirectTo}`
     );
