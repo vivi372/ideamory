@@ -61,6 +61,7 @@ export class AuthRepository {
       id: string;
       targetUrl: string;
       title: string;
+      thumbnailUrl?: string | null;
       description: string;
       expiresAt: Date;
     },
@@ -70,6 +71,7 @@ export class AuthRepository {
       id: params.id,
       targetUrl: params.targetUrl,
       title: params.title,
+      thumbnailUrl: params.thumbnailUrl ?? null,
       description: params.description,
       expiresAt: params.expiresAt,
     });

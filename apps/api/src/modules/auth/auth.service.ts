@@ -107,6 +107,7 @@ export class AuthService {
             id: ogpId,
             targetUrl: guideUrl,
             title: "Ideamory 사용 가이드",
+            thumbnailUrl: "/ideamory-guide-ogp.jpg",
             description:
               "0.1초 만에 생각을 기록하고 AI로 자동 정리하는 나만의 지식 서재 시작하기",
             expiresAt: hundredYearsLater,

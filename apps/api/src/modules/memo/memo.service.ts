@@ -209,7 +209,9 @@ export class MemoService {
     }
 
     try {
-      const ogp = await this.ogpService.parseAndCacheOgp(firstUrl);
+      const ogp = this.ogpService.parseAndCacheOgpWithFallback
+        ? await this.ogpService.parseAndCacheOgpWithFallback(firstUrl)
+        : await this.ogpService.parseAndCacheOgp(firstUrl);
       return ogp.id;
     } catch (ogpError: any) {
       this.logger.warn(
