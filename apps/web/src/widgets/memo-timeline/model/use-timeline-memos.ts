@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MemoResponseDto } from "@ideamory/api-spec";
 import { fetchMemosApi } from "@/entities/memo";
 import { queryKeys } from "@/shared/api";
@@ -28,6 +28,10 @@ export interface UseTimelineMemosOptions {
  */
 export function useTimelineMemos({ enabled }: UseTimelineMemosOptions) {
   const queryClient = useQueryClient();
+  const creatingMemoCount = useIsMutating({ mutationKey: ["memos", "create"] });
+  const creatingMemoCountRef = useRef(creatingMemoCount);
+  creatingMemoCountRef.current = creatingMemoCount;
+
   const viewMode = useViewStore((state) => state.viewMode);
   const selectedCategoryId = useViewStore((state) => state.selectedCategoryId);
 
@@ -48,6 +52,9 @@ export function useTimelineMemos({ enabled }: UseTimelineMemosOptions) {
       }),
     enabled,
     refetchInterval: (q) => {
+      if (creatingMemoCountRef.current > 0) {
+        return false;
+      }
       const list = q.state.data as MemoResponseDto[] | undefined;
       if (!list || list.length === 0) {
         return false;

@@ -3,40 +3,42 @@
 import { Loader2 } from "lucide-react";
 
 interface SocialLinkOverlayProps {
-  /** 소셜 계정 연동 및 데이터 이관 진행 중 여부 */
+  /** 계정 연동·초기화·탈퇴 진행 중 오버레이 표시 여부 */
   open: boolean;
+  /** 오버레이 제목 */
+  title?: string;
+  /** 오버레이 안내 문구 */
+  description?: string;
 }
 
 /**
- * 외부 브라우저 OAuth 인증 완료 후 앱으로 복귀했을 때,
- * 게스트 화면이 잠깐 노출되어 연동 실패로 오해되는 현상을 방지하는 진행 중 오버레이입니다.
+ * 소셜 계정 연동 복귀, 게스트 데이터 초기화, 회원탈퇴 등 시간이 소요되는 계정 작업 중
+ * 화면 중앙에 모달 형태로 진행 상태를 안내해 화면 멈춤이나 연동 실패로 오해되는 현상을 방지합니다.
  */
-export function SocialLinkOverlay({ open }: SocialLinkOverlayProps) {
+export function SocialLinkOverlay({
+  open,
+  title = "소셜 계정 연동 중...",
+  description = "메모 데이터를 안전하게 이관하고 있습니다.\n잠시만 기다려 주세요.",
+}: SocialLinkOverlayProps) {
   if (!open) {
     return null;
   }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-6 backdrop-blur-sm"
+      className="auth-action-backdrop"
       role="status"
       aria-live="polite"
-      aria-label="소셜 계정 연동 중"
+      aria-label={title}
     >
-      <div className="flex w-full max-w-xs flex-col items-center gap-3 rounded-2xl border border-amber-500/25 bg-[#1b1917] px-6 py-7 text-center shadow-2xl">
+      <div className="auth-action-dialog">
         <Loader2
-          size={28}
-          className="animate-spin text-amber-400"
+          size={32}
+          className="auth-action-spinner"
           aria-hidden="true"
         />
-        <p className="text-sm font-semibold text-[#f3ece2]">
-          소셜 계정 연동 중...
-        </p>
-        <p className="text-xs leading-relaxed text-[#a89f94]">
-          메모 데이터를 안전하게 이관하고 있습니다.
-          <br />
-          잠시만 기다려 주세요.
-        </p>
+        <h2>{title}</h2>
+        <p>{description}</p>
       </div>
     </div>
   );

@@ -51,6 +51,7 @@ export function useCreateMemo() {
     CreateMemoVariables,
     CreateMemoContext
   >({
+    mutationKey: ["memos", "create"],
     mutationFn: async ({ id, rawContent }) => {
       if (!getAccessToken() && !getGuestToken()) {
         await waitForAuthBootstrap();
@@ -76,7 +77,7 @@ export function useCreateMemo() {
           viewMode === "CATEGORY" && selectedCategoryId
             ? selectedCategoryId
             : "00000000-0000-7000-8000-000000000000",
-        categoryName: categoryHint ?? "ai 분류 중...",
+        categoryName: categoryHint ?? "AI 분류 중...",
         aiStatus: categoryHint ? "COMPLETED" : "PENDING",
         ogpId: null,
         ogp: null,
@@ -98,6 +99,18 @@ export function useCreateMemo() {
       }
 
       return { previousQueries };
+    },
+    onSuccess: (createdMemo) => {
+      queryClient.setQueryData<MemoResponseDto[]>(
+        queryKeys.memos.timeline(undefined),
+        (old) => {
+          if (!old) return [createdMemo];
+          const exists = old.some((item) => item.id === createdMemo.id);
+          return exists
+            ? old.map((item) => (item.id === createdMemo.id ? createdMemo : item))
+            : [createdMemo, ...old];
+        }
+      );
     },
     onError: (error, _variables, context) => {
       if (context?.previousQueries) {
