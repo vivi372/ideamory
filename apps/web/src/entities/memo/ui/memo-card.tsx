@@ -268,62 +268,62 @@ export function MemoCard({
         )}
 
         {memo.ogp ? (
-          isInternalGuideUrl(memo.ogp.targetUrl) ? (
-            <Link href="/guide" className="ogp-card">
-              <div className="ogp-icon" aria-hidden="true">
+          (() => {
+            const ogpIcon = (
+              <div
+                className="ogp-icon shrink-0 overflow-hidden"
+                aria-hidden="true"
+              >
                 {memo.ogp.thumbnailUrl ? (
                   <img
                     src={memo.ogp.thumbnailUrl}
                     alt=""
-                    className="h-full w-full rounded-lg object-cover"
+                    width={31}
+                    height={31}
+                    className="h-full w-full object-cover"
                     loading="lazy"
                   />
                 ) : (
                   <Globe size={15} />
                 )}
               </div>
-              <div>
-                <strong className="truncate">
-                  {memo.ogp.title || "Ideamory 사용 가이드"}
-                </strong>
-                {memo.ogp.description ? (
-                  <span>{memo.ogp.description}</span>
-                ) : null}
-                <small>앱 내 사용 가이드</small>
-              </div>
-              <ArrowRight size={14} aria-hidden="true" />
-            </Link>
-          ) : (
-            <a
-              href={memo.ogp.targetUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ogp-card"
-            >
-              <div className="ogp-icon" aria-hidden="true">
-                {memo.ogp.thumbnailUrl ? (
-                  <img
-                    src={memo.ogp.thumbnailUrl}
-                    alt=""
-                    className="h-full w-full rounded-lg object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <Globe size={15} />
-                )}
-              </div>
-              <div>
-                <strong className="truncate">
-                  {memo.ogp.title || extractHostname(memo.ogp.targetUrl)}
-                </strong>
-                {memo.ogp.description ? (
-                  <span>{memo.ogp.description}</span>
-                ) : null}
-                <small>{extractHostname(memo.ogp.targetUrl)}</small>
-              </div>
-              <ExternalLink size={14} aria-hidden="true" />
-            </a>
-          )
+            );
+
+            return isInternalGuideUrl(memo.ogp.targetUrl) ? (
+              <Link href="/guide" className="ogp-card">
+                {ogpIcon}
+                <div>
+                  <strong className="truncate">
+                    {memo.ogp.title || "Ideamory 사용 가이드"}
+                  </strong>
+                  {memo.ogp.description ? (
+                    <span>{memo.ogp.description}</span>
+                  ) : null}
+                  <small>앱 내 사용 가이드</small>
+                </div>
+                <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+            ) : (
+              <a
+                href={memo.ogp.targetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ogp-card"
+              >
+                {ogpIcon}
+                <div>
+                  <strong className="truncate">
+                    {memo.ogp.title || extractHostname(memo.ogp.targetUrl)}
+                  </strong>
+                  {memo.ogp.description ? (
+                    <span>{memo.ogp.description}</span>
+                  ) : null}
+                  <small>{extractHostname(memo.ogp.targetUrl)}</small>
+                </div>
+                <ExternalLink size={14} aria-hidden="true" />
+              </a>
+            );
+          })()
         ) : null}
 
         {showOgpSkeleton ? (
