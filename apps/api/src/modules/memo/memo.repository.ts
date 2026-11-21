@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { v7 as uuidv7 } from "uuid";
 import {
   db,
   eq,
@@ -83,21 +82,19 @@ export class MemoRepository {
   }
 
   /**
-   * 특정 소유자의 정규화 카테고리명으로 기존 카테고리를 조회하고, 없으면 동시성 안전하게 생성합니다.
+   * 특정 소유자의 정규화 카테고리명(`normalized_name`)으로 단일 카테고리를 조회합니다.
    *
    * @param owner 소유자 식별자
-   * @param name 표시용 카테고리 이름 (1~10자)
    * @param normalizedName 정규화 키
    * @param tx 트랜잭션 컨텍스트 (기본값: db)
-   * @returns 조회 또는 생성된 카테고리(id, name)
+   * @returns 조회된 카테고리(id, name) 또는 null
    */
-  async findOrCreateCategory(
+  async findCategoryByNormalizedName(
     owner: OwnerIdentity,
-    name: string,
     normalizedName: string,
     tx: DbExecutor = db
-  ): Promise<{ id: string; name: string }> {
-    const existing = await tx
+  ): Promise<{ id: string; name: string } | null> {
+    const rows = await tx
       .select({ id: categories.id, name: categories.name })
       .from(categories)
       .where(
@@ -108,35 +105,36 @@ export class MemoRepository {
       )
       .limit(1);
 
-    if (existing[0]) {
-      return existing[0];
-    }
+    return rows[0] ?? null;
+  }
 
-    const newId = uuidv7();
+  /**
+   * 신규 카테고리를 동시성 충돌 무시(`ON CONFLICT DO NOTHING`) 옵션으로 단일 삽입합니다.
+   *
+   * @param params 선발급 카테고리 UUID v7, 소유자, 표시명, 정규화 키
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async insertCategoryIgnoreConflict(
+    params: {
+      id: string;
+      owner: OwnerIdentity;
+      name: string;
+      normalizedName: string;
+    },
+    tx: DbExecutor = db
+  ): Promise<void> {
     await tx
       .insert(categories)
       .values({
-        id: newId,
-        userId: owner.userId ?? null,
-        guestToken: owner.userId ? null : (owner.guestToken ?? null),
-        name,
-        normalizedName,
+        id: params.id,
+        userId: params.owner.userId ?? null,
+        guestToken: params.owner.userId
+          ? null
+          : (params.owner.guestToken ?? null),
+        name: params.name,
+        normalizedName: params.normalizedName,
       })
       .onConflictDoNothing();
-
-    // 동시 요청으로 먼저 생성된 경우를 포함하여 최종 레코드 재조회
-    const resolved = await tx
-      .select({ id: categories.id, name: categories.name })
-      .from(categories)
-      .where(
-        and(
-          this.buildCategoryOwnerCondition(owner),
-          eq(categories.normalizedName, normalizedName)
-        )
-      )
-      .limit(1);
-
-    return resolved[0] ?? { id: newId, name };
   }
 
   /**

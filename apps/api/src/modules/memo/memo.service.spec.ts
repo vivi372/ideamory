@@ -57,12 +57,22 @@ describe("MemoService & TrashCleanerScheduler (2단계 퀵 캡처 파이프라�
         { id: "cat-미분류", name: "미분류", normalizedName: "미분류" },
         { id: "cat-dev", name: "개발", normalizedName: "개발" },
       ],
-      findOrCreateCategory: async (_owner, name, normalizedName) => {
+      findCategoryByNormalizedName: async (_owner, normalizedName) => {
+        const hit = repoCalls.findOrCreateCategory.find(
+          (c) => c.normalizedName === normalizedName
+        );
+        return hit
+          ? {
+              id:
+                hit.name === "미분류"
+                  ? "cat-uncategorized"
+                  : `cat-${hit.normalizedName}`,
+              name: hit.name,
+            }
+          : null;
+      },
+      insertCategoryIgnoreConflict: async ({ name, normalizedName }) => {
         repoCalls.findOrCreateCategory.push({ name, normalizedName });
-        return {
-          id: name === "미분류" ? "cat-uncategorized" : `cat-${normalizedName}`,
-          name,
-        };
       },
       insertMemo: async (params) => {
         repoCalls.insertMemo.push(params);
