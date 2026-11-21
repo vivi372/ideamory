@@ -216,6 +216,7 @@ export function MemoTimeline({ isBootstrapped }: MemoTimelineProps) {
             const isCategorizing =
               memo.aiStatus === "PENDING" ||
               memo.categoryName === "AI 분류중" ||
+              memo.categoryName === "AI 분류 중..." ||
               memo.categoryName === "ai 분류 중...";
 
             return (

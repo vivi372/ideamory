@@ -39,6 +39,7 @@ export function useAuthDrawer() {
   const socialSheetOpen = useAuthStore((state) => state.socialSheetOpen);
   const legalModalType = useAuthStore((state) => state.legalModalType);
   const isBootstrapped = useAuthStore((state) => state.isBootstrapped);
+  const isLinkingSocial = useAuthStore((state) => state.isLinkingSocial);
   const socialProvider = useAuthStore((state) => state.socialProvider);
 
   const setDrawerOpen = useAuthStore((state) => state.setDrawerOpen);
@@ -150,6 +151,10 @@ export function useAuthDrawer() {
     }
 
     rememberPendingOAuthProvider(provider);
+    if (isCapacitorNative()) {
+      setSocialSheetOpen(false);
+      setDrawerOpen(false);
+    }
     const redirectUrl = isCapacitorNative()
       ? "com.ideamory.app://auth/callback"
       : window.location.origin;
@@ -203,6 +208,7 @@ export function useAuthDrawer() {
     handleResetGuestData,
     handleDeleteAccount,
     handleSocialLogin,
+    isLinkingSocial,
     isMutating: resetGuestMutation.isPending || deleteAccountMutation.isPending,
   };
 }

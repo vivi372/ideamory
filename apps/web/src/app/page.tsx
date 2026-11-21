@@ -5,6 +5,7 @@ import {
   LegalWebviewModal,
   SidebarDrawer,
   SocialLinkModal,
+  SocialLinkOverlay,
   useAuthDrawer,
   useGuestBootstrap,
 } from "@/features/auth-drawer";
@@ -46,6 +47,7 @@ export default function HomePage() {
     handleResetGuestData,
     handleDeleteAccount,
     handleSocialLogin,
+    isLinkingSocial,
     isMutating,
   } = useAuthDrawer();
 
@@ -60,6 +62,7 @@ export default function HomePage() {
   return (
     <main className="ideamory-shell">
       <ConditionalSplash />
+      <SocialLinkOverlay open={isLinkingSocial} />
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 

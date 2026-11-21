@@ -25,6 +25,8 @@ interface AuthStoreState {
   legalModalType: LegalDocumentType | null;
   /** 초기 게스트/소셜 세션 부트스트랩 완료 여부 */
   isBootstrapped: boolean;
+  /** 외부 OAuth 콜백 복귀 직후 소셜 계정 연동/데이터 이관 진행 중 여부 */
+  isLinkingSocial: boolean;
   /** 현재 연동된 소셜 제공자 (게스트 상태 시 null) */
   socialProvider: SocialProvider | null;
   setDrawerOpen: (open: boolean) => void;
@@ -32,6 +34,7 @@ interface AuthStoreState {
   openLegalModal: (type: LegalDocumentType) => void;
   closeLegalModal: () => void;
   setBootstrapped: (ready: boolean) => void;
+  setIsLinkingSocial: (linking: boolean) => void;
   setSocialProvider: (provider: SocialProvider | null) => void;
 }
 
@@ -56,6 +59,7 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
   socialSheetOpen: false,
   legalModalType: null,
   isBootstrapped: false,
+  isLinkingSocial: false,
   socialProvider: null,
 
   setDrawerOpen: (open) => set({ drawerOpen: open }),
@@ -63,5 +67,6 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
   openLegalModal: (type) => set({ legalModalType: type }),
   closeLegalModal: () => set({ legalModalType: null }),
   setBootstrapped: (ready) => set({ isBootstrapped: ready }),
+  setIsLinkingSocial: (linking) => set({ isLinkingSocial: linking }),
   setSocialProvider: (provider) => set({ socialProvider: provider }),
 }));
