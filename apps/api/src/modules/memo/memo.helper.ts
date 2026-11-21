@@ -1,13 +1,52 @@
 import type {
+  MemoResponseDto,
   OgpResponseDto,
   RelatedMemoResponseDto,
   SearchResultResponseDto,
 } from "@ideamory/api-spec";
+import { serializeOgpCacheToDto } from "../ogp/ogp.helper";
 import type {
   HybridSearchRawRow,
   JoinedOgpRawFields,
+  MemoWithRelations,
   RelatedMemoRawRow,
 } from "./memo.type";
+
+/**
+ * 조인된 메모 엔티티(`MemoWithRelations`)를 API 응답 규격(`MemoResponseDto`)으로 직렬화합니다.
+ *
+ * @param record 카테고리 및 OGP가 조인된 메모 레코드
+ * @returns 직렬화된 메모 응답 DTO
+ */
+export function toMemoResponseDto(record: MemoWithRelations): MemoResponseDto {
+  return {
+    id: record.id,
+    content: record.content,
+    categoryId: record.categoryId,
+    categoryName: record.categoryName,
+    aiStatus: record.aiStatus ?? "COMPLETED",
+    ogpId: record.ogpId,
+    ogp: record.ogp ? serializeOgpCacheToDto(record.ogp) : null,
+    ...(record.relatedCount !== undefined
+      ? { relatedCount: Number(record.relatedCount) }
+      : {}),
+    deletedAt: record.deletedAt ? record.deletedAt.toISOString() : null,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+  };
+}
+
+/**
+ * 조인된 메모 엔티티 목록을 API 응답 DTO 배열로 일괄 변환합니다.
+ *
+ * @param rows 카테고리 및 OGP가 조인된 메모 레코드 배열
+ * @returns 직렬화된 메모 응답 DTO 배열
+ */
+export function toMemoResponseList(
+  rows: MemoWithRelations[]
+): MemoResponseDto[] {
+  return rows.map(toMemoResponseDto);
+}
 
 /**
  * 검색어에서 제어문자를 제거하고 연속 공백을 단일 공백으로 정제합니다.

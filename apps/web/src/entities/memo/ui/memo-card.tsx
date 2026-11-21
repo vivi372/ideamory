@@ -82,7 +82,7 @@ export function MemoCard({
         <div className="note-meta-actions">
           <button
             type="button"
-            className="category-label max-w-[160px] truncate"
+            className="category-label max-w-40 truncate"
             onClick={() => {
               if (!isTrash && !isPendingAi) {
                 onCategoryClick?.(memo);
@@ -137,7 +137,7 @@ export function MemoCard({
                   <img
                     src={memo.ogp.thumbnailUrl}
                     alt=""
-                    className="h-full w-full rounded-[8px] object-cover"
+                    className="h-full w-full rounded-lg object-cover"
                     loading="lazy"
                   />
                 ) : (
@@ -167,7 +167,7 @@ export function MemoCard({
                   <img
                     src={memo.ogp.thumbnailUrl}
                     alt=""
-                    className="h-full w-full rounded-[8px] object-cover"
+                    className="h-full w-full rounded-lg object-cover"
                     loading="lazy"
                   />
                 ) : (

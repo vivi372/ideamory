@@ -1,4 +1,5 @@
 import { Injectable, Logger, HttpStatus, Optional } from "@nestjs/common";
+import { v7 as uuidv7 } from "uuid";
 import {
   ERROR_CODES,
   type CreateMemoDto,
@@ -10,6 +11,7 @@ import {
   type RelatedMemoQueryDto,
   type RelatedMemoResponseDto,
 } from "@ideamory/api-spec";
+import type { DbExecutor } from "@ideamory/db";
 import { BusinessException } from "../../common/exceptions/business.exception";
 import { LogTrace } from "../../common/decorators/log-trace.decorator";
 import {
@@ -21,11 +23,12 @@ import { CategoryService } from "../category/category.service";
 import { OgpService } from "../ogp/ogp.service";
 import {
   sanitizeSearchQuery,
+  toMemoResponseDto,
+  toMemoResponseList,
   toRelatedMemoResponseList,
   toSearchResultResponseList,
 } from "./memo.helper";
 import { MemoRepository } from "./memo.repository";
-import type { MemoWithRelations } from "./memo.type";
 
 /** 휴지통 영구 보관 기한 (30일, 밀리초 단위) */
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -34,7 +37,7 @@ const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
  * 메모 코어 비즈니스 서비스
  *
  * [2단계 비동기 퀵 캡처 파이프라인 (Two-Phase Pipeline)]
- * 1. 동기 1단계: 문두 `@카테고리` 지시어만 즉시 파싱하고 미지정 시 `'미분류'` 카테고리로 DB에 선저장하여 0.1초 내 `201 Created`를 반환합니다.
+ * 1. 동기 1단계: 문두 `@카테고리` 지시어만 즉시 파싱하고 미지정 시 `'미분류'`(`ai_status = 'PENDING'`)로 DB에 선저장하여 0.1초 내 `201 Created`를 반환합니다.
  * 2. 비동기 2단계: 응답 반환 후 백그라운드에서 Gemini 가변 카테고리 분류, 768차원 임베딩 생성, 대표 URL 1개 OGP 크롤링을 비차단(Non-blocking) 실행합니다.
  */
 @Injectable()
@@ -49,33 +52,41 @@ export class MemoService {
   ) {}
 
   /**
-   * 요청 주체(소셜 정회원 또는 게스트)의 식별자가 유효한지 검증합니다.
+   * 정규화 카테고리명으로 기존 카테고리를 조회하고, 미존재 시 UUID v7을 선발급해 동시성 안전하게 생성합니다.
    *
-   * @throws BusinessException userId와 guestToken이 모두 누락된 경우 401 Unauthorized 발생
+   * @param owner 요청 주체(userId 또는 guestToken)
+   * @param name 표시용 카테고리 이름 (1~10자)
+   * @param normalizedName 공백 제거·소문자 정규화 키
+   * @param tx 선택적 트랜잭션 실행기
+   * @returns 확정된 카테고리(id, name)
    */
-  private assertOwner(owner: OwnerIdentity): void {
-    assertOwnerIdentity(owner);
-  }
+  private async resolveOrCreateCategory(
+    owner: OwnerIdentity,
+    name: string,
+    normalizedName: string,
+    tx?: DbExecutor
+  ): Promise<{ id: string; name: string }> {
+    const existing = await this.memoRepository.findCategoryByNormalizedName(
+      owner,
+      normalizedName,
+      tx
+    );
+    if (existing) {
+      return existing;
+    }
 
-  /**
-   * 조인된 메모 엔티티를 API 응답 규격(MemoResponseDto)으로 직렬화합니다.
-   */
-  private toMemoResponseDto(record: MemoWithRelations): MemoResponseDto {
-    return {
-      id: record.id,
-      content: record.content,
-      categoryId: record.categoryId,
-      categoryName: record.categoryName,
-      aiStatus: record.aiStatus ?? "COMPLETED",
-      ogpId: record.ogpId,
-      ogp: record.ogp ? this.ogpService.toOgpResponseDto(record.ogp) : null,
-      ...(record.relatedCount !== undefined
-        ? { relatedCount: Number(record.relatedCount) }
-        : {}),
-      deletedAt: record.deletedAt ? record.deletedAt.toISOString() : null,
-      createdAt: record.createdAt.toISOString(),
-      updatedAt: record.updatedAt.toISOString(),
-    };
+    const newId = uuidv7();
+    await this.memoRepository.insertCategoryIgnoreConflict(
+      { id: newId, owner, name, normalizedName },
+      tx
+    );
+
+    const resolved = await this.memoRepository.findCategoryByNormalizedName(
+      owner,
+      normalizedName,
+      tx
+    );
+    return resolved ?? { id: newId, name };
   }
 
   /**
@@ -91,7 +102,7 @@ export class MemoService {
     owner: OwnerIdentity,
     dto: CreateMemoDto
   ): Promise<MemoResponseDto> {
-    this.assertOwner(owner);
+    assertOwnerIdentity(owner);
 
     // 1. 문두 @카테고리 지시어 우선 파싱 (정규식 ^@(\S+))
     const directive = this.aiService.parseLeadingCategoryDirective(dto.content);
@@ -108,7 +119,7 @@ export class MemoService {
 
     // 2. 단일 트랜잭션 내에서 초기 카테고리 확정 및 메모 즉시 INSERT
     const created = await this.memoRepository.withTransaction(async (tx) => {
-      const category = await this.memoRepository.findOrCreateCategory(
+      const category = await this.resolveOrCreateCategory(
         owner,
         initialCategoryName,
         initialNormalizedName,
@@ -153,6 +164,93 @@ export class MemoService {
   }
 
   /**
+   * 백그라운드에서 문두 지시어가 없었던 메모의 AI 카테고리를 추론하고 카테고리를 확정합니다.
+   */
+  private async classifyCategoryInBackground(
+    owner: OwnerIdentity,
+    content: string,
+    hasExplicitDirective: boolean
+  ): Promise<{ id: string; name: string } | undefined> {
+    if (hasExplicitDirective) {
+      return undefined;
+    }
+
+    const existingCategories =
+      await this.memoRepository.findCategoriesByOwner(owner);
+    const candidateNames = existingCategories
+      .map((cat) => cat.name)
+      .filter((name) => name !== "미분류");
+
+    const suggested = await this.aiService.classifyMemoCategory(
+      content,
+      candidateNames
+    );
+    if (!suggested) {
+      return undefined;
+    }
+
+    return this.resolveOrCreateCategory(
+      owner,
+      suggested.name,
+      suggested.normalizedName
+    );
+  }
+
+  /**
+   * 백그라운드에서 메모 본문 내 첫 번째 대표 URL 1개를 추출해 OGP 크롤링 및 캐싱을 수행합니다.
+   */
+  private async resolveOgpIdInBackground(
+    memoId: string,
+    content: string
+  ): Promise<string | undefined> {
+    const firstUrl = this.ogpService.extractFirstUrl(content);
+    if (!firstUrl) {
+      return undefined;
+    }
+
+    try {
+      const ogp = await this.ogpService.parseAndCacheOgp(firstUrl);
+      return ogp.id;
+    } catch (ogpError: any) {
+      this.logger.warn(
+        `백그라운드 OGP 파싱 스킵 (memoId: ${memoId}, url: ${firstUrl}): ${ogpError?.message || ogpError}`
+      );
+      return undefined;
+    }
+  }
+
+  /**
+   * 백그라운드에서 메모 768차원 임베딩을 생성하고, 신규 카테고리의 경우 배치 임베딩 및 유사 카테고리 탐지를 트리거합니다.
+   */
+  private async generateEmbeddingsInBackground(
+    content: string,
+    targetCategory?: { id: string; name: string }
+  ): Promise<number[] | null> {
+    const shouldEmbedCategory =
+      !!this.categoryService &&
+      !!targetCategory &&
+      targetCategory.name !== "미분류" &&
+      !(await this.categoryService.hasCategoryEmbedding(targetCategory.id));
+
+    if (shouldEmbedCategory && targetCategory) {
+      const [memoVec, categoryVec] = await this.aiService.batchEmbedContents([
+        content,
+        targetCategory.name,
+      ]);
+      if (categoryVec) {
+        void this.categoryService!.syncCategoryEmbeddingAndDetectSimilar(
+          targetCategory.id,
+          targetCategory.name,
+          categoryVec
+        );
+      }
+      return memoVec ?? null;
+    }
+
+    return this.aiService.generateEmbedding(content);
+  }
+
+  /**
    * 2단계 비동기 백그라운드 파이프라인:
    * LLM 가변 카테고리 분류(지시어 미존재 시), Gemini 768차원 임베딩 생성, 대표 URL 1개 OGP 크롤링을 병렬 수행합니다.
    * 백그라운드 작업 중 오류가 발생해도 UnhandledRejection 없이 안전하게 로깅만 남깁니다.
@@ -166,54 +264,9 @@ export class MemoService {
     initialCategory?: { id: string; name: string }
   ): Promise<void> {
     try {
-      // 1) AI 카테고리 분류 작업 (문두 @지시어가 없었을 때만 수행)
-      const classifyTask = (async (): Promise<
-        { id: string; name: string } | undefined
-      > => {
-        if (hasExplicitDirective) {
-          return undefined;
-        }
-        const existingCategories =
-          await this.memoRepository.findCategoriesByOwner(owner);
-        const candidateNames = existingCategories
-          .map((cat) => cat.name)
-          .filter((name) => name !== "미분류");
-
-        const suggested = await this.aiService.classifyMemoCategory(
-          content,
-          candidateNames
-        );
-        if (!suggested) {
-          return undefined;
-        }
-
-        return this.memoRepository.findOrCreateCategory(
-          owner,
-          suggested.name,
-          suggested.normalizedName
-        );
-      })();
-
-      // 2) 본문 내 첫 번째 대표 URL 1개만 추출하여 OGP 크롤링 및 캐싱
-      const ogpTask = (async (): Promise<string | undefined> => {
-        const firstUrl = this.ogpService.extractFirstUrl(content);
-        if (!firstUrl) {
-          return undefined;
-        }
-        try {
-          const ogp = await this.ogpService.parseAndCacheOgp(firstUrl);
-          return ogp.id;
-        } catch (ogpError: any) {
-          this.logger.warn(
-            `백그라운드 OGP 파싱 스킵 (memoId: ${memoId}, url: ${firstUrl}): ${ogpError?.message || ogpError}`
-          );
-          return undefined;
-        }
-      })();
-
       const [classifiedCategory, ogpId] = await Promise.all([
-        classifyTask,
-        ogpTask,
+        this.classifyCategoryInBackground(owner, content, hasExplicitDirective),
+        this.resolveOgpIdInBackground(memoId, content),
       ]);
 
       const resolvedCategoryId = classifiedCategory?.id;
@@ -224,30 +277,10 @@ export class MemoService {
           ? "COMPLETED"
           : "FAILED";
 
-      // 3) 768차원 시맨틱 임베딩 생성 (신규 또는 임베딩 미생성 카테고리는 배치 임베딩으로 동시 획득 후 유사 카테고리 탐지 트리거)
-      let embedding: number[] | null = null;
-      const shouldEmbedCategory =
-        !!this.categoryService &&
-        !!targetCategory &&
-        targetCategory.name !== "미분류" &&
-        !(await this.categoryService.hasCategoryEmbedding(targetCategory.id));
-
-      if (shouldEmbedCategory && targetCategory) {
-        const [memoVec, categoryVec] = await this.aiService.batchEmbedContents([
-          content,
-          targetCategory.name,
-        ]);
-        embedding = memoVec ?? null;
-        if (categoryVec) {
-          void this.categoryService!.syncCategoryEmbeddingAndDetectSimilar(
-            targetCategory.id,
-            targetCategory.name,
-            categoryVec
-          );
-        }
-      } else {
-        embedding = await this.aiService.generateEmbedding(content);
-      }
+      const embedding = await this.generateEmbeddingsInBackground(
+        content,
+        targetCategory
+      );
 
       await this.memoRepository.updateMemoBackgroundEnrichment(memoId, {
         ...(resolvedCategoryId ? { categoryId: resolvedCategoryId } : {}),
@@ -290,14 +323,14 @@ export class MemoService {
     owner: OwnerIdentity,
     query: GetMemosQueryDto
   ): Promise<MemoResponseDto[]> {
-    this.assertOwner(owner);
+    assertOwnerIdentity(owner);
 
     const rows = await this.memoRepository.findMemosWithOgp(owner, {
       categoryId: query.categoryId,
       deleted: query.deleted ?? false,
     });
 
-    return rows.map((row) => this.toMemoResponseDto(row));
+    return toMemoResponseList(rows);
   }
 
   /**
@@ -307,7 +340,7 @@ export class MemoService {
    * @param memoId 수정할 메모 UUID
    * @param dto 수정할 content 및/또는 categoryId
    * @returns 수정 완료된 최신 메모 DTO
-   * @throws BusinessException 대상 메모 또는 카테고리가 없으면 404 Not Found 발생
+   * @throws BusinessException 대상 메모 또는 카테고리가 없으면 404 Not Found, AI 분류 진행 중(PENDING)이면 400 발생
    */
   @LogTrace()
   async updateMemo(
@@ -315,7 +348,7 @@ export class MemoService {
     memoId: string,
     dto: UpdateMemoDto
   ): Promise<MemoResponseDto> {
-    this.assertOwner(owner);
+    assertOwnerIdentity(owner);
 
     const existing = await this.memoRepository.findMemoByIdAndOwner(
       memoId,
@@ -360,7 +393,7 @@ export class MemoService {
       memoId,
       owner
     );
-    return this.toMemoResponseDto(updated!);
+    return toMemoResponseDto(updated!);
   }
 
   /**
@@ -375,7 +408,7 @@ export class MemoService {
     owner: OwnerIdentity,
     memoId: string
   ): Promise<void> {
-    this.assertOwner(owner);
+    assertOwnerIdentity(owner);
 
     const updated = await this.memoRepository.updateMemoDeletedAt(
       memoId,
@@ -404,7 +437,7 @@ export class MemoService {
     owner: OwnerIdentity,
     memoId: string
   ): Promise<MemoResponseDto> {
-    this.assertOwner(owner);
+    assertOwnerIdentity(owner);
 
     const restored = await this.memoRepository.updateMemoDeletedAt(
       memoId,
@@ -423,29 +456,22 @@ export class MemoService {
       memoId,
       owner
     );
-    return this.toMemoResponseDto(record!);
+    return toMemoResponseDto(record!);
   }
 
   /**
    * Gemini 하이브리드 검색 엔진(FTS 0.4 + Vector 코사인 유사도 0.6)을 실행합니다.
    *
-   * [처리 흐름]
-   * 1. 검색어 제어문자 제거 및 공백 정제(`sanitizeSearchQuery`)
-   * 2. Gemini 임베딩 API를 호출해 검색어를 768차원 시맨틱 벡터로 변환
-   *    (API 키 미설정 또는 일시 장애로 null이 반환되면 FTS 단독 검색으로 안전 폴백)
-   * 3. Drizzle Raw SQL로 가중치 점수 산출 및 유효 OGP 캐시 LEFT JOIN 조회 후 DTO 직렬화
-   *
    * @param owner 요청 주체(userId 또는 guestToken)
    * @param query 검색어(`q`), 최소 벡터 임계값(`threshold`), 반환 상한(`limit`)
    * @returns 가중치 합산 점수(`finalScore`) 내림차순 검색 결과 목록
-   * @throws BusinessException 인증 주체 누락 시 401 Unauthorized, 정제 후 검색어가 비어 있으면 400 Bad Request 발생
    */
   @LogTrace()
   async searchMemos(
     owner: OwnerIdentity,
     query: SearchMemoQueryDto
   ): Promise<SearchResultResponseDto[]> {
-    this.assertOwner(owner);
+    assertOwnerIdentity(owner);
 
     const sanitizedQuery = sanitizeSearchQuery(query.q);
     if (!sanitizedQuery) {
@@ -476,13 +502,11 @@ export class MemoService {
 
   /**
    * 특정 기준 메모의 768차원 임베딩 벡터를 바탕으로 1-Depth 의미론적 연관 메모를 추천합니다.
-   * 코사인 유사도 `>= threshold`(기본값 0.8) 조건을 충족하는 동일 소유자의 활성 메모를 유사도순으로 반환합니다.
    *
    * @param owner 요청 주체(userId 또는 guestToken)
    * @param memoId 기준 메모 UUID v7
    * @param query 최소 코사인 유사도(`threshold`) 및 반환 상한(`limit`)
    * @returns 유사도 내림차순 연관 메모 목록 (임베딩 미생성 상태인 경우 빈 배열)
-   * @throws BusinessException 인증 주체 누락 시 401, 기준 메모 미존재·타인 소유·휴지통 상태 시 404 발생
    */
   @LogTrace()
   async getRelatedMemos(
@@ -490,7 +514,7 @@ export class MemoService {
     memoId: string,
     query: RelatedMemoQueryDto
   ): Promise<RelatedMemoResponseDto[]> {
-    this.assertOwner(owner);
+    assertOwnerIdentity(owner);
 
     const sourceMemo = await this.memoRepository.findMemoEmbeddingByIdAndOwner(
       memoId,
@@ -504,7 +528,6 @@ export class MemoService {
       );
     }
 
-    // 백그라운드 임베딩 생성이 아직 완료되지 않았거나 실패해 NULL인 경우 에러 없이 빈 목록 반환
     if (!sourceMemo.embedding) {
       return [];
     }
@@ -523,8 +546,6 @@ export class MemoService {
   /**
    * 매일 자정 크론에서 호출되어 30일 경과 휴지통 메모를 영구 삭제하고,
    * 참조 카운트가 0건이 된 고아 카테고리를 일괄 정리(Garbage Collection)합니다.
-   *
-   * @returns 영구 삭제된 메모 수 및 정리된 고아 카테고리 수
    */
   @LogTrace()
   async cleanupExpiredTrashAndOrphans(): Promise<{
@@ -534,7 +555,6 @@ export class MemoService {
     const cutoffDate = new Date(Date.now() - TRASH_RETENTION_MS);
 
     return this.memoRepository.withTransaction(async (tx) => {
-      // FK ON DELETE RESTRICT 위반 방지를 위해 30일 경과 메모를 먼저 삭제한 뒤 고아 카테고리 정리
       const deletedMemos = await this.memoRepository.deleteExpiredTrashMemos(
         cutoffDate,
         tx
@@ -549,4 +569,3 @@ export class MemoService {
     });
   }
 }
-
