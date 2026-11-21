@@ -116,7 +116,7 @@ export function MemoCard({
         ) : (
           <button
             type="button"
-            className="note-copy break-words whitespace-pre-wrap"
+            className="note-copy wrap-break-word whitespace-pre-wrap"
             onClick={() => {
               if (!isTrash) {
                 onStartEdit?.(memo);
