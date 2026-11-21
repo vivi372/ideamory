@@ -195,7 +195,7 @@ describe("MemoService & TrashCleanerScheduler (2단계 퀵 캡처 파이프라�
     aiService.generateEmbedding = async () => new Array(768).fill(0.2);
 
     const parsedUrls: string[] = [];
-    ogpService.parseAndCacheOgp = async (url: string) => {
+    ogpService.parseAndCacheOgpWithFallback = async (url: string) => {
       parsedUrls.push(url);
       return {
         id: "018d0000-0000-7000-8000-000000000777",

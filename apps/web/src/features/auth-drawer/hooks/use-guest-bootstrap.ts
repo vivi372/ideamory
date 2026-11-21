@@ -8,6 +8,7 @@ import {
   getAuthProvider,
   getGuestToken,
   queryKeys,
+  registerAuthBootstrapPromise,
   setAccessToken,
   setAuthProvider,
   setGuestToken,
@@ -153,11 +154,13 @@ export function useGuestBootstrap(): { isBootstrapped: boolean } {
           .showToast("error", "세션 초기화 중 문제가 발생했습니다. 새로고침해 주세요.");
       } finally {
         bootstrapInFlight = null;
+        registerAuthBootstrapPromise(null);
       }
     };
 
     if (!bootstrapInFlight) {
       bootstrapInFlight = runBootstrap();
+      registerAuthBootstrapPromise(bootstrapInFlight);
     }
   }, [queryClient]);
 
