@@ -123,6 +123,8 @@ export function useAuthDrawer() {
       destructive: true,
     });
     if (!confirmed) return;
+    setSocialSheetOpen(false);
+    setDrawerOpen(false);
     await resetGuestMutation.mutateAsync();
   };
 
@@ -135,6 +137,8 @@ export function useAuthDrawer() {
       destructive: true,
     });
     if (!confirmed) return;
+    setSocialSheetOpen(false);
+    setDrawerOpen(false);
     await deleteAccountMutation.mutateAsync();
   };
 
@@ -209,6 +213,8 @@ export function useAuthDrawer() {
     handleDeleteAccount,
     handleSocialLogin,
     isLinkingSocial,
+    isResettingGuest: resetGuestMutation.isPending,
+    isDeletingAccount: deleteAccountMutation.isPending,
     isMutating: resetGuestMutation.isPending || deleteAccountMutation.isPending,
   };
 }
