@@ -14,8 +14,17 @@ import { categories } from "./categories";
 import { ogpCaches } from "./ogp-caches";
 
 /**
+ * 메모 AI 비동기 분류 상태값 목록
+ * - PENDING: 백그라운드 AI 카테고리 분류 진행 중
+ * - COMPLETED: AI 카테고리 분류 완료 또는 사용자 명시적 지정 완료
+ * - FAILED: AI 분류 실패/타임아웃으로 '미분류' 확정
+ */
+export const MEMO_AI_STATUSES = ["PENDING", "COMPLETED", "FAILED"] as const;
+export type MemoAiStatus = (typeof MEMO_AI_STATUSES)[number];
+
+/**
  * 메모 테이블 스키마 정의
- * 사용자의 핵심 지식 자산(텍스트, 768차원 임베딩, OGP 링크, 카테고리 관계) 관리
+ * 사용자의 핵심 지식 자산(텍스트, 768차원 임베딩, OGP 링크, 카테고리 관계, AI 분류 상태) 관리
  */
 export const memos = pgTable(
   "memos",
@@ -32,6 +41,11 @@ export const memos = pgTable(
       onDelete: "set null",
     }),
     content: text("content").notNull(),
+    // 비동기 AI 카테고리 분류 진행 상태 ('PENDING' | 'COMPLETED' | 'FAILED')
+    aiStatus: varchar("ai_status", { length: 16 })
+      .$type<MemoAiStatus>()
+      .default("PENDING")
+      .notNull(),
     // Gemini text-embedding-004 모델 기준 768차원 임베딩 벡터
     embedding: vector("embedding", { dimensions: 768 }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -48,6 +62,11 @@ export const memos = pgTable(
     check(
       "chk_memos_owner",
       sql`(user_id IS NOT NULL AND guest_token IS NULL) OR (user_id IS NULL AND guest_token IS NOT NULL)`
+    ),
+    // AI 분류 상태값 도메인 제약조건
+    check(
+      "chk_memos_ai_status",
+      sql`ai_status IN ('PENDING', 'COMPLETED', 'FAILED')`
     ),
     // 소셜 사용자별 활성 메모 역순 타임라인 조회 부분 인덱스
     index("idx_memos_user_timeline")
@@ -75,4 +94,3 @@ export const memos = pgTable(
 
 export type Memo = typeof memos.$inferSelect;
 export type NewMemo = typeof memos.$inferInsert;
-

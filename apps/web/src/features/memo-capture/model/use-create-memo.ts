@@ -67,7 +67,8 @@ export function useCreateMemo() {
           viewMode === "CATEGORY" && selectedCategoryId
             ? selectedCategoryId
             : "00000000-0000-7000-8000-000000000000",
-        categoryName: categoryHint ?? "AI 분류중",
+        categoryName: categoryHint ?? "ai 분류 중...",
+        aiStatus: categoryHint ? "COMPLETED" : "PENDING",
         ogpId: null,
         ogp: null,
         deletedAt: null,

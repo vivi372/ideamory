@@ -15,6 +15,7 @@ import {
   ogpCaches,
   type DbTransaction,
   type DbExecutor,
+  type MemoAiStatus,
 } from "@ideamory/db";
 import type { OwnerIdentity } from "../../common/types/owner.type";
 import { toPgVectorLiteral } from "./memo.helper";
@@ -178,6 +179,7 @@ export class MemoRepository {
       owner: OwnerIdentity;
       categoryId: string;
       content: string;
+      aiStatus?: MemoAiStatus;
     },
     tx: DbExecutor = db
   ): Promise<{ createdAt: Date; updatedAt: Date }> {
@@ -191,6 +193,7 @@ export class MemoRepository {
           : (params.owner.guestToken ?? null),
         categoryId: params.categoryId,
         content: params.content,
+        aiStatus: params.aiStatus ?? "PENDING",
         deletedAt: null,
       })
       .returning({
@@ -247,6 +250,7 @@ export class MemoRepository {
         content: memos.content,
         categoryId: memos.categoryId,
         categoryName: categories.name,
+        aiStatus: memos.aiStatus,
         ogpId: memos.ogpId,
         ogp: ogpCaches,
         relatedCount: relatedCountExpr,
@@ -285,6 +289,7 @@ export class MemoRepository {
         content: memos.content,
         categoryId: memos.categoryId,
         categoryName: categories.name,
+        aiStatus: memos.aiStatus,
         ogpId: memos.ogpId,
         ogp: ogpCaches,
         deletedAt: memos.deletedAt,
@@ -314,7 +319,7 @@ export class MemoRepository {
   async updateMemoById(
     memoId: string,
     owner: OwnerIdentity,
-    updates: { content?: string; categoryId?: string },
+    updates: { content?: string; categoryId?: string; aiStatus?: MemoAiStatus },
     tx: DbExecutor = db
   ): Promise<void> {
     await tx
@@ -323,6 +328,9 @@ export class MemoRepository {
         ...(updates.content !== undefined ? { content: updates.content } : {}),
         ...(updates.categoryId !== undefined
           ? { categoryId: updates.categoryId }
+          : {}),
+        ...(updates.aiStatus !== undefined
+          ? { aiStatus: updates.aiStatus }
           : {}),
         updatedAt: new Date(),
       })
@@ -365,6 +373,7 @@ export class MemoRepository {
     memoId: string,
     updates: {
       categoryId?: string;
+      aiStatus?: MemoAiStatus;
       embedding?: number[];
       ogpId?: string;
     },
@@ -373,6 +382,9 @@ export class MemoRepository {
     const setPayload: Record<string, any> = {};
     if (updates.categoryId !== undefined) {
       setPayload.categoryId = updates.categoryId;
+    }
+    if (updates.aiStatus !== undefined) {
+      setPayload.aiStatus = updates.aiStatus;
     }
     if (updates.embedding !== undefined) {
       setPayload.embedding = updates.embedding;
@@ -385,6 +397,7 @@ export class MemoRepository {
       return;
     }
 
+    setPayload.updatedAt = new Date();
     await tx.update(memos).set(setPayload).where(eq(memos.id, memoId));
   }
 

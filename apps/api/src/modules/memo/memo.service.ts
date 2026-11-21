@@ -66,6 +66,7 @@ export class MemoService {
       content: record.content,
       categoryId: record.categoryId,
       categoryName: record.categoryName,
+      aiStatus: record.aiStatus ?? "COMPLETED",
       ogpId: record.ogpId,
       ogp: record.ogp ? this.ogpService.toOgpResponseDto(record.ogp) : null,
       ...(record.relatedCount !== undefined
@@ -103,6 +104,7 @@ export class MemoService {
     const initialNormalizedName = hasExplicitDirective
       ? directive.normalizedName!
       : "미분류";
+    const initialAiStatus = hasExplicitDirective ? "COMPLETED" : "PENDING";
 
     // 2. 단일 트랜잭션 내에서 초기 카테고리 확정 및 메모 즉시 INSERT
     const created = await this.memoRepository.withTransaction(async (tx) => {
@@ -119,6 +121,7 @@ export class MemoService {
           owner,
           categoryId: category.id,
           content: directive.cleanedContent,
+          aiStatus: initialAiStatus,
         },
         tx
       );
@@ -140,6 +143,7 @@ export class MemoService {
       content: directive.cleanedContent,
       categoryId: created.category.id,
       categoryName: created.category.name,
+      aiStatus: initialAiStatus,
       ogpId: null,
       ogp: null,
       deletedAt: null,
@@ -214,6 +218,11 @@ export class MemoService {
 
       const resolvedCategoryId = classifiedCategory?.id;
       const targetCategory = classifiedCategory ?? initialCategory;
+      const nextAiStatus = hasExplicitDirective
+        ? "COMPLETED"
+        : resolvedCategoryId
+          ? "COMPLETED"
+          : "FAILED";
 
       // 3) 768차원 시맨틱 임베딩 생성 (신규 또는 임베딩 미생성 카테고리는 배치 임베딩으로 동시 획득 후 유사 카테고리 탐지 트리거)
       let embedding: number[] | null = null;
@@ -242,13 +251,30 @@ export class MemoService {
 
       await this.memoRepository.updateMemoBackgroundEnrichment(memoId, {
         ...(resolvedCategoryId ? { categoryId: resolvedCategoryId } : {}),
+        aiStatus: nextAiStatus,
         ...(embedding ? { embedding } : {}),
         ...(ogpId ? { ogpId } : {}),
       });
+
+      // 임시 '미분류' 플레이스홀더 카테고리가 새 카테고리로 대체되어 참조가 0건이 되었으면 즉시 정리
+      if (
+        !hasExplicitDirective &&
+        resolvedCategoryId &&
+        initialCategory?.name === "미분류"
+      ) {
+        await this.memoRepository
+          .deleteOrphanCategories()
+          .catch(() => undefined);
+      }
     } catch (error: any) {
       this.logger.error(
         `비동기 메모 백그라운드 파이프라인 실패 (memoId: ${memoId}): ${error?.message || error}`
       );
+      await this.memoRepository
+        .updateMemoBackgroundEnrichment(memoId, {
+          aiStatus: hasExplicitDirective ? "COMPLETED" : "FAILED",
+        })
+        .catch(() => undefined);
     }
   }
 
@@ -304,6 +330,13 @@ export class MemoService {
     }
 
     if (dto.categoryId) {
+      if (existing.aiStatus === "PENDING") {
+        throw new BusinessException(
+          "AI 분류가 진행 중인 메모는 카테고리를 변경할 수 없습니다.",
+          ERROR_CODES.COMMON_FIELD_FORMAT,
+          HttpStatus.BAD_REQUEST
+        );
+      }
       const targetCategory = await this.memoRepository.findCategoryByIdAndOwner(
         dto.categoryId,
         owner
@@ -320,6 +353,7 @@ export class MemoService {
     await this.memoRepository.updateMemoById(memoId, owner, {
       content: dto.content,
       categoryId: dto.categoryId,
+      ...(dto.categoryId ? { aiStatus: "COMPLETED" } : {}),
     });
 
     const updated = await this.memoRepository.findMemoByIdAndOwner(

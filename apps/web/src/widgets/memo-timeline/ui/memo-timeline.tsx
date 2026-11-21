@@ -86,6 +86,7 @@ export function MemoTimeline({ isBootstrapped }: MemoTimelineProps) {
         content: item.content,
         categoryId: item.categoryId,
         categoryName: item.categoryName,
+        aiStatus: "COMPLETED" as const,
         ogpId: null,
         ogp: item.ogp ?? null,
         deletedAt: null,
@@ -99,6 +100,7 @@ export function MemoTimeline({ isBootstrapped }: MemoTimelineProps) {
         content: item.content,
         categoryId: item.categoryId,
         categoryName: item.categoryName,
+        aiStatus: "COMPLETED" as const,
         ogpId: null,
         ogp: item.ogp ?? null,
         deletedAt: null,
@@ -211,7 +213,10 @@ export function MemoTimeline({ isBootstrapped }: MemoTimelineProps) {
         <div className="timeline">
           {visibleMemos.map((memo) => {
             const isEditing = !isTrash && editingMemoId === memo.id;
-            const isCategorizing = memo.categoryName === "AI 분류중";
+            const isCategorizing =
+              memo.aiStatus === "PENDING" ||
+              memo.categoryName === "AI 분류중" ||
+              memo.categoryName === "ai 분류 중...";
 
             return (
               <MemoCard

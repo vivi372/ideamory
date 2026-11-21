@@ -53,7 +53,17 @@ export function MemoCard({
   actionSlot,
   footerSlot,
 }: MemoCardProps) {
-  const markerClass = pickMarkerClass(memo.categoryName || "미분류");
+  const effectiveAiStatus =
+    memo.aiStatus ?? (isCategorizing ? "PENDING" : "COMPLETED");
+  const isPendingAi = isCategorizing || effectiveAiStatus === "PENDING";
+  const displayCategoryLabel = isPendingAi
+    ? "ai 분류 중..."
+    : effectiveAiStatus === "FAILED"
+      ? "미분류"
+      : memo.categoryName;
+  const markerClass = pickMarkerClass(
+    isPendingAi ? "미분류" : displayCategoryLabel || "미분류"
+  );
   const hasUrlInContent = MEMO_URL_EXTRACT_REGEX.test(memo.content);
   const showOgpSkeleton = !isTrash && !memo.ogp && hasUrlInContent;
 
@@ -74,24 +84,26 @@ export function MemoCard({
             type="button"
             className="category-label max-w-[160px] truncate"
             onClick={() => {
-              if (!isTrash) {
+              if (!isTrash && !isPendingAi) {
                 onCategoryClick?.(memo);
               }
             }}
-            disabled={isTrash}
+            disabled={isTrash || isPendingAi}
             aria-label={
               isTrash
-                ? `카테고리 ${memo.categoryName}`
-                : `${memo.categoryName} 카테고리 변경`
+                ? `카테고리 ${displayCategoryLabel}`
+                : isPendingAi
+                  ? "ai 분류 중 (분류 완료 후 카테고리 변경 가능)"
+                  : `${displayCategoryLabel} 카테고리 변경`
             }
           >
-            {isCategorizing ? (
-              <span className="inline-flex items-center gap-1">
-                <Sparkles size={11} className="animate-pulse" />
-                {memo.categoryName}
+            {isPendingAi ? (
+              <span className="inline-flex items-center gap-1 animate-pulse">
+                <Sparkles size={11} />
+                {displayCategoryLabel}
               </span>
             ) : (
-              memo.categoryName
+              displayCategoryLabel
             )}
           </button>
           {actionSlot}
