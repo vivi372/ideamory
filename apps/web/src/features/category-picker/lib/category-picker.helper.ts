@@ -76,6 +76,7 @@ export function applyMemoCategoryOptimisticUpdate(
         ...memo,
         categoryId: targetCategory.id,
         categoryName: targetCategory.name,
+        aiStatus: "COMPLETED" as const,
       };
     }
     return memo;

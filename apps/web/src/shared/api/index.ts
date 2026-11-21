@@ -3,6 +3,10 @@
  * 상위 레이어(`entities`, `features`, `app`)는 반드시 이 진입점을 통해서만 API 클라이언트 및 에러 유틸을 참조합니다.
  */
 export { apiClient, resolveApiBaseUrl } from "./api-client";
+export {
+  registerAuthBootstrapPromise,
+  waitForAuthBootstrap,
+} from "./auth-bootstrap-waiter";
 export { queryKeys } from "./query-keys";
 export {
   ApiClientError,

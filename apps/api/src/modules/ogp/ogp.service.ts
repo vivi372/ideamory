@@ -390,6 +390,53 @@ export class OgpService {
   }
 
   /**
+   * URL OGP 크롤링을 시도하되, 리다이렉트 초과·봇 차단(429/403)·타임아웃 등으로 메타데이터 추출에
+   * 실패하더라도 SSRF 검증을 통과한 외부 링크라면 호스트명 기반 폴백 OGP 카드를 생성해 반환합니다.
+   * 사용자가 메모 카드의 링크 미리보기를 통해 원문 사이트로 즉시 이동할 수 있도록 보장합니다.
+   *
+   * @param rawUrl 파싱할 대상 URL
+   * @returns 크롤링 또는 폴백 생성된 OGP 응답 DTO
+   * @throws BusinessException SSRF 차단 대상(내부망/사설 IP) 또는 잘못된 URL 형식인 경우 예외 전파
+   */
+  @LogTrace()
+  async parseAndCacheOgpWithFallback(rawUrl: string): Promise<OgpResponseDto> {
+    const parsedUrl = await this.validateSafeExternalUrlWithDns(rawUrl);
+    const validatedUrl = parsedUrl.toString();
+
+    try {
+      return await this.parseAndCacheOgp(validatedUrl);
+    } catch (error: any) {
+      // SSRF 리다이렉트 차단 예외는 폴백 카드를 만들지 않고 그대로 상위로 전파
+      if (
+        error instanceof BusinessException &&
+        error.message.includes("내부 네트워크")
+      ) {
+        throw error;
+      }
+
+      const now = new Date();
+      const fallbackExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const hostname = parsedUrl.hostname.replace(/^www\./, "") || validatedUrl;
+
+      this.logger.warn(
+        `OGP 크롤링 실패로 기본 링크 카드로 폴백 저장 (${validatedUrl}): ${error?.message || error}`
+      );
+
+      const fallbackSaved = await this.ogpRepository.upsertOgpCache({
+        id: uuidv7(),
+        targetUrl: validatedUrl,
+        title: hostname,
+        thumbnailUrl: null,
+        description: "눌러서 해당 사이트로 바로 이동할 수 있습니다.",
+        fetchedAt: now,
+        expiresAt: fallbackExpiresAt,
+      });
+
+      return this.toOgpResponseDto(fallbackSaved);
+    }
+  }
+
+  /**
    * 만료된 OGP 캐시 레코드를 일괄 삭제합니다 (크론 스케줄러 호출용).
    *
    * @returns 삭제된 레코드 수

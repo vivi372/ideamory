@@ -1,4 +1,4 @@
-import type { OgpCache } from "@ideamory/db";
+import type { MemoAiStatus, OgpCache } from "@ideamory/db";
 
 /**
  * 카테고리 및 OGP 캐시 정보가 조인된 메모 도메인 조회 모델
@@ -8,6 +8,7 @@ export interface MemoWithRelations {
   content: string;
   categoryId: string;
   categoryName: string;
+  aiStatus?: MemoAiStatus;
   ogpId: string | null;
   ogp: OgpCache | null;
   relatedCount?: number;

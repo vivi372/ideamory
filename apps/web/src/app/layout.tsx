@@ -14,6 +14,12 @@ export const metadata: Metadata = {
     icon: [{ url: "/ideamory-app-icon.jpg", type: "image/jpeg" }],
     apple: "/ideamory-app-icon.jpg",
   },
+  openGraph: {
+    title: "Ideamory — 생각을 담는 기억 캐시",
+    description:
+      "떠오른 순간, 정리하지 말고 그대로. Ideamory는 당신의 생각을 위한 초경량 메모 서비스입니다.",
+    images: [{ url: "/ideamory-guide-ogp.jpg", width: 1024, height: 1024 }],
+  },
 };
 
 export const viewport: Viewport = {

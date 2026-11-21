@@ -79,7 +79,8 @@ export class CategoryRepository {
         and(
           eq(memos.categoryId, categories.id),
           this.buildMemoOwnerCondition(owner),
-          isNull(memos.deletedAt)
+          isNull(memos.deletedAt),
+          ne(memos.aiStatus, "PENDING")
         )
       )
       .where(this.buildCategoryOwnerCondition(owner))

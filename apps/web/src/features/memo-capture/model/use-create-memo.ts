@@ -3,7 +3,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MemoResponseDto } from "@ideamory/api-spec";
 import { createMemoApi } from "@/entities/memo";
-import { ApiClientError, queryKeys } from "@/shared/api";
+import {
+  ApiClientError,
+  getAccessToken,
+  getGuestToken,
+  queryKeys,
+  waitForAuthBootstrap,
+} from "@/shared/api";
 import { useFeedback } from "@/shared/lib/feedback/use-feedback";
 import { useViewStore } from "@/shared/model/view-store";
 import { parseCaptureContent } from "../lib/capture-parser";
@@ -46,6 +52,9 @@ export function useCreateMemo() {
     CreateMemoContext
   >({
     mutationFn: async ({ id, rawContent }) => {
+      if (!getAccessToken() && !getGuestToken()) {
+        await waitForAuthBootstrap();
+      }
       return createMemoApi({
         id,
         content: rawContent.trim(),
@@ -67,7 +76,8 @@ export function useCreateMemo() {
           viewMode === "CATEGORY" && selectedCategoryId
             ? selectedCategoryId
             : "00000000-0000-7000-8000-000000000000",
-        categoryName: categoryHint ?? "AI 분류중",
+        categoryName: categoryHint ?? "ai 분류 중...",
+        aiStatus: categoryHint ? "COMPLETED" : "PENDING",
         ogpId: null,
         ogp: null,
         deletedAt: null,

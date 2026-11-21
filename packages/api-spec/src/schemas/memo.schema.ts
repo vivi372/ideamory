@@ -45,6 +45,16 @@ export const GetMemosQuerySchema = z.object({
 export type GetMemosQueryDto = z.infer<typeof GetMemosQuerySchema>;
 
 /**
+ * 메모 비동기 AI 카테고리 분류 상태 스키마
+ * - PENDING: 백그라운드 AI 분류 진행 중 (카테고리 수정 비활성화)
+ * - COMPLETED: AI 분류 완료 또는 수동 카테고리 지정 완료
+ * - FAILED: AI 분류 실패/타임아웃 ('미분류' 확정)
+ */
+export const MemoAiStatusSchema = z.enum(["PENDING", "COMPLETED", "FAILED"]);
+
+export type MemoAiStatus = z.infer<typeof MemoAiStatusSchema>;
+
+/**
  * 메모 상세 및 목록 항목 응답 DTO
  */
 export const MemoResponseSchema = z.object({
@@ -52,6 +62,7 @@ export const MemoResponseSchema = z.object({
   content: z.string(),
   categoryId: UuidV7Schema,
   categoryName: z.string(),
+  aiStatus: MemoAiStatusSchema.optional(),
   ogpId: UuidV7Schema.nullable().optional(),
   ogp: OgpResponseSchema.nullable().optional(),
   relatedCount: z.number().int().nonnegative().optional(),
@@ -72,7 +83,7 @@ export const SearchMemoQuerySchema = z.object({
     .trim()
     .min(1, "검색어를 입력해 주세요.")
     .max(500, "검색어는 최대 500자까지 입력할 수 있습니다."),
-  threshold: z.coerce.number().min(0).max(1).optional().default(0.3),
+  threshold: z.coerce.number().min(0).max(1).optional().default(0.72),
   limit: z.coerce.number().int().positive().max(100).optional().default(30),
 });
 

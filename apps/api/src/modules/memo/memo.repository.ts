@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { v7 as uuidv7 } from "uuid";
 import {
   db,
   eq,
@@ -15,9 +14,10 @@ import {
   ogpCaches,
   type DbTransaction,
   type DbExecutor,
+  type MemoAiStatus,
 } from "@ideamory/db";
 import type { OwnerIdentity } from "../../common/types/owner.type";
-import { toPgVectorLiteral } from "./memo.helper";
+import { escapeLikePattern, toPgVectorLiteral } from "./memo.helper";
 import type {
   HybridSearchRawRow,
   MemoWithRelations,
@@ -82,21 +82,19 @@ export class MemoRepository {
   }
 
   /**
-   * 특정 소유자의 정규화 카테고리명으로 기존 카테고리를 조회하고, 없으면 동시성 안전하게 생성합니다.
+   * 특정 소유자의 정규화 카테고리명(`normalized_name`)으로 단일 카테고리를 조회합니다.
    *
    * @param owner 소유자 식별자
-   * @param name 표시용 카테고리 이름 (1~10자)
    * @param normalizedName 정규화 키
    * @param tx 트랜잭션 컨텍스트 (기본값: db)
-   * @returns 조회 또는 생성된 카테고리(id, name)
+   * @returns 조회된 카테고리(id, name) 또는 null
    */
-  async findOrCreateCategory(
+  async findCategoryByNormalizedName(
     owner: OwnerIdentity,
-    name: string,
     normalizedName: string,
     tx: DbExecutor = db
-  ): Promise<{ id: string; name: string }> {
-    const existing = await tx
+  ): Promise<{ id: string; name: string } | null> {
+    const rows = await tx
       .select({ id: categories.id, name: categories.name })
       .from(categories)
       .where(
@@ -107,35 +105,36 @@ export class MemoRepository {
       )
       .limit(1);
 
-    if (existing[0]) {
-      return existing[0];
-    }
+    return rows[0] ?? null;
+  }
 
-    const newId = uuidv7();
+  /**
+   * 신규 카테고리를 동시성 충돌 무시(`ON CONFLICT DO NOTHING`) 옵션으로 단일 삽입합니다.
+   *
+   * @param params 선발급 카테고리 UUID v7, 소유자, 표시명, 정규화 키
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async insertCategoryIgnoreConflict(
+    params: {
+      id: string;
+      owner: OwnerIdentity;
+      name: string;
+      normalizedName: string;
+    },
+    tx: DbExecutor = db
+  ): Promise<void> {
     await tx
       .insert(categories)
       .values({
-        id: newId,
-        userId: owner.userId ?? null,
-        guestToken: owner.userId ? null : (owner.guestToken ?? null),
-        name,
-        normalizedName,
+        id: params.id,
+        userId: params.owner.userId ?? null,
+        guestToken: params.owner.userId
+          ? null
+          : (params.owner.guestToken ?? null),
+        name: params.name,
+        normalizedName: params.normalizedName,
       })
       .onConflictDoNothing();
-
-    // 동시 요청으로 먼저 생성된 경우를 포함하여 최종 레코드 재조회
-    const resolved = await tx
-      .select({ id: categories.id, name: categories.name })
-      .from(categories)
-      .where(
-        and(
-          this.buildCategoryOwnerCondition(owner),
-          eq(categories.normalizedName, normalizedName)
-        )
-      )
-      .limit(1);
-
-    return resolved[0] ?? { id: newId, name };
   }
 
   /**
@@ -178,6 +177,7 @@ export class MemoRepository {
       owner: OwnerIdentity;
       categoryId: string;
       content: string;
+      aiStatus?: MemoAiStatus;
     },
     tx: DbExecutor = db
   ): Promise<{ createdAt: Date; updatedAt: Date }> {
@@ -191,6 +191,7 @@ export class MemoRepository {
           : (params.owner.guestToken ?? null),
         categoryId: params.categoryId,
         content: params.content,
+        aiStatus: params.aiStatus ?? "PENDING",
         deletedAt: null,
       })
       .returning({
@@ -247,6 +248,7 @@ export class MemoRepository {
         content: memos.content,
         categoryId: memos.categoryId,
         categoryName: categories.name,
+        aiStatus: memos.aiStatus,
         ogpId: memos.ogpId,
         ogp: ogpCaches,
         relatedCount: relatedCountExpr,
@@ -285,6 +287,7 @@ export class MemoRepository {
         content: memos.content,
         categoryId: memos.categoryId,
         categoryName: categories.name,
+        aiStatus: memos.aiStatus,
         ogpId: memos.ogpId,
         ogp: ogpCaches,
         deletedAt: memos.deletedAt,
@@ -314,7 +317,7 @@ export class MemoRepository {
   async updateMemoById(
     memoId: string,
     owner: OwnerIdentity,
-    updates: { content?: string; categoryId?: string },
+    updates: { content?: string; categoryId?: string; aiStatus?: MemoAiStatus },
     tx: DbExecutor = db
   ): Promise<void> {
     await tx
@@ -323,6 +326,9 @@ export class MemoRepository {
         ...(updates.content !== undefined ? { content: updates.content } : {}),
         ...(updates.categoryId !== undefined
           ? { categoryId: updates.categoryId }
+          : {}),
+        ...(updates.aiStatus !== undefined
+          ? { aiStatus: updates.aiStatus }
           : {}),
         updatedAt: new Date(),
       })
@@ -365,6 +371,7 @@ export class MemoRepository {
     memoId: string,
     updates: {
       categoryId?: string;
+      aiStatus?: MemoAiStatus;
       embedding?: number[];
       ogpId?: string;
     },
@@ -373,6 +380,9 @@ export class MemoRepository {
     const setPayload: Record<string, any> = {};
     if (updates.categoryId !== undefined) {
       setPayload.categoryId = updates.categoryId;
+    }
+    if (updates.aiStatus !== undefined) {
+      setPayload.aiStatus = updates.aiStatus;
     }
     if (updates.embedding !== undefined) {
       setPayload.embedding = updates.embedding;
@@ -385,6 +395,7 @@ export class MemoRepository {
       return;
     }
 
+    setPayload.updatedAt = new Date();
     await tx.update(memos).set(setPayload).where(eq(memos.id, memoId));
   }
 
@@ -451,6 +462,25 @@ export class MemoRepository {
     const ownerFilter = params.owner.userId
       ? sql`m.user_id = ${params.owner.userId}`
       : sql`m.guest_token = ${params.owner.guestToken!}`;
+    const likePattern = `%${escapeLikePattern(params.queryText)}%`;
+    const ftsRankExpr = sql`
+      LEAST(
+        1.0,
+        GREATEST(
+          COALESCE(
+            ts_rank_cd(
+              to_tsvector('simple', m.content),
+              plainto_tsquery('simple', ${params.queryText})
+            ),
+            0.0
+          ),
+          CASE
+            WHEN m.content ILIKE ${likePattern} ESCAPE '!' THEN 0.5
+            ELSE 0.0
+          END
+        )
+      )
+    `;
 
     if (!params.queryVector) {
       const ftsOnlyResult = await tx.execute(sql`
@@ -459,29 +489,9 @@ export class MemoRepository {
           m.content AS "content",
           m.category_id AS "categoryId",
           c.name AS "categoryName",
-          LEAST(
-            1.0,
-            COALESCE(
-              ts_rank_cd(
-                to_tsvector('simple', m.content),
-                plainto_tsquery('simple', ${params.queryText})
-              ),
-              0.0
-            )
-          )::float8 AS "ftsScore",
+          (${ftsRankExpr})::float8 AS "ftsScore",
           0.0::float8 AS "vectorScore",
-          (
-            LEAST(
-              1.0,
-              COALESCE(
-                ts_rank_cd(
-                  to_tsvector('simple', m.content),
-                  plainto_tsquery('simple', ${params.queryText})
-                ),
-                0.0
-              )
-            ) * 0.4
-          )::float8 AS "finalScore",
+          ((${ftsRankExpr}) * 0.4)::float8 AS "finalScore",
           ogp.id AS "ogpId",
           ogp.target_url AS "ogpTargetUrl",
           ogp.title AS "ogpTitle",
@@ -496,7 +506,10 @@ export class MemoRepository {
           ON ogp.id = m.ogp_id AND ogp.expires_at > NOW()
         WHERE m.deleted_at IS NULL
           AND ${ownerFilter}
-          AND to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
+          AND (
+            to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
+            OR m.content ILIKE ${likePattern} ESCAPE '!'
+          )
         ORDER BY "finalScore" DESC, m.created_at DESC
         LIMIT ${params.limit}
       `);
@@ -511,16 +524,7 @@ export class MemoRepository {
         m.content AS "content",
         m.category_id AS "categoryId",
         c.name AS "categoryName",
-        LEAST(
-          1.0,
-          COALESCE(
-            ts_rank_cd(
-              to_tsvector('simple', m.content),
-              plainto_tsquery('simple', ${params.queryText})
-            ),
-            0.0
-          )
-        )::float8 AS "ftsScore",
+        (${ftsRankExpr})::float8 AS "ftsScore",
         CASE
           WHEN m.embedding IS NOT NULL THEN
             GREATEST(
@@ -530,18 +534,7 @@ export class MemoRepository {
           ELSE 0.0
         END AS "vectorScore",
         (
-          (
-            LEAST(
-              1.0,
-              COALESCE(
-                ts_rank_cd(
-                  to_tsvector('simple', m.content),
-                  plainto_tsquery('simple', ${params.queryText})
-                ),
-                0.0
-              )
-            ) * 0.4
-          ) +
+          ((${ftsRankExpr}) * 0.4) +
           (
             CASE
               WHEN m.embedding IS NOT NULL THEN
@@ -569,6 +562,7 @@ export class MemoRepository {
         AND ${ownerFilter}
         AND (
           to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
+          OR m.content ILIKE ${likePattern} ESCAPE '!'
           OR (
             m.embedding IS NOT NULL
             AND (1 - (m.embedding <=> ${vectorLiteral}::vector)) >= ${params.threshold}
