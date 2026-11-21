@@ -111,5 +111,28 @@ describe("AiService (문두 @지시어 파싱, Gemini 가변 분류 & 768차원 
     const fallback = await aiService.batchEmbedContents(["메모 본문", "개발"]);
     assert.deepEqual(fallback, [null, null]);
   });
+
+  it("시나리오 7: classifyMemoCategory는 '사용 가이드'/'미분류'를 후보 목록에서 제외하고 LLM이 반환해도 null을 반환해야 한다", async () => {
+    let capturedPrompt = "";
+    (aiService as any).getClient = () => ({
+      models: {
+        generateContent: async (params: any) => {
+          capturedPrompt = params.contents;
+          return { text: "사용 가이드" };
+        },
+      },
+    });
+
+    const result = await aiService.classifyMemoCategory("일반 메모 테스트", [
+      "사용 가이드",
+      "미분류",
+      "개발",
+    ]);
+
+    assert.equal(capturedPrompt.includes("사용 가이드"), false);
+    assert.equal(capturedPrompt.includes("미분류"), false);
+    assert.equal(capturedPrompt.includes("개발"), true);
+    assert.equal(result, null);
+  });
 });
 

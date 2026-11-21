@@ -127,10 +127,12 @@ export class AiService {
     try {
       const model =
         process.env.GEMINI_CLASSIFY_MODEL || "gemini-3.1-flash-lite";
+      const filteredExisting = existingCategoryNames.filter((name) => {
+        const normalized = name.replace(/\s+/g, "").toLowerCase();
+        return normalized !== "미분류" && normalized !== "사용가이드";
+      });
       const existingListText =
-        existingCategoryNames.length > 0
-          ? existingCategoryNames.join(", ")
-          : "없음";
+        filteredExisting.length > 0 ? filteredExisting.join(", ") : "없음";
 
       const systemInstruction = [
         "당신은 개인 지식 서재의 메모 분류기입니다.",
@@ -139,6 +141,7 @@ export class AiService {
         "2. 기존 카테고리에 적절한 것이 없을 때만 새로운 카테고리를 제안하세요.",
         "3. 출력은 1자 이상 10자 이내의 순수 텍스트(한글 또는 영문)여야 합니다.",
         "4. 이모지, 마침표, 따옴표, 부가 설명을 절대 포함하지 마세요.",
+        "5. '사용 가이드', '사용가이드', '미분류'는 시스템 예약 카테고리이므로 절대 선택하거나 새로 제안하지 마세요.",
       ].join("\n");
 
       const prompt = `기존 카테고리 목록: [${existingListText}]\n\n메모 내용:\n${content}`;
@@ -157,7 +160,16 @@ export class AiService {
         return null;
       }
 
-      return this.sanitizeCategoryName(rawText);
+      const sanitized = this.sanitizeCategoryName(rawText);
+      if (
+        !sanitized ||
+        sanitized.normalizedName === "사용가이드" ||
+        sanitized.normalizedName === "미분류"
+      ) {
+        return null;
+      }
+
+      return sanitized;
     } catch (error: any) {
       this.logger.warn(
         `Gemini 카테고리 분류 실패 (비동기 폴백 유지): ${error?.message || error}`

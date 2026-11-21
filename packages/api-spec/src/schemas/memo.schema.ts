@@ -83,7 +83,7 @@ export const SearchMemoQuerySchema = z.object({
     .trim()
     .min(1, "검색어를 입력해 주세요.")
     .max(500, "검색어는 최대 500자까지 입력할 수 있습니다."),
-  threshold: z.coerce.number().min(0).max(1).optional().default(0.3),
+  threshold: z.coerce.number().min(0).max(1).optional().default(0.72),
   limit: z.coerce.number().int().positive().max(100).optional().default(30),
 });
 

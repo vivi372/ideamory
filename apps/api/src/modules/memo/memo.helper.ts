@@ -97,6 +97,16 @@ export function clampAndRoundScore(value: number): number {
 }
 
 /**
+ * PostgreSQL `ILIKE ... ESCAPE '!'` 패턴에 검색어를 안전하게 삽입할 수 있도록 와일드카드(`!`, `%`, `_`)를 이스케이프합니다.
+ *
+ * @param query 정제된 검색어 문자열
+ * @returns `ESCAPE '!'` 절과 함께 사용할 이스케이프된 문자열
+ */
+export function escapeLikePattern(query: string): string {
+  return query.replace(/[!%_]/g, (char) => `!${char}`);
+}
+
+/**
  * Raw SQL 결과의 날짜 컬럼(Date 객체 또는 ISO 문자열)을 ISO8601 문자열로 안전하게 변환합니다.
  *
  * @param value Date 인스턴스 또는 날짜 문자열
