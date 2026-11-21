@@ -3,6 +3,7 @@
  */
 export { SidebarDrawer } from "./ui/sidebar-drawer";
 export { SocialLinkModal } from "./ui/social-link-modal";
+export { SocialLinkOverlay } from "./ui/social-link-overlay";
 export { LegalWebviewModal } from "./ui/legal-webview-modal";
 export { AccountSection } from "./ui/account-section";
 export { useGuestBootstrap } from "./hooks/use-guest-bootstrap";
