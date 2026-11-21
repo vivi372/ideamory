@@ -192,9 +192,18 @@ async function handleOAuthCallback(
   }
 
   const run = async (): Promise<boolean> => {
-    const { setBootstrapped, setSocialProvider, setSocialSheetOpen, setDrawerOpen } =
-      useAuthStore.getState();
+    const {
+      setBootstrapped,
+      setIsLinkingSocial,
+      setSocialProvider,
+      setSocialSheetOpen,
+      setDrawerOpen,
+    } = useAuthStore.getState();
     const existingGuestToken = getGuestToken();
+
+    setIsLinkingSocial(true);
+    setSocialSheetOpen(false);
+    setDrawerOpen(false);
 
     try {
       if (existingGuestToken) {
@@ -208,8 +217,6 @@ async function handleOAuthCallback(
       setAuthProvider(provider);
       clearGuestToken();
       setSocialProvider(provider);
-      setSocialSheetOpen(false);
-      setDrawerOpen(false);
       await queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });
       await queryClient.invalidateQueries({
         queryKey: queryKeys.categories.all,
@@ -227,6 +234,8 @@ async function handleOAuthCallback(
           "소셜 계정 연동 처리 중 오류가 발생했습니다. 다시 시도해 주세요."
         );
       return false;
+    } finally {
+      setIsLinkingSocial(false);
     }
   };
 

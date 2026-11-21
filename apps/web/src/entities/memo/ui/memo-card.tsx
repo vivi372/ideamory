@@ -100,7 +100,7 @@ export function MemoCard({
     memo.aiStatus ?? (isCategorizing ? "PENDING" : "COMPLETED");
   const isPendingAi = isCategorizing || effectiveAiStatus === "PENDING";
   const displayCategoryLabel = isPendingAi
-    ? "ai 분류 중..."
+    ? "AI 분류 중..."
     : effectiveAiStatus === "FAILED"
       ? "미분류"
       : memo.categoryName;
@@ -200,7 +200,7 @@ export function MemoCard({
         <div className="note-meta-actions">
           <button
             type="button"
-            className="category-label max-w-40 truncate"
+            className={`category-label max-w-40 truncate${isPendingAi ? " is-pending" : ""}`}
             onClick={() => {
               if (!isTrash && !isPendingAi) {
                 onCategoryClick?.(memo);
@@ -211,13 +211,13 @@ export function MemoCard({
               isTrash
                 ? `카테고리 ${displayCategoryLabel}`
                 : isPendingAi
-                  ? "ai 분류 중 (분류 완료 후 카테고리 변경 가능)"
+                  ? "AI 분류 중 (분류 완료 후 카테고리 변경 가능)"
                   : `${displayCategoryLabel} 카테고리 변경`
             }
           >
             {isPendingAi ? (
-              <span className="inline-flex items-center gap-1 animate-pulse">
-                <Sparkles size={11} />
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles size={11} className="shrink-0 animate-pulse" />
                 {displayCategoryLabel}
               </span>
             ) : (
