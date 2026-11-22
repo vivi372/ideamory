@@ -8,11 +8,15 @@ import {
   getAccessToken,
   getAuthProvider,
   getGuestToken,
+  isJwtExpiredOrExpiringSoon,
   queryKeys,
+  refreshAccessTokenSingleFlight,
   registerAuthBootstrapPromise,
   setAccessToken,
   setAuthProvider,
   setGuestToken,
+  setRefreshToken,
+  subscribeAuthSessionExpired,
 } from "@/shared/api";
 import { useFeedbackStore } from "@/shared/lib/feedback/use-feedback";
 import { isCapacitorNative } from "@/shared/lib/native-bridge";
@@ -69,6 +73,7 @@ let bootstrapInFlight: Promise<void> | null = null;
  */
 const processedOAuthTokens = new Set<string>();
 let oauthCallbackInFlight: Promise<boolean> | null = null;
+let guestRecoveryInFlight: Promise<void> | null = null;
 
 function parseSocialProvider(raw: string | null): SocialProvider {
   if (raw === "kakao" || raw === "google" || raw === "github") {
@@ -108,6 +113,7 @@ function readAndClearPendingProvider(): SocialProvider {
 
 interface ParsedOAuthCallback {
   idToken: string | null;
+  refreshToken: string | null;
   provider: SocialProvider;
   errorMessage?: string;
 }
@@ -136,6 +142,7 @@ function parseOAuthCallbackFromUrlString(
   const hashParams = new URLSearchParams(hashString);
   const queryParams = new URLSearchParams(queryString);
   const idToken = hashParams.get("access_token");
+  const refreshToken = hashParams.get("refresh_token");
   const errorMessage =
     hashParams.get("error_description") ??
     queryParams.get("error_description") ??
@@ -159,6 +166,7 @@ function parseOAuthCallbackFromUrlString(
 
   return {
     idToken,
+    refreshToken,
     provider,
     errorMessage,
   };
@@ -214,6 +222,9 @@ async function handleOAuthCallback(
       }
       processedOAuthTokens.add(idToken);
       setAccessToken(idToken);
+      if (callback.refreshToken) {
+        setRefreshToken(callback.refreshToken);
+      }
       setAuthProvider(provider);
       clearGuestToken();
       setSocialProvider(provider);
@@ -279,6 +290,44 @@ export function useGuestBootstrap(): { isBootstrapped: boolean } {
   const isBootstrapped = useAuthStore((state) => state.isBootstrapped);
 
   useEffect(() => {
+    return subscribeAuthSessionExpired(() => {
+      const { isBootstrapped: alreadyBootstrapped, setSocialProvider } =
+        useAuthStore.getState();
+      setSocialProvider(null);
+
+      // 이미 앱이 부트스트랩된 런타임 상태에서 소셜 세션이 만료/폐기된 경우,
+      // guestToken 공백으로 인한 연쇄 401을 막기 위해 즉시 게스트 세션을 재발급합니다.
+      if (!alreadyBootstrapped || getGuestToken() || guestRecoveryInFlight) {
+        return;
+      }
+
+      guestRecoveryInFlight = (async () => {
+        try {
+          const response = await initGuestSessionApi({
+            memoId: generateUuidV7(),
+            categoryId: generateUuidV7(),
+          });
+          setGuestToken(response.guestToken);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.memos.all });
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.categories.all,
+          });
+          useFeedbackStore
+            .getState()
+            .showToast(
+              "warn",
+              "소셜 로그인 세션이 만료되어 게스트 모드로 전환되었습니다."
+            );
+        } catch {
+          // 게스트 복구 실패 시 전역 에러 인터셉터가 안내
+        } finally {
+          guestRecoveryInFlight = null;
+        }
+      })();
+    });
+  }, [queryClient]);
+
+  useEffect(() => {
     if (useAuthStore.getState().isBootstrapped) {
       return;
     }
@@ -317,13 +366,29 @@ export function useGuestBootstrap(): { isBootstrapped: boolean } {
           clearPendingProviderStorage();
         }
 
-        // 2. 기존 소셜 JWT 보유 시 소셜 세션 복원
+        // 2. 기존 소셜 JWT 보유 시 만료 여부 점검 및 자동 리프레시 후 소셜 세션 복원
         const accessToken = getAccessToken();
         if (accessToken) {
-          const provider = parseSocialProvider(getAuthProvider());
-          setSocialProvider(provider);
-          setBootstrapped(true);
-          return;
+          if (isJwtExpiredOrExpiringSoon(accessToken, 60)) {
+            const refreshed = await refreshAccessTokenSingleFlight();
+            if (refreshed) {
+              const provider = parseSocialProvider(getAuthProvider());
+              setSocialProvider(provider);
+              setBootstrapped(true);
+              return;
+            }
+            useFeedbackStore
+              .getState()
+              .showToast(
+                "warn",
+                "소셜 로그인 세션이 만료되어 다시 로그인이 필요합니다."
+              );
+          } else {
+            const provider = parseSocialProvider(getAuthProvider());
+            setSocialProvider(provider);
+            setBootstrapped(true);
+            return;
+          }
         }
 
         // 3. 기존 게스트 토큰 미보유 시 0.1초 익명 게스트 세션 + 온보딩 시드 메모 신규 발급

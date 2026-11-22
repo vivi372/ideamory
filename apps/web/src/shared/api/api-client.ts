@@ -1,37 +1,14 @@
-import axios from "axios";
+import axios, { AxiosHeaders } from "axios";
+import { getAccessToken } from "../lib/token-storage";
+import { resolveApiBaseUrl } from "./resolve-api-base-url";
+import { refreshAccessTokenSingleFlight } from "./token-refresh";
 import { attachRequestContext } from "./interceptors/request.interceptor";
 import {
   handleErrorResponse,
   handleSuccessResponse,
 } from "./interceptors/response.interceptor";
 
-/**
- * 환경변수 `NEXT_PUBLIC_API_URL`에 `/api/v1` 프리픽스가 포함되어 있든 없든
- * 일관된 `/api/v1` Base URL을 반환하도록 정규화합니다.
- * 백엔드 모든 도메인(`auth`, `memos`, `categories`, `ogp`)이 `/api/v1/*` 프리픽스로 통일되어 있으므로
- * 호출부에서는 `/auth/...`, `/memos/...` 등 버전 프리픽스 이후 경로만 전달하면 됩니다.
- *
- * @returns `/api/v1`이 보장된 REST API Base URL
- */
-export function resolveApiBaseUrl(): string {
-  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (configuredUrl) {
-    const normalizedHost = configuredUrl
-      .replace(/\/+$/, "")
-      .replace(/\/api\/v1$/, "");
-    return `${normalizedHost}/api/v1`;
-  }
-
-  // 실기기 테스트 시 브라우저가 PC의 LAN IP(예: 192.168.x.x:3000)로 접속한 경우 동일 호스트의 :3001 API를 자동 타겟팅
-  if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
-    if (hostname && hostname !== "localhost" && hostname !== "127.0.0.1") {
-      return `http://${hostname}:3001/api/v1`;
-    }
-  }
-
-  return "http://localhost:3001/api/v1";
-}
+export { resolveApiBaseUrl };
 
 /**
  * Ideamory 공통 REST API 클라이언트 인스턴스입니다.
@@ -51,5 +28,28 @@ export const apiClient = axios.create({
 // 요청 인터셉터: W3C 32자리 X-Trace-Id 및 소셜/게스트 배타적 인증 헤더 주입
 apiClient.interceptors.request.use(attachRequestContext);
 
-// 응답 인터셉터: 204 No Content 본문 정규화 및 UX 태그 기반 전역 에러 디스패치
-apiClient.interceptors.response.use(handleSuccessResponse, handleErrorResponse);
+// 응답 인터셉터: 204 No Content 본문 정규화, 401 시 단일 비행 토큰 갱신 재시도 및 전역 에러 디스패치
+apiClient.interceptors.response.use(handleSuccessResponse, async (error) => {
+  if (
+    axios.isAxiosError(error) &&
+    error.response?.status === 401 &&
+    error.config &&
+    !(error.config as { _retry?: boolean })._retry &&
+    !error.config.url?.includes("/auth/social/refresh") &&
+    getAccessToken()
+  ) {
+    const nextAccessToken = await refreshAccessTokenSingleFlight();
+    if (nextAccessToken) {
+      const retryConfig = error.config as typeof error.config & {
+        _retry?: boolean;
+      };
+      retryConfig._retry = true;
+      const headers = AxiosHeaders.from(retryConfig.headers);
+      headers.set("Authorization", `Bearer ${nextAccessToken}`);
+      retryConfig.headers = headers;
+      return apiClient.request(retryConfig);
+    }
+  }
+
+  return handleErrorResponse(error);
+});

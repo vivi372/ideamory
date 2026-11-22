@@ -41,3 +41,25 @@ export const LinkSocialAuthResponseSchema = z.object({
 
 export type LinkSocialAuthResponseDto = z.infer<typeof LinkSocialAuthResponseSchema>;
 
+/**
+ * POST /api/v1/auth/social/refresh (만료된 소셜 Access Token 자동 갱신 요청 DTO)
+ */
+export const RefreshSocialAuthSchema = z.object({
+  refreshToken: z.string().min(1, "refreshToken이 필요합니다."),
+});
+
+export type RefreshSocialAuthDto = z.infer<typeof RefreshSocialAuthSchema>;
+
+/**
+ * 소셜 Access Token 자동 갱신 응답 DTO
+ */
+export const RefreshSocialAuthResponseSchema = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+  expiresIn: z.number().int().positive().optional(),
+});
+
+export type RefreshSocialAuthResponseDto = z.infer<
+  typeof RefreshSocialAuthResponseSchema
+>;
+

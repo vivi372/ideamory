@@ -17,10 +17,13 @@ import {
 import {
   GuestInitSchema,
   LinkSocialAuthSchema,
+  RefreshSocialAuthSchema,
   type GuestInitDto,
   type GuestInitResponseDto,
   type LinkSocialAuthDto,
   type LinkSocialAuthResponseDto,
+  type RefreshSocialAuthDto,
+  type RefreshSocialAuthResponseDto,
 } from "@ideamory/api-spec";
 import { Public } from "../../common/decorators/public.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -122,6 +125,29 @@ export class AuthController {
     @Body(new ZodValidationPipe(LinkSocialAuthSchema)) dto: LinkSocialAuthDto
   ): Promise<LinkSocialAuthResponseDto> {
     return this.authService.linkSocialAccount(guestToken, dto);
+  }
+
+  /**
+   * 만료된 소셜 Access Token을 Refresh Token으로 갱신합니다.
+   *
+   * @param dto Supabase Refresh Token
+   * @returns 새 Access Token 및 Refresh Token
+   */
+  @Public()
+  @Post("social/refresh")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "소셜 Access Token 자동 갱신",
+    description:
+      "만료된 소셜 JWT를 Refresh Token으로 재발급해 재로그인 없이 세션을 연장합니다.",
+  })
+  @ApiResponse({ status: 200, description: "토큰 갱신 성공" })
+  @ApiResponse({ status: 401, description: "Refresh Token 만료 또는 무효" })
+  async refreshSocialSession(
+    @Body(new ZodValidationPipe(RefreshSocialAuthSchema))
+    dto: RefreshSocialAuthDto
+  ): Promise<RefreshSocialAuthResponseDto> {
+    return this.authService.refreshSocialSession(dto.refreshToken);
   }
 
   /**

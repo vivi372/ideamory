@@ -13,6 +13,7 @@ import { ArrowRight, ExternalLink, Globe, Sparkles } from "lucide-react";
 import type { MemoResponseDto } from "@ideamory/api-spec";
 import { useFeedbackStore } from "@/shared/lib/feedback/use-feedback";
 import {
+  copyMemoContentToClipboard,
   extractHostname,
   formatMemoTimestamp,
   isInternalGuideUrl,
@@ -22,38 +23,6 @@ import {
 
 const LONG_PRESS_DURATION_MS = 450;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
-
-async function copyMemoContentToClipboard(text: string): Promise<boolean> {
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // 모바일 웹뷰/비보안 컨텍스트 등 Clipboard API 실패 시 execCommand 폴백 시도
-    }
-  }
-
-  if (typeof document === "undefined") {
-    return false;
-  }
-
-  try {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "");
-    textarea.style.position = "fixed";
-    textarea.style.top = "-9999px";
-    textarea.style.opacity = "0";
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    const copied = document.execCommand("copy");
-    document.body.removeChild(textarea);
-    return copied;
-  } catch {
-    return false;
-  }
-}
 
 export interface MemoCardProps {
   /** 렌더링할 메모 DTO */
@@ -112,6 +81,7 @@ export function MemoCard({
 
   const longPressTimerRef = useRef<number | null>(null);
   const longPressedRef = useRef(false);
+  const pendingCopyOnReleaseRef = useRef(false);
   const pointerOriginRef = useRef<{ x: number; y: number } | null>(null);
 
   const cancelLongPress = useCallback(() => {
@@ -124,12 +94,28 @@ export function MemoCard({
 
   useEffect(() => cancelLongPress, [cancelLongPress]);
 
+  const notifyCopyResult = useCallback((copied: boolean) => {
+    if (copied) {
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        navigator.vibrate(15);
+      }
+      useFeedbackStore
+        .getState()
+        .showToast("info", "메모 내용을 클립보드에 복사했습니다.");
+    } else {
+      useFeedbackStore
+        .getState()
+        .showToast("warn", "클립보드 복사에 실패했습니다.");
+    }
+  }, []);
+
   const handleCopyPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) {
       return;
     }
     cancelLongPress();
     longPressedRef.current = false;
+    pendingCopyOnReleaseRef.current = false;
     pointerOriginRef.current = { x: event.clientX, y: event.clientY };
 
     if (typeof window === "undefined") {
@@ -143,19 +129,25 @@ export function MemoCard({
 
       void copyMemoContentToClipboard(memo.content).then((copied) => {
         if (copied) {
-          if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-            navigator.vibrate(15);
-          }
-          useFeedbackStore
-            .getState()
-            .showToast("info", "메모 내용을 클립보드에 복사했습니다.");
-        } else {
-          useFeedbackStore
-            .getState()
-            .showToast("warn", "클립보드 복사에 실패했습니다.");
+          notifyCopyResult(true);
+          return;
         }
+        // 일부 Android WebView에서는 setTimeout 내부에서 첫 user activation이 제한되므로
+        // 릴리스(pointerup) 시점에 1회 재시도할 수 있도록 대기 플래그를 설정합니다.
+        if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+          navigator.vibrate(15);
+        }
+        pendingCopyOnReleaseRef.current = true;
       });
     }, LONG_PRESS_DURATION_MS);
+  };
+
+  const handleCopyPointerUp = () => {
+    cancelLongPress();
+    if (pendingCopyOnReleaseRef.current) {
+      pendingCopyOnReleaseRef.current = false;
+      void copyMemoContentToClipboard(memo.content).then(notifyCopyResult);
+    }
   };
 
   const handleCopyPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
@@ -237,7 +229,7 @@ export function MemoCard({
             className="note-copy wrap-break-word whitespace-pre-wrap"
             onPointerDown={handleCopyPointerDown}
             onPointerMove={handleCopyPointerMove}
-            onPointerUp={cancelLongPress}
+            onPointerUp={handleCopyPointerUp}
             onPointerCancel={cancelLongPress}
             onPointerLeave={cancelLongPress}
             onTouchMove={handleCopyTouchMove}

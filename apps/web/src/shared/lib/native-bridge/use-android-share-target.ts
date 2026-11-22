@@ -39,7 +39,16 @@ export function useAndroidShareTarget(
       }
     };
 
-    // 1. 초기 진입 URL 쿼리스트링에서 공유 데이터 추출 및 히스토리 정리
+    // 1-a. 안드로이드 MainActivity가 콜드 스타트 시 주입한 대기 공유 페이로드 소비
+    const win = window as Window & {
+      __IDEAMORY_PENDING_SHARE__?: ShareTargetPayload;
+    };
+    if (win.__IDEAMORY_PENDING_SHARE__) {
+      emitIfPresent(win.__IDEAMORY_PENDING_SHARE__);
+      delete win.__IDEAMORY_PENDING_SHARE__;
+    }
+
+    // 1-b. 초기 진입 URL 쿼리스트링에서 공유 데이터 추출 및 히스토리 정리
     const queryPayload = parseShareTargetFromQuery(window.location.search);
     if (queryPayload) {
       emitIfPresent(queryPayload);
