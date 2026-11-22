@@ -4,14 +4,30 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.WebViewListener;
 import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
     private String pendingShareJson = null;
+    private boolean pageLoaded = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (getBridge() != null) {
+            getBridge().addWebViewListener(new WebViewListener() {
+                @Override
+                public void onPageLoaded(WebView webView) {
+                    pageLoaded = true;
+                    flushPendingShareToWebView();
+                }
+
+                @Override
+                public void onPageStarted(WebView webView) {
+                    pageLoaded = false;
+                }
+            });
+        }
         handleShareIntent(getIntent());
     }
 
@@ -61,7 +77,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void flushPendingShareToWebView() {
-        if (pendingShareJson == null || getBridge() == null) {
+        if (!pageLoaded || pendingShareJson == null || getBridge() == null) {
             return;
         }
         WebView webView = getBridge().getWebView();
@@ -73,9 +89,7 @@ public class MainActivity extends BridgeActivity {
                 "window.__IDEAMORY_PENDING_SHARE__=" + payloadJson + ";"
                         + "window.dispatchEvent(new CustomEvent('android:share_target',{detail:"
                         + payloadJson + "}));";
-        webView.post(() -> {
-            webView.evaluateJavascript(script, null);
-        });
         pendingShareJson = null;
+        webView.post(() -> webView.evaluateJavascript(script, null));
     }
 }

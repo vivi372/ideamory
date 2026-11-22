@@ -8,30 +8,12 @@ import {
   setAccessToken,
   setRefreshToken,
 } from "../lib/token-storage";
+import { resolveApiBaseUrl } from "./resolve-api-base-url";
 
 type SessionExpiredListener = () => void;
 const sessionExpiredListeners = new Set<SessionExpiredListener>();
 
 let refreshInFlight: Promise<string | null> | null = null;
-
-function resolveRefreshBaseUrl(): string {
-  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (configuredUrl) {
-    const normalizedHost = configuredUrl
-      .replace(/\/+$/, "")
-      .replace(/\/api\/v1$/, "");
-    return `${normalizedHost}/api/v1`;
-  }
-
-  if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
-    if (hostname && hostname !== "localhost" && hostname !== "127.0.0.1") {
-      return `http://${hostname}:3001/api/v1`;
-    }
-  }
-
-  return "http://localhost:3001/api/v1";
-}
 
 function notifySessionExpired(): void {
   clearAccessToken();
@@ -71,7 +53,7 @@ export async function refreshAccessTokenSingleFlight(): Promise<string | null> {
 
   refreshInFlight = axios
     .post<RefreshSocialAuthResponseDto>(
-      `${resolveRefreshBaseUrl()}/auth/social/refresh`,
+      `${resolveApiBaseUrl()}/auth/social/refresh`,
       { refreshToken },
       {
         timeout: 10000,

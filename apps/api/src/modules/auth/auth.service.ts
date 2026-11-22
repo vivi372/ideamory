@@ -304,7 +304,7 @@ export class AuthService {
    * @returns 새로 발급된 accessToken, refreshToken 및 만료 초(expiresIn)
    * @throws BusinessException Refresh Token 무효·만료 또는 환경변수 미설정 시 401/500 발생
    */
-  @LogTrace()
+  @LogTrace({ logArgs: false, logResult: false })
   async refreshSocialSession(
     refreshToken: string
   ): Promise<RefreshSocialAuthResponseDto> {

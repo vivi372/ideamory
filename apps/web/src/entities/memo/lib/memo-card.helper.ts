@@ -104,3 +104,53 @@ export function isInternalGuideUrl(rawUrl: string): boolean {
     return false;
   }
 }
+
+
+/**
+ * 메모 본문을 클립보드에 안전하게 복사합니다.
+ * Clipboard API 실패 시 뷰포트 내 투명 `readonly` textarea + `setSelectionRange` + `execCommand("copy")` 폴백을 시도합니다.
+ *
+ * @param text 복사할 메모 본문 텍스트
+ * @returns 복사 성공 여부
+ */
+export async function copyMemoContentToClipboard(
+  text: string
+): Promise<boolean> {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // 모바일 웹뷰/비보안 컨텍스트 등 Clipboard API 실패 시 execCommand 폴백 시도
+    }
+  }
+
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "0";
+    textarea.style.top = "0";
+    textarea.style.width = "1px";
+    textarea.style.height = "1px";
+    textarea.style.padding = "0";
+    textarea.style.border = "0";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    textarea.style.fontSize = "16px";
+    document.body.appendChild(textarea);
+    textarea.focus({ preventScroll: true });
+    textarea.select();
+    textarea.setSelectionRange(0, text.length);
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return copied;
+  } catch {
+    return false;
+  }
+}
