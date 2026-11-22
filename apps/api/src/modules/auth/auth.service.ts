@@ -8,6 +8,7 @@ import {
   type GuestInitResponseDto,
   type LinkSocialAuthDto,
   type LinkSocialAuthResponseDto,
+  type RefreshSocialAuthResponseDto,
   type SimpleSuccessResponseDto,
 } from "@ideamory/api-spec";
 import { BusinessException } from "../../common/exceptions/business.exception";
@@ -293,6 +294,75 @@ export class AuthService {
     return {
       success: true,
       message: "회원 탈퇴 및 모든 데이터 삭제가 완료되었습니다.",
+    };
+  }
+
+  /**
+   * 만료되었거나 만료 임박한 소셜 Access Token을 Supabase Refresh Token으로 재발급합니다.
+   *
+   * @param refreshToken Supabase Auth Refresh Token
+   * @returns 새로 발급된 accessToken, refreshToken 및 만료 초(expiresIn)
+   * @throws BusinessException Refresh Token 무효·만료 또는 환경변수 미설정 시 401/500 발생
+   */
+  @LogTrace()
+  async refreshSocialSession(
+    refreshToken: string
+  ): Promise<RefreshSocialAuthResponseDto> {
+    const supabaseUrl = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "");
+    const apiKey = (
+      process.env.SUPABASE_SECRET_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    )?.trim();
+
+    if (!supabaseUrl || !apiKey) {
+      throw new BusinessException(
+        "소셜 토큰 갱신 설정이 누락되었습니다.",
+        ERROR_CODES.SYSTEM_FATAL_INTERNAL,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+
+    const response = await fetch(
+      `${supabaseUrl}/auth/v1/token?grant_type=refresh_token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: apiKey,
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }
+    );
+
+    if (!response.ok) {
+      this.logger.warn(`소셜 Refresh Token 갱신 실패 (status: ${response.status})`);
+      throw new BusinessException(
+        "소셜 인증 세션이 만료되었습니다. 다시 로그인해 주세요.",
+        ERROR_CODES.AUTH_ALERT_UNAUTHORIZED,
+        HttpStatus.UNAUTHORIZED
+      );
+    }
+
+    const data = (await response.json()) as {
+      access_token?: string;
+      refresh_token?: string;
+      expires_in?: number;
+    };
+
+    if (!data.access_token || !data.refresh_token) {
+      throw new BusinessException(
+        "유효하지 않은 토큰 갱신 응답입니다.",
+        ERROR_CODES.AUTH_ALERT_UNAUTHORIZED,
+        HttpStatus.UNAUTHORIZED
+      );
+    }
+
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      ...(typeof data.expires_in === "number"
+        ? { expiresIn: data.expires_in }
+        : {}),
     };
   }
 }
