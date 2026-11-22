@@ -42,11 +42,19 @@ async function copyMemoContentToClipboard(text: string): Promise<boolean> {
     textarea.value = text;
     textarea.setAttribute("readonly", "");
     textarea.style.position = "fixed";
-    textarea.style.top = "-9999px";
+    textarea.style.left = "0";
+    textarea.style.top = "0";
+    textarea.style.width = "1px";
+    textarea.style.height = "1px";
+    textarea.style.padding = "0";
+    textarea.style.border = "0";
     textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    textarea.style.fontSize = "16px";
     document.body.appendChild(textarea);
-    textarea.focus();
+    textarea.focus({ preventScroll: true });
     textarea.select();
+    textarea.setSelectionRange(0, text.length);
     const copied = document.execCommand("copy");
     document.body.removeChild(textarea);
     return copied;
@@ -112,6 +120,7 @@ export function MemoCard({
 
   const longPressTimerRef = useRef<number | null>(null);
   const longPressedRef = useRef(false);
+  const pendingCopyOnReleaseRef = useRef(false);
   const pointerOriginRef = useRef<{ x: number; y: number } | null>(null);
 
   const cancelLongPress = useCallback(() => {
@@ -124,12 +133,28 @@ export function MemoCard({
 
   useEffect(() => cancelLongPress, [cancelLongPress]);
 
+  const notifyCopyResult = useCallback((copied: boolean) => {
+    if (copied) {
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        navigator.vibrate(15);
+      }
+      useFeedbackStore
+        .getState()
+        .showToast("info", "메모 내용을 클립보드에 복사했습니다.");
+    } else {
+      useFeedbackStore
+        .getState()
+        .showToast("warn", "클립보드 복사에 실패했습니다.");
+    }
+  }, []);
+
   const handleCopyPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) {
       return;
     }
     cancelLongPress();
     longPressedRef.current = false;
+    pendingCopyOnReleaseRef.current = false;
     pointerOriginRef.current = { x: event.clientX, y: event.clientY };
 
     if (typeof window === "undefined") {
@@ -143,19 +168,25 @@ export function MemoCard({
 
       void copyMemoContentToClipboard(memo.content).then((copied) => {
         if (copied) {
-          if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-            navigator.vibrate(15);
-          }
-          useFeedbackStore
-            .getState()
-            .showToast("info", "메모 내용을 클립보드에 복사했습니다.");
-        } else {
-          useFeedbackStore
-            .getState()
-            .showToast("warn", "클립보드 복사에 실패했습니다.");
+          notifyCopyResult(true);
+          return;
         }
+        // 일부 Android WebView에서는 setTimeout 내부에서 첫 user activation이 제한되므로
+        // 릴리스(pointerup) 시점에 1회 재시도할 수 있도록 대기 플래그를 설정합니다.
+        if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+          navigator.vibrate(15);
+        }
+        pendingCopyOnReleaseRef.current = true;
       });
     }, LONG_PRESS_DURATION_MS);
+  };
+
+  const handleCopyPointerUp = () => {
+    cancelLongPress();
+    if (pendingCopyOnReleaseRef.current) {
+      pendingCopyOnReleaseRef.current = false;
+      void copyMemoContentToClipboard(memo.content).then(notifyCopyResult);
+    }
   };
 
   const handleCopyPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
@@ -237,7 +268,7 @@ export function MemoCard({
             className="note-copy wrap-break-word whitespace-pre-wrap"
             onPointerDown={handleCopyPointerDown}
             onPointerMove={handleCopyPointerMove}
-            onPointerUp={cancelLongPress}
+            onPointerUp={handleCopyPointerUp}
             onPointerCancel={cancelLongPress}
             onPointerLeave={cancelLongPress}
             onTouchMove={handleCopyTouchMove}

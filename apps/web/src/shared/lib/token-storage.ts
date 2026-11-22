@@ -4,6 +4,11 @@
 export const ACCESS_TOKEN_STORAGE_KEY = "ideamory_access_token";
 
 /**
+ * 소셜 로그인 유저의 Refresh Token을 저장하는 localStorage 키
+ */
+export const REFRESH_TOKEN_STORAGE_KEY = "ideamory_refresh_token";
+
+/**
  * 익명 게스트 세션 식별 토큰(`gst_...`)을 저장하는 localStorage 키
  */
 export const GUEST_TOKEN_STORAGE_KEY = "ideamory_guest_token";
@@ -84,6 +89,56 @@ export const clearAccessToken = (): void =>
   removeStorageToken(ACCESS_TOKEN_STORAGE_KEY);
 
 /**
+ * 저장된 소셜 로그인 Refresh Token을 조회합니다.
+ */
+export const getRefreshToken = (): string | null =>
+  readStorageToken(REFRESH_TOKEN_STORAGE_KEY);
+
+/**
+ * 소셜 로그인 Refresh Token을 저장합니다.
+ */
+export const setRefreshToken = (token: string): void =>
+  writeStorageToken(REFRESH_TOKEN_STORAGE_KEY, token);
+
+/**
+ * 저장된 소셜 로그인 Refresh Token을 삭제합니다.
+ */
+export const clearRefreshToken = (): void =>
+  removeStorageToken(REFRESH_TOKEN_STORAGE_KEY);
+
+/**
+ * JWT의 `exp` 클레임을 디코딩하여 이미 만료되었거나 지정한 여유 시간(기본 60초) 이내에 만료되는지 판별합니다.
+ */
+export function isJwtExpiredOrExpiringSoon(
+  token: string,
+  skewSeconds = 60
+): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3 || !parts[1]) {
+      return true;
+    }
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(
+      base64.length + ((4 - (base64.length % 4)) % 4),
+      "="
+    );
+    const decoded =
+      typeof atob === "function"
+        ? atob(padded)
+        : Buffer.from(padded, "base64").toString("utf-8");
+    const payload = JSON.parse(decoded) as { exp?: number };
+    if (typeof payload.exp !== "number") {
+      return false;
+    }
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    return nowSeconds >= payload.exp - skewSeconds;
+  } catch {
+    return true;
+  }
+}
+
+/**
  * 저장된 익명 게스트 세션 토큰(`X-Guest-Token`)을 조회합니다.
  *
  * @returns 게스트 토큰 문자열 또는 미존재/SSR 환경일 경우 null
@@ -132,6 +187,7 @@ export const clearAuthProvider = (): void =>
  */
 export function clearAllAuthTokens(): void {
   clearAccessToken();
+  clearRefreshToken();
   clearGuestToken();
   clearAuthProvider();
 }

@@ -8,11 +8,15 @@ import {
   getAccessToken,
   getAuthProvider,
   getGuestToken,
+  isJwtExpiredOrExpiringSoon,
   queryKeys,
+  refreshAccessTokenSingleFlight,
   registerAuthBootstrapPromise,
   setAccessToken,
   setAuthProvider,
   setGuestToken,
+  setRefreshToken,
+  subscribeAuthSessionExpired,
 } from "@/shared/api";
 import { useFeedbackStore } from "@/shared/lib/feedback/use-feedback";
 import { isCapacitorNative } from "@/shared/lib/native-bridge";
@@ -108,6 +112,7 @@ function readAndClearPendingProvider(): SocialProvider {
 
 interface ParsedOAuthCallback {
   idToken: string | null;
+  refreshToken: string | null;
   provider: SocialProvider;
   errorMessage?: string;
 }
@@ -136,6 +141,7 @@ function parseOAuthCallbackFromUrlString(
   const hashParams = new URLSearchParams(hashString);
   const queryParams = new URLSearchParams(queryString);
   const idToken = hashParams.get("access_token");
+  const refreshToken = hashParams.get("refresh_token");
   const errorMessage =
     hashParams.get("error_description") ??
     queryParams.get("error_description") ??
@@ -159,6 +165,7 @@ function parseOAuthCallbackFromUrlString(
 
   return {
     idToken,
+    refreshToken,
     provider,
     errorMessage,
   };
@@ -214,6 +221,9 @@ async function handleOAuthCallback(
       }
       processedOAuthTokens.add(idToken);
       setAccessToken(idToken);
+      if (callback.refreshToken) {
+        setRefreshToken(callback.refreshToken);
+      }
       setAuthProvider(provider);
       clearGuestToken();
       setSocialProvider(provider);
@@ -279,6 +289,12 @@ export function useGuestBootstrap(): { isBootstrapped: boolean } {
   const isBootstrapped = useAuthStore((state) => state.isBootstrapped);
 
   useEffect(() => {
+    return subscribeAuthSessionExpired(() => {
+      useAuthStore.getState().setSocialProvider(null);
+    });
+  }, []);
+
+  useEffect(() => {
     if (useAuthStore.getState().isBootstrapped) {
       return;
     }
@@ -317,13 +333,29 @@ export function useGuestBootstrap(): { isBootstrapped: boolean } {
           clearPendingProviderStorage();
         }
 
-        // 2. 기존 소셜 JWT 보유 시 소셜 세션 복원
+        // 2. 기존 소셜 JWT 보유 시 만료 여부 점검 및 자동 리프레시 후 소셜 세션 복원
         const accessToken = getAccessToken();
         if (accessToken) {
-          const provider = parseSocialProvider(getAuthProvider());
-          setSocialProvider(provider);
-          setBootstrapped(true);
-          return;
+          if (isJwtExpiredOrExpiringSoon(accessToken, 60)) {
+            const refreshed = await refreshAccessTokenSingleFlight();
+            if (refreshed) {
+              const provider = parseSocialProvider(getAuthProvider());
+              setSocialProvider(provider);
+              setBootstrapped(true);
+              return;
+            }
+            useFeedbackStore
+              .getState()
+              .showToast(
+                "warn",
+                "소셜 로그인 세션이 만료되어 다시 로그인이 필요합니다."
+              );
+          } else {
+            const provider = parseSocialProvider(getAuthProvider());
+            setSocialProvider(provider);
+            setBootstrapped(true);
+            return;
+          }
         }
 
         // 3. 기존 게스트 토큰 미보유 시 0.1초 익명 게스트 세션 + 온보딩 시드 메모 신규 발급
