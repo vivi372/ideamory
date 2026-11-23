@@ -503,7 +503,7 @@ export class MemoService {
       owner,
       queryText: sanitizedQuery,
       queryVector,
-      threshold: query.threshold ?? 0.72,
+      threshold: query.threshold ?? 0.65,
       limit: query.limit ?? 30,
     });
 
@@ -546,7 +546,7 @@ export class MemoService {
       owner,
       sourceMemoId: sourceMemo.id,
       sourceVector: sourceMemo.embedding,
-      threshold: query.threshold ?? 0.8,
+      threshold: query.threshold ?? 0.75,
       limit: query.limit ?? 10,
     });
 

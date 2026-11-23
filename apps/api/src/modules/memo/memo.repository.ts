@@ -224,7 +224,7 @@ export class MemoRepository {
       conditions.push(eq(memos.categoryId, options.categoryId));
     }
 
-    // 활성 타임라인 조회 시에만 768차원 임베딩 코사인 유사도(>= 0.8) 기준 연관 메모 개수를 계산해 0건 칩 숨김에 활용
+    // 활성 타임라인 조회 시에만 768차원 임베딩 코사인 유사도(>= 0.75) 기준 연관 메모 개수를 계산해 0건 칩 숨김에 활용
     const relatedCountExpr = options.deleted
       ? sql<number>`0`
       : sql<number>`(
@@ -239,7 +239,7 @@ export class MemoRepository {
                 ? sql`m2.user_id = ${owner.userId}`
                 : sql`m2.guest_token = ${owner.guestToken!}`
             }
-            AND (1 - (m2.embedding <=> ${memos.embedding})) >= 0.8
+            AND (1 - (m2.embedding <=> ${memos.embedding})) >= 0.75
         )`;
 
     const rows = await tx
@@ -546,6 +546,13 @@ export class MemoRepository {
             END * 0.6
           )
         )::float8 AS "finalScore",
+        CASE
+          WHEN (
+            to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
+            OR m.content ILIKE ${likePattern} ESCAPE '!'
+          ) THEN 1
+          ELSE 0
+        END AS "tierRank",
         ogp.id AS "ogpId",
         ogp.target_url AS "ogpTargetUrl",
         ogp.title AS "ogpTitle",
@@ -568,7 +575,7 @@ export class MemoRepository {
             AND (1 - (m.embedding <=> ${vectorLiteral}::vector)) >= ${params.threshold}
           )
         )
-      ORDER BY "finalScore" DESC, m.created_at DESC
+      ORDER BY "tierRank" DESC, "finalScore" DESC, m.created_at DESC
       LIMIT ${params.limit}
     `);
 

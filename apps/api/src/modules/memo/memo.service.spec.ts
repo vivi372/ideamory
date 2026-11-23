@@ -504,7 +504,7 @@ describe("MemoService & TrashCleanerScheduler (2단계 퀵 캡처 파이프라�
     assert.equal(escapeLikePattern("100%_test!"), "100!%!_test!!");
   });
 
-  it("시나리오 13: classifyCategoryInBackground는 '사용 가이드'를 후보에서 제외하고, searchMemos는 threshold 미지정 시 기본 0.72를 적용해야 한다", async () => {
+  it("시나리오 13: classifyCategoryInBackground는 '사용 가이드'를 후보에서 제외하고, searchMemos는 threshold 미지정 시 기본 0.65를 적용해야 한다", async () => {
     const repo = (memoService as any).memoRepository;
     repo.findCategoriesByOwner = async () => [
       { id: "cat-uncat", name: "미분류", normalizedName: "미분류" },
@@ -531,7 +531,7 @@ describe("MemoService & TrashCleanerScheduler (2단계 퀵 캡처 파이프라�
 
     (aiService as any).generateEmbedding = async () => new Array(768).fill(0.1);
     await memoService.searchMemos(owner, { q: "개발" } as any);
-    assert.equal(repoCalls.searchMemosHybrid[0].threshold, 0.72);
+    assert.equal(repoCalls.searchMemosHybrid[0].threshold, 0.65);
   });
 });
 

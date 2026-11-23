@@ -83,14 +83,14 @@ export const SearchMemoQuerySchema = z.object({
     .trim()
     .min(1, "검색어를 입력해 주세요.")
     .max(500, "검색어는 최대 500자까지 입력할 수 있습니다."),
-  threshold: z.coerce.number().min(0).max(1).optional().default(0.72),
+  threshold: z.coerce.number().min(0).max(1).optional().default(0.65),
   limit: z.coerce.number().int().positive().max(100).optional().default(30),
 });
 
 export type SearchMemoQueryDto = z.infer<typeof SearchMemoQuerySchema>;
 
 /**
- * 하이브리드 검색 결과 응답 DTO (FTS 0.4 + Vector 0.6 가중치 합산)
+ * 하이브리드 검색 결과 응답 DTO (Tier 1 키워드 우선 + Tier 2 코사인 유사도 0.65 이상 보완 랭킹)
  */
 export const SearchResultResponseSchema = z.object({
   id: UuidV7Schema,
@@ -110,14 +110,14 @@ export type SearchResultResponseDto = z.infer<typeof SearchResultResponseSchema>
  * GET /api/v1/memos/:id/related (관련 메모 1-Depth 필터링 쿼리 DTO)
  */
 export const RelatedMemoQuerySchema = z.object({
-  threshold: z.coerce.number().min(0).max(1).optional().default(0.8),
+  threshold: z.coerce.number().min(0).max(1).optional().default(0.75),
   limit: z.coerce.number().int().positive().max(100).optional().default(10),
 });
 
 export type RelatedMemoQueryDto = z.infer<typeof RelatedMemoQuerySchema>;
 
 /**
- * 관련 메모 1-Depth 추천 결과 응답 DTO (코사인 유사도 0.8 이상)
+ * 관련 메모 1-Depth 추천 결과 응답 DTO (코사인 유사도 0.75 이상)
  */
 export const RelatedMemoResponseSchema = z.object({
   id: UuidV7Schema,

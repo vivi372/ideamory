@@ -192,7 +192,7 @@ describe("MemoController & OgpController (REST 라우트, Zod 파이프 및 204 
     assert.equal(serviceCalls.searchMemos.length, 1);
     assert.deepEqual(serviceCalls.searchMemos[0].query, {
       q: "pgvector 하이브리드",
-      threshold: 0.72,
+      threshold: 0.65,
       limit: 30,
     });
 
@@ -220,7 +220,7 @@ describe("MemoController & OgpController (REST 라우트, Zod 파이프 및 204 
     assert.equal(serviceCalls.getRelatedMemos.length, 1);
     assert.equal(serviceCalls.getRelatedMemos[0].id, memoId);
     assert.deepEqual(serviceCalls.getRelatedMemos[0].query, {
-      threshold: 0.8,
+      threshold: 0.75,
       limit: 10,
     });
   });
