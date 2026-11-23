@@ -52,7 +52,24 @@ Ideamory는 **Remote MCP Streamable HTTP** 엔드포인트(`/api/v1/mcp`)를 통
 
 ---
 
-## 4. 제공 도구 (MCP Tools)
+## 4. Antigravity 연동 설정 (`~/.gemini/antigravity/mcp_config.json`)
+
+```json
+{
+  "mcpServers": {
+    "ideamory": {
+      "serverUrl": "https://p01--ideamory--fyppwr9k8xfj.code.run/api/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer idm_live_여기에_발급받은_키_입력"
+      }
+    }
+  }
+}
+```
+
+---
+
+## 5. 제공 도구 (MCP Tools)
 
 | 도구명 | 필요 권한 | 설명 |
 | :--- | :---: | :--- |
