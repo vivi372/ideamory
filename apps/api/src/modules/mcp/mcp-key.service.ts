@@ -139,6 +139,7 @@ export class McpKeyService {
    * @returns 검증된 소유자, 허용 스코프, 고정 카테고리 컨텍스트
    * @throws BusinessException 토큰 형식이 잘못되었거나 DB에 일치하는 키가 없는 경우 401 반환
    */
+  @LogTrace({ logArgs: false, logResult: false })
   async verifyBearerToken(rawToken: string): Promise<VerifiedMcpContext> {
     if (!rawToken || !rawToken.startsWith(MCP_KEY_PREFIX)) {
       throw new BusinessException(

@@ -129,11 +129,11 @@ export class McpServerService {
     context: VerifiedMcpContext,
     body: JsonRpcRequest,
   ): Promise<JsonRpcResponse | null> {
-    const id = body.id ?? null;
-
-    if (body.method === "notifications/initialized") {
+    if (body.id === undefined || body.method?.startsWith("notifications/")) {
       return null;
     }
+
+    const id = body.id ?? null;
 
     if (body.method === "initialize") {
       return {
