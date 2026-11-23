@@ -144,6 +144,7 @@ export function KnowledgeGraphCanvas({
       const currentFocused = focusedNodeIdRef.current;
       const currentConnected = connectedNodeIdsRef.current;
       const isFocused = currentFocused === id;
+      const isPending = nodeObj.memo?.aiStatus === "PENDING";
       const isDimmed =
         currentFocused !== null && !currentConnected.has(id);
 
@@ -157,6 +158,18 @@ export function KnowledgeGraphCanvas({
         ctx.arc(x, y, radius + 5 / Math.max(globalScale, 0.8), 0, 2 * Math.PI);
         ctx.fillStyle = "rgba(229, 169, 92, 0.25)";
         ctx.fill();
+      }
+
+      if (isPending) {
+        const pulse = 0.5 + 0.35 * Math.sin(Date.now() / 320);
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([3 / Math.max(globalScale, 0.8), 2.5 / Math.max(globalScale, 0.8)]);
+        ctx.arc(x, y, radius + 3.5 / Math.max(globalScale, 0.8), 0, 2 * Math.PI);
+        ctx.lineWidth = 1.5 / Math.max(globalScale, 0.8);
+        ctx.strokeStyle = `rgba(229, 169, 92, ${pulse.toFixed(2)})`;
+        ctx.stroke();
+        ctx.restore();
       }
 
       ctx.beginPath();
