@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Check, Copy, KeyRound, Trash2, X } from "lucide-react";
 import type { McpKeyScope } from "@ideamory/api-spec";
@@ -32,6 +32,7 @@ export function McpKeySheet() {
   const [issuedRawKey, setIssuedRawKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const sheetContentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -116,15 +117,17 @@ export function McpKeySheet() {
       // Android WebView 등에서 navigator.clipboard 거부 시 아래 execCommand 폴백 실행
     }
 
+    const container = sheetContentRef.current ?? document.body;
     const textarea = document.createElement("textarea");
     textarea.value = issuedRawKey;
     textarea.setAttribute("readonly", "");
     textarea.style.position = "fixed";
     textarea.style.top = "-9999px";
     textarea.style.left = "-9999px";
-    document.body.appendChild(textarea);
+    container.appendChild(textarea);
 
     try {
+      textarea.focus();
       textarea.select();
       textarea.setSelectionRange(0, issuedRawKey.length);
       const ok = document.execCommand("copy");
@@ -137,7 +140,7 @@ export function McpKeySheet() {
     } catch {
       showToast("error", "클립보드 복사에 실패했습니다.");
     } finally {
-      document.body.removeChild(textarea);
+      container.removeChild(textarea);
     }
   };
 
@@ -153,7 +156,10 @@ export function McpKeySheet() {
       {open && (
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="sheet-backdrop" />
-          <DialogPrimitive.Content className="social-sheet mcp-sheet">
+          <DialogPrimitive.Content
+            ref={sheetContentRef}
+            className="social-sheet mcp-sheet"
+          >
             <div className="sheet-handle" />
             <div className="sheet-header">
               <div>

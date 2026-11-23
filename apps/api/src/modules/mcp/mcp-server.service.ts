@@ -129,8 +129,19 @@ export class McpServerService {
     context: VerifiedMcpContext,
     body: JsonRpcRequest,
   ): Promise<JsonRpcResponse | null> {
-    if (body.id === undefined || body.method?.startsWith("notifications/")) {
+    if (body.method?.startsWith("notifications/")) {
       return null;
+    }
+
+    if (body.id === undefined) {
+      return {
+        jsonrpc: "2.0",
+        id: null,
+        error: {
+          code: -32600,
+          message: "유효하지 않은 JSON-RPC 요청입니다: id가 누락되었습니다.",
+        },
+      };
     }
 
     const id = body.id ?? null;

@@ -194,5 +194,11 @@ describe("McpKeyService & McpServerService", () => {
       method: "notifications/cancelled",
     });
     assert.equal(notifRes, null);
+
+    const missingIdRes = await mcpServer.handleJsonRpc(readOnlyCtx, {
+      jsonrpc: "2.0",
+      method: "tools/list",
+    });
+    assert.equal(missingIdRes?.error?.code, -32600);
   });
 });
