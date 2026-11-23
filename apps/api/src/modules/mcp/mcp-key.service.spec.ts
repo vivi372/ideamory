@@ -188,5 +188,11 @@ describe("McpKeyService & McpServerService", () => {
     assert.equal(capturedCalls.find((c) => c.type === "related")?.query.threshold, 0.75);
     assert.equal(capturedCalls.some((c) => c.type === "categories"), true);
     assert.equal(capturedCalls.find((c) => c.type === "create")?.options.fixedCategoryName, "개발");
+
+    const notifRes = await mcpServer.handleJsonRpc(readOnlyCtx, {
+      jsonrpc: "2.0",
+      method: "notifications/cancelled",
+    });
+    assert.equal(notifRes, null);
   });
 });

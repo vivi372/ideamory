@@ -104,12 +104,40 @@ export function McpKeySheet() {
     if (!issuedRawKey) {
       return;
     }
+
     try {
-      await navigator.clipboard.writeText(issuedRawKey);
-      setCopied(true);
-      showToast("info", "API 키가 클립보드에 복사되었습니다.");
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(issuedRawKey);
+        setCopied(true);
+        showToast("info", "API 키가 클립보드에 복사되었습니다.");
+        return;
+      }
+    } catch {
+      // Android WebView 등에서 navigator.clipboard 거부 시 아래 execCommand 폴백 실행
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = issuedRawKey;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "-9999px";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+
+    try {
+      textarea.select();
+      textarea.setSelectionRange(0, issuedRawKey.length);
+      const ok = document.execCommand("copy");
+      if (ok) {
+        setCopied(true);
+        showToast("info", "API 키가 클립보드에 복사되었습니다.");
+      } else {
+        showToast("error", "클립보드 복사에 실패했습니다.");
+      }
     } catch {
       showToast("error", "클립보드 복사에 실패했습니다.");
+    } finally {
+      document.body.removeChild(textarea);
     }
   };
 
