@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import ForceGraph2D, {
   type ForceGraphMethods,
   type LinkObject,
@@ -45,8 +45,8 @@ export interface ForceGraphInnerProps {
 
 /**
  * `next/dynamic(..., { ssr: false })`로 로드되는 동기 `ForceGraph2D` 래퍼입니다.
- * 마운트 즉시 d3 force(척력·링크 거리)를 설정하고, 기존 노드 좌표를 보존해
- * 드로어 열기나 노드 선택/해제 시 그래프가 중앙으로 뭉쳤다가 흩어지는 현상을 방지합니다.
+ * `graphData.nodes` 객체 참조를 그대로 유지해 미니맵과 좌표를 실시간 공유하며,
+ * 마운트 즉시 d3 force(척력·링크 거리)를 설정해 뭉침과 떨림을 방지합니다.
  */
 export default function ForceGraphInner({
   fgRef,
@@ -63,32 +63,28 @@ export default function ForceGraphInner({
   const positionCacheRef = useRef<Map<string, SavedPosition>>(new Map());
   const prevTopologyRef = useRef<string>("");
 
-  const stabilizedData = useMemo(() => {
-    const cache = positionCacheRef.current;
-    const nodes: ForceNode[] = graphData.nodes.map((node) => {
-      const saved = cache.get(node.id);
-      if (saved && typeof saved.x === "number" && typeof saved.y === "number") {
-        return {
-          ...node,
-          x: saved.x,
-          y: saved.y,
-          vx: saved.vx,
-          vy: saved.vy,
-        };
-      }
-      return { ...node };
-    });
-
-    const links: ForceLink[] = graphData.links.map((link) => ({ ...link }));
-    return { nodes, links };
-  }, [graphData]);
+  const cache = positionCacheRef.current;
+  for (const node of graphData.nodes as ForceNode[]) {
+    const saved = cache.get(String(node.id));
+    if (
+      saved &&
+      typeof node.x !== "number" &&
+      typeof saved.x === "number" &&
+      typeof saved.y === "number"
+    ) {
+      node.x = saved.x;
+      node.y = saved.y;
+      node.vx = saved.vx;
+      node.vy = saved.vy;
+    }
+  }
 
   useEffect(() => {
-    const cache = positionCacheRef.current;
-    for (const node of stabilizedData.nodes) {
-      cache.set(String(node.id), node);
+    const map = positionCacheRef.current;
+    for (const node of graphData.nodes as ForceNode[]) {
+      map.set(String(node.id), node);
     }
-  }, [stabilizedData]);
+  }, [graphData]);
 
   useEffect(() => {
     const fg = fgRef.current;
@@ -99,29 +95,29 @@ export default function ForceGraphInner({
     const chargeForce = fg.d3Force("charge") as
       | { strength?: (value: number) => void }
       | undefined;
-    chargeForce?.strength?.(-520);
+    chargeForce?.strength?.(-360);
 
     const linkForce = fg.d3Force("link") as
       | { distance?: (fn: (link: BaseLink) => number) => void }
       | undefined;
     linkForce?.distance?.((rawLink: BaseLink) => {
       const sim = (rawLink as ForceLink).similarity ?? 0.7;
-      return 240 - Math.max(0, sim - 0.6) * 120;
+      return 175 - Math.max(0, sim - 0.6) * 90;
     });
 
-    const topologyKey = `${stabilizedData.nodes.length}:${stabilizedData.links.length}`;
+    const topologyKey = `${graphData.nodes.length}:${graphData.links.length}`;
     if (prevTopologyRef.current !== topologyKey) {
       prevTopologyRef.current = topologyKey;
       fg.d3ReheatSimulation();
     }
-  }, [fgRef, stabilizedData.links.length, stabilizedData.nodes.length]);
+  }, [fgRef, graphData.links.length, graphData.nodes.length]);
 
   return (
     <ForceGraph2D
       ref={fgRef}
       width={width}
       height={height}
-      graphData={stabilizedData as { nodes: BaseNode[]; links: BaseLink[] }}
+      graphData={graphData as unknown as { nodes: BaseNode[]; links: BaseLink[] }}
       backgroundColor="rgba(0, 0, 0, 0)"
       nodeId="id"
       nodeVal={(node) => (node as ForceNode).val}

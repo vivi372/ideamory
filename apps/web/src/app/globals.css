@@ -114,9 +114,9 @@ html, body { background: var(--bg); color: var(--text); }
 .view-mode-btn.is-active { background: rgba(229, 169, 92, 0.16); color: var(--accent-bright); box-shadow: inset 0 0 0 1px rgba(229, 169, 92, 0.32); }
 .view-mode-emoji { font-size: 12px; line-height: 1; }
 
-.graph-floating-top { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 14px; right: 14px; z-index: 20; display: flex; align-items: center; justify-content: space-between; pointer-events: none; }
+.graph-floating-top { position: fixed; top: 0; left: 0; right: 0; height: 68px; padding: 0 28px; z-index: 20; display: flex; align-items: center; justify-content: space-between; pointer-events: none; }
 .graph-floating-top > * { pointer-events: auto; }
-.graph-floating-menu-btn { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 999px; background: rgba(25, 22, 20, 0.76); backdrop-filter: blur(12px); color: var(--text); cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); transition: border-color .16s ease, background .16s ease; }
+.graph-floating-menu-btn { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 999px; background: rgba(25, 22, 20, 0.76); backdrop-filter: blur(12px); color: var(--text); cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); transition: border-color .16s ease, background .16s ease; }
 .graph-floating-menu-btn:hover { border-color: var(--border-accent); background: rgba(34, 30, 27, 0.88); }
 
 .ideamory-shell.is-graph-mode .capture-zone { background: linear-gradient(to top, rgba(16, 15, 14, 0.48) 55%, rgba(16, 15, 14, 0)); pointer-events: none; }
@@ -166,9 +166,9 @@ html, body { background: var(--bg); color: var(--text); }
 
 @media (max-width: 640px) {
   .view-mode-btn { height: 26px; padding: 0 8px; font-size: 10px; gap: 4px; }
-  .graph-floating-top { left: 12px; right: 12px; }
-  .graph-floating-menu-btn { width: 36px; height: 36px; }
-  .graph-toolbar { top: calc(max(10px, env(safe-area-inset-top)) + 48px); left: 12px; right: 12px; padding: 9px 12px; }
+  .graph-floating-top { height: 65px; padding: 0 16px; }
+  .graph-floating-menu-btn { width: 38px; height: 38px; }
+  .graph-toolbar { top: calc(max(10px, env(safe-area-inset-top)) + 56px); left: 12px; right: 12px; padding: 9px 12px; }
   .graph-threshold-slider { width: 108px; }
   .graph-node-sheet { left: 12px; right: 12px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 90px); }
   .graph-minimap { width: 124px; height: 84px; right: 12px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 94px); }

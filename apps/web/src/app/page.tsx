@@ -193,8 +193,8 @@ export default function HomePage() {
           ) : null}
           {viewMode !== "TRASH" ? (
             <>
-              <ViewModeToggle />
               <SearchBar />
+              <ViewModeToggle />
             </>
           ) : null}
         </header>
