@@ -29,8 +29,9 @@ export function resolveGraphCategoryColor(
 
 /**
  * 메모 본문에서 그래프 노드 라벨로 표시할 요약 텍스트를 추출합니다.
+ * 서로게이트 쌍(이모지 등)이 중간에 잘리지 않도록 유니코드 코드 포인트 단위로 슬라이싱합니다.
  */
-export function extractNodeLabel(content: string, maxLength = 54): string {
+export function extractNodeLabel(content: string, maxLength = 84): string {
   const normalized = content
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -41,10 +42,11 @@ export function extractNodeLabel(content: string, maxLength = 54): string {
     return "빈 메모";
   }
 
-  if (normalized.length <= maxLength) {
+  const chars = Array.from(normalized);
+  if (chars.length <= maxLength) {
     return normalized;
   }
-  return `${normalized.slice(0, maxLength - 1)}…`;
+  return `${chars.slice(0, maxLength - 1).join("")}…`;
 }
 
 /**

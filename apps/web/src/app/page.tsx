@@ -30,6 +30,7 @@ import { ConditionalSplash } from "@/widgets/splash-screen";
 export default function HomePage() {
   const { isBootstrapped } = useGuestBootstrap();
   const displayMode = useViewModeStore((state) => state.displayMode);
+  const setDisplayMode = useViewModeStore((state) => state.setDisplayMode);
   const hydrateFromStorage = useViewModeStore(
     (state) => state.hydrateFromStorage,
   );
@@ -97,62 +98,92 @@ export default function HomePage() {
         : "전체 메모";
 
   return (
-    <main className="ideamory-shell">
+    <main
+      className={`ideamory-shell${displayMode === "GRAPH" ? " is-graph-mode" : ""}`}
+    >
       <ConditionalSplash />
       <SocialLinkOverlay {...authOverlayProps} />
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
-      <header
-        className={`topbar${displayMode === "GRAPH" ? " is-graph-mode" : ""}`}
-      >
-        <button
-          type="button"
-          className="icon-button relative"
-          aria-label={drawerOpen ? "메뉴 닫기" : "메뉴 열기"}
-          aria-expanded={drawerOpen}
-          onClick={(event) => {
-            setDrawerOpen(!drawerOpen);
-            event.currentTarget.blur();
-          }}
-        >
-          <Menu size={21} />
-          {suggestionCategoryIds.size > 0 ? (
-            <span
-              aria-label="유사 카테고리 병합 제안 알림"
-              style={{
-                position: "absolute",
-                top: 6,
-                right: 6,
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                background: "#E9A14E",
-                boxShadow: "0 0 8px rgba(233, 161, 78, 0.7)",
-              }}
-            />
-          ) : null}
-        </button>
-        <div className="brand-lockup">
-          <img src="/ideamory-logo.png" alt="Ideamory 로고" />
-          <span>IDEAMORY</span>
-        </div>
-        {displayMode === "CACHE" && viewMode !== "ALL" ? (
+      {displayMode === "GRAPH" ? (
+        <div className="graph-floating-top" aria-label="지식망 상단 제어">
           <button
             type="button"
-            className="topbar-view-pill"
-            onClick={selectAllMemos}
-            title="전체 메모로 돌아가기"
-            aria-label={`${currentLabel} 필터 해제하고 전체 메모 보기`}
+            className="graph-floating-menu-btn relative"
+            aria-label={drawerOpen ? "메뉴 닫기" : "메뉴 열기"}
+            aria-expanded={drawerOpen}
+            onClick={() => setDrawerOpen(!drawerOpen)}
           >
-            <span className="topbar-view-dot" aria-hidden="true" />
-            <span className="topbar-view-text">{currentLabel}</span>
-            <X size={12} aria-hidden="true" />
+            <Menu size={19} />
+            {suggestionCategoryIds.size > 0 ? (
+              <span
+                aria-label="유사 카테고리 병합 제안 알림"
+                style={{
+                  position: "absolute",
+                  top: 7,
+                  right: 7,
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "#E9A14E",
+                  boxShadow: "0 0 8px rgba(233, 161, 78, 0.7)",
+                }}
+              />
+            ) : null}
           </button>
-        ) : null}
-        <ViewModeToggle />
-        {displayMode === "CACHE" ? <SearchBar /> : null}
-      </header>
+          <ViewModeToggle />
+        </div>
+      ) : (
+        <header className="topbar">
+          <button
+            type="button"
+            className="icon-button relative"
+            aria-label={drawerOpen ? "메뉴 닫기" : "메뉴 열기"}
+            aria-expanded={drawerOpen}
+            onClick={(event) => {
+              setDrawerOpen(!drawerOpen);
+              event.currentTarget.blur();
+            }}
+          >
+            <Menu size={21} />
+            {suggestionCategoryIds.size > 0 ? (
+              <span
+                aria-label="유사 카테고리 병합 제안 알림"
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  right: 6,
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "#E9A14E",
+                  boxShadow: "0 0 8px rgba(233, 161, 78, 0.7)",
+                }}
+              />
+            ) : null}
+          </button>
+          <div className="brand-lockup">
+            <img src="/ideamory-logo.png" alt="Ideamory 로고" />
+            <span>IDEAMORY</span>
+          </div>
+          {viewMode !== "ALL" ? (
+            <button
+              type="button"
+              className="topbar-view-pill"
+              onClick={selectAllMemos}
+              title="전체 메모로 돌아가기"
+              aria-label={`${currentLabel} 필터 해제하고 전체 메모 보기`}
+            >
+              <span className="topbar-view-dot" aria-hidden="true" />
+              <span className="topbar-view-text">{currentLabel}</span>
+              <X size={12} aria-hidden="true" />
+            </button>
+          ) : null}
+          <ViewModeToggle />
+          <SearchBar />
+        </header>
+      )}
 
       <section
         className={`content-wrap${displayMode === "GRAPH" ? " is-graph-mode" : ""}`}
@@ -191,9 +222,24 @@ export default function HomePage() {
         hideCategories={displayMode === "GRAPH"}
         onOpen={() => setDrawerOpen(true)}
         onClose={() => setDrawerOpen(false)}
-        onSelectAllMemos={selectAllMemos}
-        onSelectCategory={selectCategory}
-        onSelectTrash={selectTrash}
+        onSelectAllMemos={() => {
+          if (displayMode === "GRAPH") {
+            setDisplayMode("CACHE");
+          }
+          selectAllMemos();
+        }}
+        onSelectCategory={(categoryId) => {
+          if (displayMode === "GRAPH") {
+            setDisplayMode("CACHE");
+          }
+          selectCategory(categoryId);
+        }}
+        onSelectTrash={() => {
+          if (displayMode === "GRAPH") {
+            setDisplayMode("CACHE");
+          }
+          selectTrash();
+        }}
         onOpenSocialSheet={() => setSocialSheetOpen(true)}
         onResetGuestData={() => {
           void handleResetGuestData();

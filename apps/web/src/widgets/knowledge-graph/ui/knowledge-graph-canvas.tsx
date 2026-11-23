@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ForceGraphMethods, LinkObject, NodeObject } from "react-force-graph-2d";
 import type { GraphData, GraphLink, GraphNode } from "@/entities/memo";
+import { KnowledgeGraphMinimap } from "./knowledge-graph-minimap";
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
@@ -28,18 +29,19 @@ function getEndpointId(endpoint: string | number | BaseNode | undefined): string
   return String(endpoint?.id ?? "");
 }
 
-function wrapLabelLines(text: string, charsPerLine = 16, maxLines = 3): string[] {
+function wrapLabelLines(text: string, charsPerLine = 18, maxLines = 4): string[] {
   if (!text) {
     return [];
   }
+  const chars = Array.from(text);
   const lines: string[] = [];
-  for (let i = 0; i < text.length && lines.length < maxLines; i += charsPerLine) {
-    const chunk = text.slice(i, i + charsPerLine);
+  for (let i = 0; i < chars.length && lines.length < maxLines; i += charsPerLine) {
+    const chunk = chars.slice(i, i + charsPerLine);
     const isLastAllowed = lines.length === maxLines - 1;
-    if (isLastAllowed && i + charsPerLine < text.length) {
-      lines.push(`${chunk.slice(0, charsPerLine - 1)}…`);
+    if (isLastAllowed && i + charsPerLine < chars.length) {
+      lines.push(`${chunk.slice(0, charsPerLine - 1).join("")}…`);
     } else {
-      lines.push(chunk);
+      lines.push(chunk.join(""));
     }
   }
   return lines;
@@ -89,14 +91,14 @@ export function KnowledgeGraphCanvas({
     const chargeForce = fg.d3Force("charge") as
       | { strength?: (value: number) => void }
       | undefined;
-    chargeForce?.strength?.(-280);
+    chargeForce?.strength?.(-460);
 
     const linkForce = fg.d3Force("link") as
       | { distance?: (fn: (link: BaseLink) => number) => void }
       | undefined;
     linkForce?.distance?.((rawLink: BaseLink) => {
       const sim = (rawLink as ForceLink).similarity ?? 0.7;
-      return 165 - Math.max(0, sim - 0.6) * 120;
+      return 220 - Math.max(0, sim - 0.6) * 120;
     });
 
     fg.d3ReheatSimulation();
@@ -189,8 +191,8 @@ export function KnowledgeGraphCanvas({
 
       if (shouldShowLabel && nodeObj.label) {
         const fontSize = Math.max(9.5, 11.5 / Math.max(globalScale, 0.7));
-        const maxLines = globalScale >= 1.2 || isFocused ? 3 : 2;
-        const lines = wrapLabelLines(nodeObj.label, 16, maxLines);
+        const maxLines = globalScale >= 1.0 || isFocused ? 4 : 3;
+        const lines = wrapLabelLines(nodeObj.label, 18, maxLines);
 
         ctx.font = `${isFocused ? "600 " : "500 "}${fontSize}px sans-serif`;
         ctx.textAlign = "center";
@@ -301,6 +303,12 @@ export function KnowledgeGraphCanvas({
           onBackgroundClick={onClearFocus}
         />
       )}
+      <KnowledgeGraphMinimap
+        fgRef={fgRef}
+        graphData={graphData}
+        viewportSize={size}
+        focusedNodeId={focusedNodeId}
+      />
     </div>
   );
 }
