@@ -22,7 +22,7 @@ Ideamory는 **Remote MCP Streamable HTTP** 엔드포인트(`/api/v1/mcp`)를 통
       "args": [
         "-y",
         "mcp-remote",
-        "https://api.ideamory.app/api/v1/mcp",
+        "https://p01--ideamory--fyppwr9k8xfj.code.run/api/v1/mcp",
         "--header",
         "Authorization: Bearer idm_live_여기에_발급받은_키_입력"
       ]
@@ -39,7 +39,7 @@ Ideamory는 **Remote MCP Streamable HTTP** 엔드포인트(`/api/v1/mcp`)를 통
 {
   "mcpServers": {
     "ideamory": {
-      "url": "https://api.ideamory.app/api/v1/mcp",
+      "url": "https://p01--ideamory--fyppwr9k8xfj.code.run/api/v1/mcp",
       "headers": {
         "Authorization": "Bearer idm_live_여기에_발급받은_키_입력"
       }
