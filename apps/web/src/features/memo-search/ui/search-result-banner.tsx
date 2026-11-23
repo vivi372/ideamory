@@ -25,9 +25,9 @@ export function SearchResultBanner({
 }: SearchResultBannerProps) {
   return (
     <div className="related-filter-banner" role="status" aria-live="polite">
-      <span className="inline-flex min-w-0 items-center gap-2">
-        <Search size={13} aria-hidden="true" className="shrink-0" />
-        <span className="truncate">
+      <span className="search-banner-content">
+        <Search size={14} aria-hidden="true" className="search-banner-icon" />
+        <span className="search-banner-text">
           &ldquo;{query}&rdquo; 검색 결과 ({resultCount}건)
         </span>
       </span>
