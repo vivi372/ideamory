@@ -28,8 +28,26 @@ function getEndpointId(endpoint: string | number | BaseNode | undefined): string
   return String(endpoint?.id ?? "");
 }
 
+function wrapLabelLines(text: string, charsPerLine = 16, maxLines = 3): string[] {
+  if (!text) {
+    return [];
+  }
+  const lines: string[] = [];
+  for (let i = 0; i < text.length && lines.length < maxLines; i += charsPerLine) {
+    const chunk = text.slice(i, i + charsPerLine);
+    const isLastAllowed = lines.length === maxLines - 1;
+    if (isLastAllowed && i + charsPerLine < text.length) {
+      lines.push(`${chunk.slice(0, charsPerLine - 1)}…`);
+    } else {
+      lines.push(chunk);
+    }
+  }
+  return lines;
+}
+
 /**
  * react-force-graph-2d 기반의 60fps HTML5 Canvas 지식망 렌더러입니다.
+ * 넓은 노드 간격, 줌 연동 다중 줄 라벨, 고립 노드 포함 넉넉한 터치 히트 영역을 제공합니다.
  */
 export function KnowledgeGraphCanvas({
   graphData,
@@ -63,6 +81,27 @@ export function KnowledgeGraphCanvas({
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg) {
+      return;
+    }
+    const chargeForce = fg.d3Force("charge") as
+      | { strength?: (value: number) => void }
+      | undefined;
+    chargeForce?.strength?.(-280);
+
+    const linkForce = fg.d3Force("link") as
+      | { distance?: (fn: (link: BaseLink) => number) => void }
+      | undefined;
+    linkForce?.distance?.((rawLink: BaseLink) => {
+      const sim = (rawLink as ForceLink).similarity ?? 0.7;
+      return 165 - Math.max(0, sim - 0.6) * 120;
+    });
+
+    fg.d3ReheatSimulation();
+  }, [graphData, size.width, size.height]);
+
   const connectedNodeIds = useMemo(() => {
     const connected = new Set<string>();
     if (!focusedNodeId) {
@@ -92,12 +131,20 @@ export function KnowledgeGraphCanvas({
       ) {
         fgRef.current.centerAt(nodeObj.x, nodeObj.y, 300);
         const currentZoom = fgRef.current.zoom();
-        if (typeof currentZoom === "number" && currentZoom < 1.45) {
-          fgRef.current.zoom(1.45, 300);
+        if (typeof currentZoom === "number" && currentZoom < 1.35) {
+          fgRef.current.zoom(1.35, 300);
         }
       }
     },
     [onFocusNode],
+  );
+
+  const getVisualRadius = useCallback(
+    (nodeObj: ForceNode, isFocused: boolean) => {
+      const baseRadius = 6 + Math.min(6, (nodeObj.relatedCount ?? 0) * 1.1);
+      return isFocused ? baseRadius * 1.3 : baseRadius;
+    },
+    [],
   );
 
   const drawNode = useCallback(
@@ -114,16 +161,15 @@ export function KnowledgeGraphCanvas({
       const isDimmed =
         focusedNodeId !== null && !connectedNodeIds.has(id);
 
-      const baseRadius = 5 + Math.min(6, (nodeObj.relatedCount ?? 0) * 1.1);
-      const radius = isFocused ? baseRadius * 1.3 : baseRadius;
+      const radius = getVisualRadius(nodeObj, isFocused);
 
       ctx.save();
       ctx.globalAlpha = isDimmed ? 0.28 : 1;
 
       if (isFocused) {
         ctx.beginPath();
-        ctx.arc(x, y, radius + 4 / Math.max(globalScale, 0.8), 0, 2 * Math.PI);
-        ctx.fillStyle = "rgba(229, 169, 92, 0.24)";
+        ctx.arc(x, y, radius + 5 / Math.max(globalScale, 0.8), 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(229, 169, 92, 0.25)";
         ctx.fill();
       }
 
@@ -139,32 +185,71 @@ export function KnowledgeGraphCanvas({
       const shouldShowLabel =
         isFocused ||
         (focusedNodeId !== null && connectedNodeIds.has(id)) ||
-        globalScale >= 0.95;
+        globalScale >= 0.55;
 
       if (shouldShowLabel && nodeObj.label) {
-        const fontSize = Math.max(10, 12 / Math.max(globalScale, 0.75));
+        const fontSize = Math.max(9.5, 11.5 / Math.max(globalScale, 0.7));
+        const maxLines = globalScale >= 1.2 || isFocused ? 3 : 2;
+        const lines = wrapLabelLines(nodeObj.label, 16, maxLines);
+
         ctx.font = `${isFocused ? "600 " : "500 "}${fontSize}px sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
+
+        const lineHeight = fontSize * 1.25;
+        const textStartY = y + radius + 5 / globalScale;
+        const maxWidth = Math.max(
+          ...lines.map((line) => ctx.measureText(line).width),
+        );
+        const padX = 5 / Math.max(globalScale, 0.8);
+        const padY = 2.5 / Math.max(globalScale, 0.8);
+
         ctx.fillStyle = isDimmed
-          ? "rgba(241, 236, 230, 0.3)"
+          ? "rgba(20, 18, 16, 0.3)"
+          : "rgba(20, 18, 16, 0.72)";
+        ctx.fillRect(
+          x - maxWidth / 2 - padX,
+          textStartY - padY,
+          maxWidth + padX * 2,
+          lines.length * lineHeight + padY * 2,
+        );
+
+        ctx.fillStyle = isDimmed
+          ? "rgba(241, 236, 230, 0.35)"
           : isFocused
             ? "#F6EFE7"
-            : "#D5CCC2";
-        ctx.fillText(nodeObj.label, x, y + radius + 4 / globalScale);
+            : "#E3DBD2";
+        lines.forEach((line, index) => {
+          ctx.fillText(line, x, textStartY + index * lineHeight);
+        });
       }
 
       ctx.restore();
     },
-    [connectedNodeIds, focusedNodeId],
+    [connectedNodeIds, focusedNodeId, getVisualRadius],
+  );
+
+  const paintNodePointerArea = useCallback(
+    (rawNode: BaseNode, color: string, ctx: CanvasRenderingContext2D) => {
+      const nodeObj = rawNode as ForceNode;
+      const x = nodeObj.x ?? 0;
+      const y = nodeObj.y ?? 0;
+      const isFocused = focusedNodeId === String(nodeObj.id);
+      const hitRadius = Math.max(18, getVisualRadius(nodeObj, isFocused) + 10);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, hitRadius, 0, 2 * Math.PI);
+      ctx.fill();
+    },
+    [focusedNodeId, getVisualRadius],
   );
 
   const getLinkWidth = useCallback(
     (rawLink: BaseLink) => {
       const linkObj = rawLink as ForceLink;
       const similarity = linkObj.similarity ?? 0.8;
-      const normalized = Math.max(0, (similarity - 0.7) / 0.3);
-      const base = 1 + normalized * 2.2;
+      const normalized = Math.max(0, (similarity - 0.6) / 0.4);
+      const base = 1 + normalized * 2.4;
       if (!focusedNodeId) {
         return base;
       }
@@ -207,10 +292,11 @@ export function KnowledgeGraphCanvas({
           nodeVal={(node) => (node as ForceNode).val}
           nodeLabel={(node) => (node as ForceNode).label}
           nodeCanvasObject={drawNode}
+          nodePointerAreaPaint={paintNodePointerArea}
           linkWidth={getLinkWidth}
           linkColor={getLinkColor}
           linkDirectionalParticles={0}
-          cooldownTicks={90}
+          cooldownTicks={100}
           onNodeClick={handleNodeClick}
           onBackgroundClick={onClearFocus}
         />

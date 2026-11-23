@@ -103,7 +103,9 @@ export default function HomePage() {
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
-      <header className="topbar">
+      <header
+        className={`topbar${displayMode === "GRAPH" ? " is-graph-mode" : ""}`}
+      >
         <button
           type="button"
           className="icon-button relative"
@@ -135,7 +137,7 @@ export default function HomePage() {
           <img src="/ideamory-logo.png" alt="Ideamory 로고" />
           <span>IDEAMORY</span>
         </div>
-        {viewMode !== "ALL" ? (
+        {displayMode === "CACHE" && viewMode !== "ALL" ? (
           <button
             type="button"
             className="topbar-view-pill"
@@ -149,7 +151,7 @@ export default function HomePage() {
           </button>
         ) : null}
         <ViewModeToggle />
-        <SearchBar />
+        {displayMode === "CACHE" ? <SearchBar /> : null}
       </header>
 
       <section
@@ -186,6 +188,7 @@ export default function HomePage() {
         accountStatusLabel={accountStatusLabel}
         isGuest={isGuest}
         isMutating={isMutating}
+        hideCategories={displayMode === "GRAPH"}
         onOpen={() => setDrawerOpen(true)}
         onClose={() => setDrawerOpen(false)}
         onSelectAllMemos={selectAllMemos}

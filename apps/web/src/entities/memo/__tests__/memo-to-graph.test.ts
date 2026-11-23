@@ -83,12 +83,12 @@ describe("memo-to-graph", () => {
 
     const nodeA = graphAt80.nodes.find((n) => n.id === "a");
     const nodeB = graphAt80.nodes.find((n) => n.id === "b");
-    assert.equal(nodeA?.label, "첫 번째 줄");
+    assert.equal(nodeA?.label, "첫 번째 줄 두 번째 줄");
     assert.equal(nodeA?.relatedCount, 1);
     assert.equal(nodeB?.relatedCount, 2);
 
-    const graphAt70 = buildKnowledgeGraphData(memos, relatedMap, 0.7);
-    assert.equal(graphAt70.links.length, 3);
+    const graphAt60 = buildKnowledgeGraphData(memos, relatedMap, 0.6);
+    assert.equal(graphAt60.links.length, 3);
   });
 
   it("extractNodeLabel은 긴 첫 줄을 말줄임표로 자르고 빈 본문은 기본 라벨을 반환한다", () => {

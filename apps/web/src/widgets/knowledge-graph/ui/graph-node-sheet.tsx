@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil, X } from "lucide-react";
+import { Pencil, Trash2, X } from "lucide-react";
 import type { MemoResponseDto } from "@ideamory/api-spec";
 import {
   formatMemoTimestamp,
   resolveGraphCategoryColor,
 } from "@/entities/memo";
 import { InlineEditor, useUpdateMemo } from "@/features/memo-edit";
+import { useSoftDeleteMemo } from "@/features/memo-trash";
 
 export interface GraphNodeSheetProps {
   memo: MemoResponseDto | null;
@@ -17,6 +18,7 @@ export interface GraphNodeSheetProps {
 
 /**
  * 지식망에서 노드를 탭했을 때 하단 퀵 캡처 바 위로 150ms 슬라이딩되는 1-Depth 미니 카드 시트입니다.
+ * 인라인 수정 및 0ms 즉시 삭제(Soft Delete)를 지원합니다.
  */
 export function GraphNodeSheet({
   memo,
@@ -25,6 +27,7 @@ export function GraphNodeSheet({
 }: GraphNodeSheetProps) {
   const [isEditing, setIsEditing] = useState(false);
   const updateMemo = useUpdateMemo();
+  const softDeleteMemo = useSoftDeleteMemo();
 
   useEffect(() => {
     setIsEditing(false);
@@ -44,6 +47,14 @@ export function GraphNodeSheet({
       return;
     }
     updateMemo.mutate({ id: memo.id, content: trimmed });
+  };
+
+  const handleDelete = () => {
+    softDeleteMemo.mutate({
+      id: memo.id,
+      categoryId: memo.categoryId,
+    });
+    onClose();
   };
 
   return (
@@ -69,15 +80,26 @@ export function GraphNodeSheet({
 
         <div className="graph-node-sheet-actions">
           {!isEditing && (
-            <button
-              type="button"
-              className="graph-node-sheet-icon-btn"
-              onClick={() => setIsEditing(true)}
-              aria-label="메모 수정"
-              title="메모 수정"
-            >
-              <Pencil size={14} />
-            </button>
+            <>
+              <button
+                type="button"
+                className="graph-node-sheet-icon-btn"
+                onClick={() => setIsEditing(true)}
+                aria-label="메모 수정"
+                title="메모 수정"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                type="button"
+                className="graph-node-sheet-icon-btn is-danger"
+                onClick={handleDelete}
+                aria-label="메모 삭제"
+                title="휴지통으로 이동"
+              >
+                <Trash2 size={14} />
+              </button>
+            </>
           )}
           <button
             type="button"

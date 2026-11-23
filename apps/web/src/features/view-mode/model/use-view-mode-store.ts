@@ -15,7 +15,7 @@ import {
 export type DisplayMode = "CACHE" | "GRAPH";
 
 export const DEFAULT_GRAPH_THRESHOLD = 0.8;
-export const MIN_GRAPH_THRESHOLD = 0.7;
+export const MIN_GRAPH_THRESHOLD = 0.6;
 export const MAX_GRAPH_THRESHOLD = 0.85;
 
 function clampThreshold(value: number): number {

@@ -7,7 +7,7 @@ import { buildKnowledgeGraphData, fetchMemosApi } from "@/entities/memo";
 import { fetchRelatedMemosApi } from "@/features/related-memos";
 import { queryKeys } from "@/shared/api";
 
-const GRAPH_FETCH_THRESHOLD = 0.7;
+const GRAPH_FETCH_THRESHOLD = 0.6;
 const GRAPH_FETCH_LIMIT = 30;
 
 export interface UseKnowledgeGraphDataOptions {

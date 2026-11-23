@@ -28,19 +28,23 @@ export function resolveGraphCategoryColor(
 }
 
 /**
- * 메모 본문에서 그래프 노드 라벨로 표시할 한 줄 요약을 추출합니다.
+ * 메모 본문에서 그래프 노드 라벨로 표시할 요약 텍스트를 추출합니다.
  */
-export function extractNodeLabel(content: string, maxLength = 22): string {
-  const firstLine =
-    content
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => line.length > 0) ?? "빈 메모";
+export function extractNodeLabel(content: string, maxLength = 54): string {
+  const normalized = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join(" ");
 
-  if (firstLine.length <= maxLength) {
-    return firstLine;
+  if (!normalized) {
+    return "빈 메모";
   }
-  return `${firstLine.slice(0, maxLength - 1)}…`;
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return `${normalized.slice(0, maxLength - 1)}…`;
 }
 
 /**
@@ -99,7 +103,7 @@ export function buildKnowledgeGraphData(
       label: extractNodeLabel(memo.content),
       categoryName: memo.categoryName ?? null,
       color: resolveGraphCategoryColor(memo.categoryName),
-      val: Math.max(1.2, Math.min(4.5, 1.2 + degree * 0.45)),
+      val: Math.max(2.5, Math.min(5.5, 2.5 + degree * 0.5)),
       relatedCount: degree,
       memo,
     };
