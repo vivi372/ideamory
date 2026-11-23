@@ -168,9 +168,10 @@ export class AuthService {
     }
 
     await this.authRepository.withTransaction(async (tx) => {
-      // FK ON DELETE RESTRICT 위반 방지를 위해 자식(memos) ➔ 부모(categories) 순차 Hard Delete
+      // FK ON DELETE RESTRICT 위반 방지를 위해 자식(memos) ➔ 부모(categories) ➔ MCP 키 순차 Hard Delete
       await this.authRepository.deleteMemosByGuestToken(guestToken, tx);
       await this.authRepository.deleteCategoriesByGuestToken(guestToken, tx);
+      await this.authRepository.deleteMcpKeysByGuestToken?.(guestToken, tx);
     });
 
     this.logger.log("게스트 세션 데이터 원자적 초기화(Hard Delete) 완료");
@@ -252,6 +253,19 @@ export class AuthService {
         targetUserId,
         tx
       );
+
+      // 게스트 시절 발급받은 MCP API 키도 소셜 계정으로 이관 (소셜 계정에 기존 키가 있으면 충돌 방지를 위해 게스트 키 정리)
+      const existingUserMcpKey =
+        await this.authRepository.findMcpKeyByUserId?.(targetUserId, tx);
+      if (existingUserMcpKey) {
+        await this.authRepository.deleteMcpKeysByGuestToken?.(guestToken, tx);
+      } else {
+        await this.authRepository.transferMcpKeysToUser?.(
+          guestToken,
+          targetUserId,
+          tx
+        );
+      }
     });
 
     this.logger.log(

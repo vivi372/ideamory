@@ -100,14 +100,25 @@ export class MemoService {
   @LogTrace()
   async createMemo(
     owner: OwnerIdentity,
-    dto: CreateMemoDto
+    dto: CreateMemoDto,
+    options?: { fixedCategoryName?: string | null }
   ): Promise<MemoResponseDto> {
     assertOwnerIdentity(owner);
 
-    // 1. 문두 @카테고리 지시어 우선 파싱 (정규식 ^@(\S+))
-    const directive = this.aiService.parseLeadingCategoryDirective(dto.content);
+    const fixedName = options?.fixedCategoryName?.trim();
+    const hasFixedCategory = Boolean(fixedName && fixedName.length > 0);
+
+    // 1. 고정 카테고리 지정 시 AI 분류를 바이패스하고, 미지정 시 문두 @카테고리 지시어 파싱
+    const directive = hasFixedCategory
+      ? {
+          categoryName: fixedName!,
+          normalizedName: fixedName!.replace(/\s+/g, "").toLowerCase(),
+          cleanedContent: dto.content,
+        }
+      : this.aiService.parseLeadingCategoryDirective(dto.content);
     const hasExplicitDirective =
-      directive.categoryName !== null && directive.normalizedName !== null;
+      hasFixedCategory ||
+      (directive.categoryName !== null && directive.normalizedName !== null);
 
     const initialCategoryName = hasExplicitDirective
       ? directive.categoryName!
