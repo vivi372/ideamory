@@ -120,6 +120,7 @@ export const useViewModeStore = create<ViewModeState>((set, get) => ({
       returnModeBeforeTrash: get().returnModeBeforeTrash ?? current,
       displayMode: "CACHE",
     });
+    syncOrientation("CACHE");
   },
 
   exitTrashView: () => {
