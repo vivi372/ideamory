@@ -97,7 +97,8 @@ describe("memo-to-graph", () => {
   });
 
   it("resolveGraphCategoryColor는 미분류일 때 중립 색상을, 카테고리명일 때 결정론적 색상을 반환한다", () => {
-    assert.equal(resolveGraphCategoryColor(null), "#9A8D7F");
+    assert.equal(resolveGraphCategoryColor(null), "#78716C");
+    assert.equal(resolveGraphCategoryColor("미분류"), "#78716C");
     assert.equal(
       resolveGraphCategoryColor("개발"),
       resolveGraphCategoryColor("개발"),

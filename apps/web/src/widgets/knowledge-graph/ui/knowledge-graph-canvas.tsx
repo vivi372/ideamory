@@ -2,18 +2,14 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ForceGraphMethods, LinkObject, NodeObject } from "react-force-graph-2d";
-import type { GraphData, GraphLink, GraphNode } from "@/entities/memo";
+import type { ForceGraphMethods } from "react-force-graph-2d";
+import type { GraphData } from "@/entities/memo";
+import type { BaseLink, BaseNode, ForceLink, ForceNode } from "./force-graph-inner";
 import { KnowledgeGraphMinimap } from "./knowledge-graph-minimap";
 
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
+const ForceGraphInner = dynamic(() => import("./force-graph-inner"), {
   ssr: false,
 });
-
-type BaseNode = NodeObject;
-type BaseLink = LinkObject;
-type ForceNode = NodeObject<GraphNode>;
-type ForceLink = LinkObject<GraphNode, GraphLink>;
 
 export interface KnowledgeGraphCanvasProps {
   graphData: GraphData;
@@ -49,7 +45,8 @@ function wrapLabelLines(text: string, charsPerLine = 18, maxLines = 4): string[]
 
 /**
  * react-force-graph-2d 기반의 60fps HTML5 Canvas 지식망 렌더러입니다.
- * 넓은 노드 간격, 줌 연동 다중 줄 라벨, 고립 노드 포함 넉넉한 터치 히트 영역을 제공합니다.
+ * 콜백 참조를 Ref 기반으로 안정화해 포커스 전환이나 드로어 토글 시
+ * 시뮬레이션이 재시작되지 않도록 보장합니다.
  */
 export function KnowledgeGraphCanvas({
   graphData,
@@ -83,27 +80,6 @@ export function KnowledgeGraphCanvas({
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    const fg = fgRef.current;
-    if (!fg) {
-      return;
-    }
-    const chargeForce = fg.d3Force("charge") as
-      | { strength?: (value: number) => void }
-      | undefined;
-    chargeForce?.strength?.(-460);
-
-    const linkForce = fg.d3Force("link") as
-      | { distance?: (fn: (link: BaseLink) => number) => void }
-      | undefined;
-    linkForce?.distance?.((rawLink: BaseLink) => {
-      const sim = (rawLink as ForceLink).similarity ?? 0.7;
-      return 220 - Math.max(0, sim - 0.6) * 120;
-    });
-
-    fg.d3ReheatSimulation();
-  }, [graphData, size.width, size.height]);
-
   const connectedNodeIds = useMemo(() => {
     const connected = new Set<string>();
     if (!focusedNodeId) {
@@ -122,6 +98,12 @@ export function KnowledgeGraphCanvas({
     return connected;
   }, [focusedNodeId, graphData.links]);
 
+  const focusedNodeIdRef = useRef<string | null>(focusedNodeId);
+  focusedNodeIdRef.current = focusedNodeId;
+
+  const connectedNodeIdsRef = useRef<Set<string>>(connectedNodeIds);
+  connectedNodeIdsRef.current = connectedNodeIds;
+
   const handleNodeClick = useCallback(
     (nodeObj: BaseNode) => {
       const id = String(nodeObj.id);
@@ -131,10 +113,10 @@ export function KnowledgeGraphCanvas({
         typeof nodeObj.x === "number" &&
         typeof nodeObj.y === "number"
       ) {
-        fgRef.current.centerAt(nodeObj.x, nodeObj.y, 300);
+        fgRef.current.centerAt(nodeObj.x, nodeObj.y, 280);
         const currentZoom = fgRef.current.zoom();
-        if (typeof currentZoom === "number" && currentZoom < 1.35) {
-          fgRef.current.zoom(1.35, 300);
+        if (typeof currentZoom === "number" && currentZoom < 1.25) {
+          fgRef.current.zoom(1.25, 280);
         }
       }
     },
@@ -159,9 +141,11 @@ export function KnowledgeGraphCanvas({
       const x = nodeObj.x ?? 0;
       const y = nodeObj.y ?? 0;
       const id = String(nodeObj.id);
-      const isFocused = focusedNodeId === id;
+      const currentFocused = focusedNodeIdRef.current;
+      const currentConnected = connectedNodeIdsRef.current;
+      const isFocused = currentFocused === id;
       const isDimmed =
-        focusedNodeId !== null && !connectedNodeIds.has(id);
+        currentFocused !== null && !currentConnected.has(id);
 
       const radius = getVisualRadius(nodeObj, isFocused);
 
@@ -177,7 +161,7 @@ export function KnowledgeGraphCanvas({
 
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, 2 * Math.PI);
-      ctx.fillStyle = nodeObj.color || "#E5A95C";
+      ctx.fillStyle = nodeObj.color || "#2BCDE0";
       ctx.fill();
 
       ctx.lineWidth = isFocused ? 2 / globalScale : 1 / globalScale;
@@ -186,7 +170,7 @@ export function KnowledgeGraphCanvas({
 
       const shouldShowLabel =
         isFocused ||
-        (focusedNodeId !== null && connectedNodeIds.has(id)) ||
+        (currentFocused !== null && currentConnected.has(id)) ||
         globalScale >= 0.55;
 
       if (shouldShowLabel && nodeObj.label) {
@@ -228,7 +212,7 @@ export function KnowledgeGraphCanvas({
 
       ctx.restore();
     },
-    [connectedNodeIds, focusedNodeId, getVisualRadius],
+    [getVisualRadius],
   );
 
   const paintNodePointerArea = useCallback(
@@ -236,69 +220,59 @@ export function KnowledgeGraphCanvas({
       const nodeObj = rawNode as ForceNode;
       const x = nodeObj.x ?? 0;
       const y = nodeObj.y ?? 0;
-      const isFocused = focusedNodeId === String(nodeObj.id);
+      const isFocused = focusedNodeIdRef.current === String(nodeObj.id);
       const hitRadius = Math.max(18, getVisualRadius(nodeObj, isFocused) + 10);
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(x, y, hitRadius, 0, 2 * Math.PI);
       ctx.fill();
     },
-    [focusedNodeId, getVisualRadius],
+    [getVisualRadius],
   );
 
-  const getLinkWidth = useCallback(
-    (rawLink: BaseLink) => {
-      const linkObj = rawLink as ForceLink;
-      const similarity = linkObj.similarity ?? 0.8;
-      const normalized = Math.max(0, (similarity - 0.6) / 0.4);
-      const base = 1 + normalized * 2.4;
-      if (!focusedNodeId) {
-        return base;
-      }
-      const sourceId = getEndpointId(linkObj.source);
-      const targetId = getEndpointId(linkObj.target);
-      const isDirect =
-        sourceId === focusedNodeId || targetId === focusedNodeId;
-      return isDirect ? base + 0.8 : 0.8;
-    },
-    [focusedNodeId],
-  );
+  const getLinkWidth = useCallback((rawLink: BaseLink) => {
+    const linkObj = rawLink as ForceLink;
+    const similarity = linkObj.similarity ?? 0.8;
+    const normalized = Math.max(0, (similarity - 0.6) / 0.4);
+    const base = 1 + normalized * 2.4;
+    const currentFocused = focusedNodeIdRef.current;
+    if (!currentFocused) {
+      return base;
+    }
+    const sourceId = getEndpointId(linkObj.source);
+    const targetId = getEndpointId(linkObj.target);
+    const isDirect =
+      sourceId === currentFocused || targetId === currentFocused;
+    return isDirect ? base + 0.8 : 0.8;
+  }, []);
 
-  const getLinkColor = useCallback(
-    (rawLink: BaseLink) => {
-      const linkObj = rawLink as ForceLink;
-      if (!focusedNodeId) {
-        return "rgba(229, 169, 92, 0.34)";
-      }
-      const sourceId = getEndpointId(linkObj.source);
-      const targetId = getEndpointId(linkObj.target);
-      const isDirect =
-        sourceId === focusedNodeId || targetId === focusedNodeId;
-      return isDirect
-        ? "rgba(229, 169, 92, 0.82)"
-        : "rgba(154, 141, 127, 0.12)";
-    },
-    [focusedNodeId],
-  );
+  const getLinkColor = useCallback((rawLink: BaseLink) => {
+    const linkObj = rawLink as ForceLink;
+    const currentFocused = focusedNodeIdRef.current;
+    if (!currentFocused) {
+      return "rgba(229, 169, 92, 0.34)";
+    }
+    const sourceId = getEndpointId(linkObj.source);
+    const targetId = getEndpointId(linkObj.target);
+    const isDirect =
+      sourceId === currentFocused || targetId === currentFocused;
+    return isDirect
+      ? "rgba(229, 169, 92, 0.82)"
+      : "rgba(154, 141, 127, 0.12)";
+  }, []);
 
   return (
     <div ref={containerRef} className="knowledge-graph-canvas-wrap">
       {size.width > 0 && size.height > 0 && (
-        <ForceGraph2D
-          ref={fgRef}
+        <ForceGraphInner
+          fgRef={fgRef}
           width={size.width}
           height={size.height}
-          graphData={graphData as { nodes: ForceNode[]; links: ForceLink[] }}
-          backgroundColor="rgba(0, 0, 0, 0)"
-          nodeId="id"
-          nodeVal={(node) => (node as ForceNode).val}
-          nodeLabel={(node) => (node as ForceNode).label}
-          nodeCanvasObject={drawNode}
-          nodePointerAreaPaint={paintNodePointerArea}
-          linkWidth={getLinkWidth}
-          linkColor={getLinkColor}
-          linkDirectionalParticles={0}
-          cooldownTicks={100}
+          graphData={graphData}
+          drawNode={drawNode}
+          paintNodePointerArea={paintNodePointerArea}
+          getLinkWidth={getLinkWidth}
+          getLinkColor={getLinkColor}
           onNodeClick={handleNodeClick}
           onBackgroundClick={onClearFocus}
         />

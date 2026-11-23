@@ -31,6 +31,8 @@ export default function HomePage() {
   const { isBootstrapped } = useGuestBootstrap();
   const displayMode = useViewModeStore((state) => state.displayMode);
   const setDisplayMode = useViewModeStore((state) => state.setDisplayMode);
+  const enterTrashView = useViewModeStore((state) => state.enterTrashView);
+  const exitTrashView = useViewModeStore((state) => state.exitTrashView);
   const hydrateFromStorage = useViewModeStore(
     (state) => state.hydrateFromStorage,
   );
@@ -171,17 +173,30 @@ export default function HomePage() {
             <button
               type="button"
               className="topbar-view-pill"
-              onClick={selectAllMemos}
-              title="전체 메모로 돌아가기"
-              aria-label={`${currentLabel} 필터 해제하고 전체 메모 보기`}
+              onClick={() => {
+                if (viewMode === "TRASH") {
+                  exitTrashView();
+                }
+                selectAllMemos();
+              }}
+              title={
+                viewMode === "TRASH"
+                  ? "이전 화면으로 돌아가기"
+                  : "전체 메모로 돌아가기"
+              }
+              aria-label={`${currentLabel} 필터 해제하고 이전 화면 보기`}
             >
               <span className="topbar-view-dot" aria-hidden="true" />
               <span className="topbar-view-text">{currentLabel}</span>
               <X size={12} aria-hidden="true" />
             </button>
           ) : null}
-          <ViewModeToggle />
-          <SearchBar />
+          {viewMode !== "TRASH" ? (
+            <>
+              <ViewModeToggle />
+              <SearchBar />
+            </>
+          ) : null}
         </header>
       )}
 
@@ -235,9 +250,7 @@ export default function HomePage() {
           selectCategory(categoryId);
         }}
         onSelectTrash={() => {
-          if (displayMode === "GRAPH") {
-            setDisplayMode("CACHE");
-          }
+          enterTrashView();
           selectTrash();
         }}
         onOpenSocialSheet={() => setSocialSheetOpen(true)}

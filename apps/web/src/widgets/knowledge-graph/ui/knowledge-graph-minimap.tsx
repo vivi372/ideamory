@@ -48,7 +48,21 @@ export function KnowledgeGraphMinimap({
 }: KnowledgeGraphMinimapProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const boundsRef = useRef<Bounds | null>(null);
-  const isDraggingRef = useRef(false);
+  const dragStateRef = useRef<{
+    active: boolean;
+    moved: boolean;
+    startClientX: number;
+    startClientY: number;
+    startCenterX: number;
+    startCenterY: number;
+  }>({
+    active: false,
+    moved: false,
+    startClientX: 0,
+    startClientY: 0,
+    startCenterX: 0,
+    startCenterY: 0,
+  });
 
   const drawMinimap = useCallback(() => {
     const canvas = canvasRef.current;
@@ -175,7 +189,7 @@ export function KnowledgeGraphMinimap({
     return () => window.clearInterval(timer);
   }, [drawMinimap]);
 
-  const panToPointer = useCallback(
+  const panToClick = useCallback(
     (event: PointerEvent<HTMLCanvasElement>, durationMs: number) => {
       const canvas = canvasRef.current;
       const bounds = boundsRef.current;
@@ -208,19 +222,54 @@ export function KnowledgeGraphMinimap({
         className="graph-minimap-canvas"
         onPointerDown={(event) => {
           event.stopPropagation();
-          isDraggingRef.current = true;
+          const fg = fgRef.current;
+          const center = fg?.screen2GraphCoords(
+            viewportSize.width / 2,
+            viewportSize.height / 2,
+          );
+          dragStateRef.current = {
+            active: true,
+            moved: false,
+            startClientX: event.clientX,
+            startClientY: event.clientY,
+            startCenterX: center?.x ?? 0,
+            startCenterY: center?.y ?? 0,
+          };
           event.currentTarget.setPointerCapture(event.pointerId);
-          panToPointer(event, 120);
         }}
         onPointerMove={(event) => {
-          if (!isDraggingRef.current) {
+          const drag = dragStateRef.current;
+          const canvas = canvasRef.current;
+          const bounds = boundsRef.current;
+          const fg = fgRef.current;
+          if (!drag.active || !canvas || !bounds || !fg) {
             return;
           }
           event.stopPropagation();
-          panToPointer(event, 0);
+          const dxClient = event.clientX - drag.startClientX;
+          const dyClient = event.clientY - drag.startClientY;
+          if (!drag.moved && Math.hypot(dxClient, dyClient) < 4) {
+            return;
+          }
+          drag.moved = true;
+
+          const rect = canvas.getBoundingClientRect();
+          const dxCanvas = (dxClient / rect.width) * canvas.width;
+          const dyCanvas = (dyClient / rect.height) * canvas.height;
+          const damping = 0.65;
+
+          fg.centerAt(
+            drag.startCenterX + (dxCanvas / bounds.scale) * damping,
+            drag.startCenterY + (dyCanvas / bounds.scale) * damping,
+            0,
+          );
         }}
         onPointerUp={(event) => {
-          isDraggingRef.current = false;
+          const drag = dragStateRef.current;
+          if (drag.active && !drag.moved) {
+            panToClick(event, 200);
+          }
+          drag.active = false;
           if (event.currentTarget.hasPointerCapture(event.pointerId)) {
             event.currentTarget.releasePointerCapture(event.pointerId);
           }

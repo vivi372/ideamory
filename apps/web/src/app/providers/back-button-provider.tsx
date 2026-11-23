@@ -84,6 +84,9 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
           viewModeState.clearFocus();
           return true;
         case "RESET_VIEW_TO_ALL":
+          if (viewState.viewMode === "TRASH") {
+            viewModeState.exitTrashView();
+          }
           viewState.resetView();
           return true;
         case "SHOW_EXIT_PROMPT": {

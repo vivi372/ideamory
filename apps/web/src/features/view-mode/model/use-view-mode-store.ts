@@ -36,6 +36,7 @@ function syncOrientation(mode: DisplayMode): void {
 
 interface ViewModeState {
   displayMode: DisplayMode;
+  returnModeBeforeTrash: DisplayMode | null;
   threshold: number;
   focusedNodeId: string | null;
   breadcrumb: string[];
@@ -43,6 +44,8 @@ interface ViewModeState {
   hydrateFromStorage: () => void;
   setDisplayMode: (mode: DisplayMode) => void;
   toggleDisplayMode: () => void;
+  enterTrashView: () => void;
+  exitTrashView: () => void;
   setThreshold: (value: number) => void;
   focusNode: (memoId: string) => void;
   navigateBreadcrumb: (memoId: string) => void;
@@ -54,6 +57,7 @@ interface ViewModeState {
  */
 export const useViewModeStore = create<ViewModeState>((set, get) => ({
   displayMode: "CACHE",
+  returnModeBeforeTrash: null,
   threshold: DEFAULT_GRAPH_THRESHOLD,
   focusedNodeId: null,
   breadcrumb: [],
@@ -108,6 +112,20 @@ export const useViewModeStore = create<ViewModeState>((set, get) => ({
     const nextMode: DisplayMode =
       get().displayMode === "CACHE" ? "GRAPH" : "CACHE";
     get().setDisplayMode(nextMode);
+  },
+
+  enterTrashView: () => {
+    const current = get().displayMode;
+    set({
+      returnModeBeforeTrash: get().returnModeBeforeTrash ?? current,
+      displayMode: "CACHE",
+    });
+  },
+
+  exitTrashView: () => {
+    const prevMode = get().returnModeBeforeTrash ?? "CACHE";
+    set({ returnModeBeforeTrash: null });
+    get().setDisplayMode(prevMode);
   },
 
   setThreshold: (value) => {

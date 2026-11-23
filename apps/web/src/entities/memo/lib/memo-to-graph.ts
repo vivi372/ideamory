@@ -2,14 +2,15 @@ import type { MemoResponseDto, RelatedMemoResponseDto } from "@ideamory/api-spec
 import type { GraphData, GraphLink, GraphNode } from "../model/graph.types";
 
 const CATEGORY_NODE_PALETTE = [
-  "#E5A95C",
   "#2BCDE0",
-  "#7D8DE9",
-  "#579DD5",
-  "#E8B25C",
+  "#8B7CF6",
+  "#34D399",
+  "#F472B6",
+  "#38BDF8",
+  "#FBBF24",
 ] as const;
 
-const UNCATEGORIZED_NODE_COLOR = "#9A8D7F";
+const UNCATEGORIZED_NODE_COLOR = "#78716C";
 
 /**
  * 카테고리 이름을 기반으로 Warm Dark 팔레트에서 결정론적인 노드 색상을 반환합니다.
@@ -17,12 +18,13 @@ const UNCATEGORIZED_NODE_COLOR = "#9A8D7F";
 export function resolveGraphCategoryColor(
   categoryName?: string | null,
 ): string {
-  if (!categoryName || categoryName.trim().length === 0) {
+  const trimmed = categoryName?.trim();
+  if (!trimmed || trimmed === "미분류") {
     return UNCATEGORIZED_NODE_COLOR;
   }
   let hash = 0;
-  for (let i = 0; i < categoryName.length; i += 1) {
-    hash = (hash * 31 + categoryName.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < trimmed.length; i += 1) {
+    hash = (hash * 31 + trimmed.charCodeAt(i)) >>> 0;
   }
   return CATEGORY_NODE_PALETTE[hash % CATEGORY_NODE_PALETTE.length];
 }
