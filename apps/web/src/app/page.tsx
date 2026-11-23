@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import {
   LegalWebviewModal,
@@ -11,7 +12,9 @@ import {
 } from "@/features/auth-drawer";
 import { CategoryPickerSheet } from "@/features/category-picker";
 import { CaptureInput } from "@/features/memo-capture";
+import { ViewModeToggle, useViewModeStore } from "@/features/view-mode";
 import { SearchBar } from "@/widgets/header";
+import { KnowledgeGraphView } from "@/widgets/knowledge-graph";
 import { MemoTimeline } from "@/widgets/memo-timeline";
 import { ConditionalSplash } from "@/widgets/splash-screen";
 
@@ -26,6 +29,15 @@ import { ConditionalSplash } from "@/widgets/splash-screen";
  */
 export default function HomePage() {
   const { isBootstrapped } = useGuestBootstrap();
+  const displayMode = useViewModeStore((state) => state.displayMode);
+  const hydrateFromStorage = useViewModeStore(
+    (state) => state.hydrateFromStorage,
+  );
+
+  useEffect(() => {
+    hydrateFromStorage();
+  }, [hydrateFromStorage]);
+
   const {
     drawerOpen,
     setDrawerOpen,
@@ -136,21 +148,30 @@ export default function HomePage() {
             <X size={12} aria-hidden="true" />
           </button>
         ) : null}
+        <ViewModeToggle />
         <SearchBar />
       </header>
 
-      <section className="content-wrap">
-        {totalMemoCount === 0 && viewMode === "ALL" ? (
-          <div className="welcome-row">
-            <div>
-              <p className="eyebrow">YOUR MEMORY CACHE</p>
-              <h1>오늘의 생각을 담아보세요</h1>
-              <p className="subcopy">떠오른 순간, 정리하지 말고 그대로.</p>
-            </div>
-          </div>
-        ) : null}
+      <section
+        className={`content-wrap${displayMode === "GRAPH" ? " is-graph-mode" : ""}`}
+      >
+        {displayMode === "GRAPH" ? (
+          <KnowledgeGraphView isBootstrapped={isBootstrapped} />
+        ) : (
+          <>
+            {totalMemoCount === 0 && viewMode === "ALL" ? (
+              <div className="welcome-row">
+                <div>
+                  <p className="eyebrow">YOUR MEMORY CACHE</p>
+                  <h1>오늘의 생각을 담아보세요</h1>
+                  <p className="subcopy">떠오른 순간, 정리하지 말고 그대로.</p>
+                </div>
+              </div>
+            ) : null}
 
-        <MemoTimeline isBootstrapped={isBootstrapped} />
+            <MemoTimeline isBootstrapped={isBootstrapped} />
+          </>
+        )}
       </section>
 
       <CaptureInput />

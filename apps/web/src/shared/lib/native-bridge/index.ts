@@ -7,6 +7,8 @@ export {
   isCapacitorNative,
   isMobileTouchDevice,
   parseShareTargetFromQuery,
+  setScreenOrientationAuto,
+  setScreenOrientationPortrait,
   tryShowNativeExitToast,
   type AndroidNativeBridge,
   type ShareTargetPayload,

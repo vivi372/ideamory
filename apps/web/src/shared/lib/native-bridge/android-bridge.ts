@@ -16,6 +16,10 @@ export interface AndroidNativeBridge {
   finishApp?: () => void;
   /** 네이티브 스플래시 화면 즉시 닫기 (0ms Fast-Path) */
   dismissNativeSplash?: () => void;
+  /** 지식망 모드 진입 시 화면 가로/세로 자동 회전 허용 */
+  setScreenOrientationAuto?: () => void;
+  /** 캐시 모드 복귀 시 화면 세로 방향 고정 */
+  setScreenOrientationPortrait?: () => void;
 }
 
 /**
@@ -30,6 +34,10 @@ export interface ShareTargetPayload {
 declare global {
   interface Window {
     AndroidBridge?: AndroidNativeBridge;
+    AndroidOrientationBridge?: Pick<
+      AndroidNativeBridge,
+      "setScreenOrientationAuto" | "setScreenOrientationPortrait"
+    >;
   }
 }
 
@@ -179,5 +187,60 @@ export function exitAndroidApp(): void {
     }
   } catch {
     // 일반 데스크톱/모바일 브라우저 탭은 보안상 스크립트 종료가 제한되므로 무시
+  }
+}
+
+/**
+ * 지식망 모드 진입 시 안드로이드 네이티브 화면의 가로/세로 자동 회전을 허용합니다.
+ */
+export function setScreenOrientationAuto(): void {
+  if (!isBrowserClient()) {
+    return;
+  }
+  try {
+    if (typeof window.AndroidOrientationBridge?.setScreenOrientationAuto === "function") {
+      window.AndroidOrientationBridge.setScreenOrientationAuto();
+      return;
+    }
+    if (typeof window.AndroidBridge?.setScreenOrientationAuto === "function") {
+      window.AndroidBridge.setScreenOrientationAuto();
+      return;
+    }
+    const orientation = window.screen?.orientation as
+      | (ScreenOrientation & { unlock?: () => void })
+      | undefined;
+    orientation?.unlock?.();
+  } catch {
+    // 웹 브라우저 보안 정책상 orientation 제어 불가 시 무시
+  }
+}
+
+/**
+ * 캐시(타임라인) 모드 복귀 시 안드로이드 네이티브 화면을 세로 모드로 고정합니다.
+ */
+export function setScreenOrientationPortrait(): void {
+  if (!isBrowserClient()) {
+    return;
+  }
+  try {
+    if (
+      typeof window.AndroidOrientationBridge?.setScreenOrientationPortrait ===
+      "function"
+    ) {
+      window.AndroidOrientationBridge.setScreenOrientationPortrait();
+      return;
+    }
+    if (
+      typeof window.AndroidBridge?.setScreenOrientationPortrait === "function"
+    ) {
+      window.AndroidBridge.setScreenOrientationPortrait();
+      return;
+    }
+    const orientation = window.screen?.orientation as
+      | (ScreenOrientation & { lock?: (type: string) => Promise<void> })
+      | undefined;
+    void orientation?.lock?.("portrait")?.catch?.(() => undefined);
+  } catch {
+    // 웹 브라우저 보안 정책상 orientation 제어 불가 시 무시
   }
 }
