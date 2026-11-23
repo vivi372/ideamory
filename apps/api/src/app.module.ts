@@ -7,6 +7,7 @@ import { AiModule } from "./modules/ai/ai.module";
 import { OgpModule } from "./modules/ogp/ogp.module";
 import { MemoModule } from "./modules/memo/memo.module";
 import { CategoryModule } from "./modules/category/category.module";
+import { McpModule } from "./modules/mcp/mcp.module";
 import { SchedulerModule } from "./modules/scheduler/scheduler.module";
 
 /**
@@ -22,6 +23,7 @@ import { SchedulerModule } from "./modules/scheduler/scheduler.module";
     OgpModule,
     MemoModule,
     CategoryModule,
+    McpModule,
     SchedulerModule,
   ],
   controllers: [],

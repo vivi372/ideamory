@@ -7,6 +7,7 @@ import {
   ogpCaches,
   categories,
   memos,
+  mcpApiKeys,
   authUsers,
   type DbTransaction,
   type DbExecutor,
@@ -145,6 +146,19 @@ export class AuthRepository {
   }
 
   /**
+   * 특정 게스트 토큰 소유의 MCP API 키를 영구 삭제(Hard Delete)합니다.
+   *
+   * @param guestToken 익명 게스트 세션 토큰
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async deleteMcpKeysByGuestToken(
+    guestToken: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx.delete(mcpApiKeys).where(eq(mcpApiKeys.guestToken, guestToken));
+  }
+
+  /**
    * 특정 게스트 토큰 소유의 모든 카테고리를 영구 삭제(Hard Delete)합니다.
    *
    * @param guestToken 익명 게스트 세션 토큰
@@ -272,6 +286,42 @@ export class AuthRepository {
       .update(memos)
       .set({ userId, guestToken: null })
       .where(eq(memos.guestToken, guestToken));
+  }
+
+  /**
+   * 정식 소셜 유저가 이미 활성 MCP API 키를 보유하고 있는지 조회합니다.
+   *
+   * @param userId 정식 소셜 유저 UUID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async findMcpKeyByUserId(
+    userId: string,
+    tx: DbExecutor = db
+  ): Promise<{ id: string } | null> {
+    const rows = await tx
+      .select({ id: mcpApiKeys.id })
+      .from(mcpApiKeys)
+      .where(eq(mcpApiKeys.userId, userId))
+      .limit(1);
+    return rows[0] ?? null;
+  }
+
+  /**
+   * 게스트 소유의 MCP API 키를 소셜 유저 소유로 전환합니다 (배타적 소유권 준수: guestToken = null).
+   *
+   * @param guestToken 익명 게스트 세션 토큰
+   * @param userId 정식 소셜 유저 UUID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async transferMcpKeysToUser(
+    guestToken: string,
+    userId: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx
+      .update(mcpApiKeys)
+      .set({ userId, guestToken: null, updatedAt: new Date() })
+      .where(eq(mcpApiKeys.guestToken, guestToken));
   }
 
   /**

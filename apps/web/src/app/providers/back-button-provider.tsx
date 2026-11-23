@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { useAuthStore } from "@/features/auth-drawer";
+import { useMcpKeySheetStore } from "@/features/mcp-keys";
 import { useViewModeStore } from "@/features/view-mode";
 import { useFeedbackStore } from "@/shared/lib/feedback/use-feedback";
 import {
@@ -46,6 +47,7 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
         {
           drawerOpen: authState.drawerOpen,
           categoryPickerOpen: Boolean(viewState.categoryPickerTarget),
+          mcpSheetOpen: useMcpKeySheetStore.getState().open,
           socialSheetOpen: authState.socialSheetOpen,
           legalModalOpen: Boolean(authState.legalModalType),
           feedbackModalOpen: Boolean(feedbackState.modal),
@@ -64,6 +66,9 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
           return true;
         case "CLOSE_LEGAL_MODAL":
           authState.closeLegalModal();
+          return true;
+        case "CLOSE_MCP_SHEET":
+          useMcpKeySheetStore.getState().setOpen(false);
           return true;
         case "CLOSE_SOCIAL_SHEET":
           authState.setSocialSheetOpen(false);

@@ -24,5 +24,8 @@ export * from "./schemas/category.schema";
 // 인증 및 계정 세션 도메인 스키마 및 타입
 export * from "./schemas/auth.schema";
 
+// MCP API 키 도메인 스키마 및 타입
+export * from "./schemas/mcp-key.schema";
+
 // Zod 핵심 객체 및 타입 리익스포트
 export { z, ZodSchema, ZodError, type ZodIssue } from "zod";

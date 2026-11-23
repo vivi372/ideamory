@@ -11,6 +11,7 @@ import {
   useGuestBootstrap,
 } from "@/features/auth-drawer";
 import { CategoryPickerSheet } from "@/features/category-picker";
+import { McpKeySheet, useMcpKeySheetStore } from "@/features/mcp-keys";
 import { CaptureInput } from "@/features/memo-capture";
 import { ViewModeToggle, useViewModeStore } from "@/features/view-mode";
 import { SearchBar } from "@/widgets/header";
@@ -33,6 +34,7 @@ export default function HomePage() {
   const setDisplayMode = useViewModeStore((state) => state.setDisplayMode);
   const enterTrashView = useViewModeStore((state) => state.enterTrashView);
   const exitTrashView = useViewModeStore((state) => state.exitTrashView);
+  const setMcpSheetOpen = useMcpKeySheetStore((state) => state.setOpen);
   const hydrateFromStorage = useViewModeStore(
     (state) => state.hydrateFromStorage,
   );
@@ -253,6 +255,10 @@ export default function HomePage() {
           enterTrashView();
           selectTrash();
         }}
+        onOpenMcpSheet={() => {
+          setDrawerOpen(false);
+          setMcpSheetOpen(true);
+        }}
         onOpenSocialSheet={() => setSocialSheetOpen(true)}
         onResetGuestData={() => {
           void handleResetGuestData();
@@ -277,6 +283,7 @@ export default function HomePage() {
       />
 
       <CategoryPickerSheet />
+      <McpKeySheet />
     </main>
   );
 }
