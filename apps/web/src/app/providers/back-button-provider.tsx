@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { useAuthStore } from "@/features/auth-drawer";
+import { useViewModeStore } from "@/features/view-mode";
 import { useFeedbackStore } from "@/shared/lib/feedback/use-feedback";
 import {
   exitAndroidApp,
@@ -37,6 +38,7 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
     const handleBackPress = (): boolean => {
       const authState = useAuthStore.getState();
       const viewState = useViewStore.getState();
+      const viewModeState = useViewModeStore.getState();
       const feedbackState = useFeedbackStore.getState();
 
       const nowMs = Date.now();
@@ -49,6 +51,7 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
           feedbackModalOpen: Boolean(feedbackState.modal),
           searchActive: viewState.searchQuery.trim().length > 0,
           relatedFilterActive: Boolean(viewState.relatedFilterMemoId),
+          graphNodeFocused: Boolean(viewModeState.focusedNodeId),
           viewMode: viewState.viewMode,
         },
         nowMs,
@@ -77,7 +80,13 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
         case "CLEAR_RELATED_FILTER":
           viewState.setRelatedFilterMemo(null);
           return true;
+        case "CLEAR_GRAPH_FOCUS":
+          viewModeState.clearFocus();
+          return true;
         case "RESET_VIEW_TO_ALL":
+          if (viewState.viewMode === "TRASH") {
+            viewModeState.exitTrashView();
+          }
           viewState.resetView();
           return true;
         case "SHOW_EXIT_PROMPT": {

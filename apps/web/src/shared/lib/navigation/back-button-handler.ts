@@ -15,6 +15,7 @@ export interface BackStackSnapshot {
   feedbackModalOpen: boolean;
   searchActive: boolean;
   relatedFilterActive: boolean;
+  graphNodeFocused?: boolean;
   viewMode: ViewMode;
 }
 
@@ -26,6 +27,7 @@ export type BackButtonAction =
   | "CLOSE_DRAWER"
   | "CLEAR_SEARCH"
   | "CLEAR_RELATED_FILTER"
+  | "CLEAR_GRAPH_FOCUS"
   | "RESET_VIEW_TO_ALL"
   | "SHOW_EXIT_PROMPT"
   | "EXIT_APP";
@@ -73,6 +75,9 @@ export function resolveNextBackAction(
   }
   if (snapshot.relatedFilterActive) {
     return "CLEAR_RELATED_FILTER";
+  }
+  if (snapshot.graphNodeFocused) {
+    return "CLEAR_GRAPH_FOCUS";
   }
   if (snapshot.viewMode !== "ALL") {
     return "RESET_VIEW_TO_ALL";
