@@ -33,6 +33,7 @@ interface SidebarDrawerProps {
   onSelectAllMemos: () => void;
   onSelectCategory: (categoryId: string) => void;
   onSelectTrash: () => void;
+  onOpenMcpSheet?: () => void;
   onOpenSocialSheet: () => void;
   onResetGuestData: () => void;
 }
@@ -61,6 +62,7 @@ export function SidebarDrawer({
   onSelectAllMemos,
   onSelectCategory,
   onSelectTrash,
+  onOpenMcpSheet,
   onOpenSocialSheet,
   onResetGuestData,
 }: SidebarDrawerProps) {
@@ -174,6 +176,7 @@ export function SidebarDrawer({
             accountStatusLabel={accountStatusLabel}
             isGuest={isGuest}
             isMutating={isMutating}
+            onOpenMcpSheet={onOpenMcpSheet}
             onOpenSocialSheet={onOpenSocialSheet}
             onResetGuestData={onResetGuestData}
           />

@@ -173,3 +173,30 @@ html, body { background: var(--bg); color: var(--text); }
   .graph-node-sheet { left: 12px; right: 12px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 90px); }
   .graph-minimap { width: 124px; height: 84px; right: 12px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 94px); }
 }
+
+/* 4-2. MCP Key Sheet Styles */
+.mcp-entry-card { margin-bottom: 8px; }
+.mcp-sheet { max-height: 88dvh; overflow-y: auto; }
+.mcp-sheet-body { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+.mcp-status-card { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); font-size: 12px; color: var(--text-secondary); }
+.mcp-status-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mcp-status-label { color: var(--text-muted); font-size: 11px; }
+.mcp-key-prefix { padding: 2px 7px; border-radius: 6px; background: rgba(229, 169, 92, 0.12); color: var(--accent-bright); font-size: 11px; }
+.mcp-issued-box { padding: 12px 14px; border: 1px solid var(--border-accent); border-radius: 12px; background: rgba(229, 169, 92, 0.08); }
+.mcp-issued-warning { margin: 0 0 8px; color: var(--accent-bright); font-size: 11px; font-weight: 600; line-height: 1.45; }
+.mcp-issued-row { display: flex; align-items: center; gap: 8px; }
+.mcp-issued-key { flex: 1; min-width: 0; overflow-x: auto; padding: 7px 10px; border-radius: 8px; background: rgba(16, 15, 14, 0.85); color: var(--text); font-size: 11px; white-space: nowrap; }
+.mcp-copy-btn { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 10px; border: 1px solid var(--border-accent); border-radius: 8px; background: rgba(229, 169, 92, 0.16); color: var(--accent-bright); font-size: 11px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+.mcp-field { display: flex; flex-direction: column; gap: 8px; }
+.mcp-field-title { margin: 0; color: var(--text); font-size: 12px; font-weight: 600; }
+.mcp-scope-group { display: flex; flex-direction: column; gap: 8px; }
+.mcp-scope-item { display: flex; align-items: center; gap: 9px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text-secondary); font-size: 12px; cursor: pointer; }
+.mcp-scope-item input { accent-color: var(--accent); width: 15px; height: 15px; }
+.mcp-category-input { height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 13px; outline: none; }
+.mcp-category-input:focus { border-color: var(--border-accent); }
+.mcp-field-hint { margin: 0; color: var(--text-muted); font-size: 11px; line-height: 1.45; }
+.mcp-validation-error { margin: 0; color: #F5A3A3; font-size: 12px; }
+.mcp-actions { display: flex; gap: 8px; margin-top: 4px; }
+.mcp-issue-btn { flex: 1; height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-bright)); color: var(--accent-ink); font-size: 13px; font-weight: 700; cursor: pointer; }
+.mcp-revoke-btn { height: 44px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(224, 122, 122, 0.35); border-radius: 12px; background: rgba(153, 48, 48, 0.16); color: #F5A3A3; font-size: 12px; font-weight: 600; cursor: pointer; }
+.mcp-issue-btn:disabled, .mcp-revoke-btn:disabled { opacity: 0.5; cursor: not-allowed; }

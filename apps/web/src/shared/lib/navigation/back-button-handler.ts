@@ -10,6 +10,7 @@ export const EXIT_CONFIRM_TOAST_MESSAGE =
 export interface BackStackSnapshot {
   drawerOpen: boolean;
   categoryPickerOpen: boolean;
+  mcpSheetOpen?: boolean;
   socialSheetOpen: boolean;
   legalModalOpen: boolean;
   feedbackModalOpen: boolean;
@@ -22,6 +23,7 @@ export interface BackStackSnapshot {
 export type BackButtonAction =
   | "CLOSE_FEEDBACK_MODAL"
   | "CLOSE_LEGAL_MODAL"
+  | "CLOSE_MCP_SHEET"
   | "CLOSE_SOCIAL_SHEET"
   | "CLOSE_CATEGORY_PICKER"
   | "CLOSE_DRAWER"
@@ -58,6 +60,9 @@ export function resolveNextBackAction(
   }
   if (snapshot.legalModalOpen) {
     return "CLOSE_LEGAL_MODAL";
+  }
+  if (snapshot.mcpSheetOpen) {
+    return "CLOSE_MCP_SHEET";
   }
   if (snapshot.socialSheetOpen) {
     return "CLOSE_SOCIAL_SHEET";
