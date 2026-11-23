@@ -24,7 +24,7 @@ import { McpServerService, type JsonRpcRequest } from "./mcp-server.service";
 @ApiTags("MCP Server")
 @Public()
 @UseGuards(McpAuthGuard)
-@Controller({ path: "mcp", version: "1" })
+@Controller("api/v1/mcp")
 export class McpServerController {
   constructor(private readonly mcpServerService: McpServerService) {}
 

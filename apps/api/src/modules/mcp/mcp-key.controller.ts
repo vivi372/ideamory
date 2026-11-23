@@ -26,7 +26,7 @@ import { McpKeyService } from "./mcp-key.service";
  * 전역 `AuthGuard`(소셜 JWT 또는 게스트 토큰)를 통해 소유자를 식별합니다.
  */
 @ApiTags("MCP Keys")
-@Controller({ path: "mcp-keys", version: "1" })
+@Controller("api/v1/mcp-keys")
 export class McpKeyController {
   constructor(private readonly mcpKeyService: McpKeyService) {}
 
