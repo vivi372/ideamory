@@ -136,10 +136,10 @@ export class MemoController {
   @ApiOperation({
     summary: "Gemini 하이브리드 메모 검색",
     description:
-      "FTS 키워드 점수(0.4)와 Gemini 768차원 코사인 유사도 점수(0.6)를 가중치 결합해 검색 결과를 반환합니다.",
+      "2계층 랭킹(Tier 1 본문 키워드 일치 최우선 + Tier 2 코사인 유사도 0.65 이상 보완)으로 검색 결과를 반환합니다.",
   })
   @ApiQuery({ name: "q", required: true, type: String, description: "검색어 (1~500자)" })
-  @ApiQuery({ name: "threshold", required: false, type: Number, example: 0.72 })
+  @ApiQuery({ name: "threshold", required: false, type: Number, example: 0.65 })
   @ApiQuery({ name: "limit", required: false, type: Number, example: 30 })
   @ApiResponse({ status: 200, description: "하이브리드 검색 성공" })
   async searchMemos(
@@ -154,7 +154,7 @@ export class MemoController {
   }
 
   /**
-   * 메모 카드 하단 '관련 메모 N건' 칩 터치 시 코사인 유사도 0.8 이상의 1-Depth 연관 메모를 조회합니다.
+   * 메모 카드 하단 '관련 메모 N건' 칩 터치 시 코사인 유사도 0.75 이상의 1-Depth 연관 메모를 조회합니다.
    *
    * @param user 인증 가드가 주입한 요청 주체
    * @param id 기준 메모 UUID v7
@@ -166,10 +166,10 @@ export class MemoController {
   @ApiOperation({
     summary: "1-Depth 연관 메모 추천 조회",
     description:
-      "특정 메모의 768차원 임베딩 벡터를 기준으로 코사인 유사도 0.8 이상인 동일 소유자의 연관 메모를 추천합니다.",
+      "특정 메모의 768차원 임베딩 벡터를 기준으로 코사인 유사도 0.75 이상인 동일 소유자의 연관 메모를 추천합니다.",
   })
   @ApiParam({ name: "id", type: String, description: "기준 메모 UUID v7" })
-  @ApiQuery({ name: "threshold", required: false, type: Number, example: 0.8 })
+  @ApiQuery({ name: "threshold", required: false, type: Number, example: 0.75 })
   @ApiQuery({ name: "limit", required: false, type: Number, example: 10 })
   @ApiResponse({ status: 200, description: "연관 메모 조회 성공" })
   async getRelatedMemos(

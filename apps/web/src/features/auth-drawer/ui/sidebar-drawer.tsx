@@ -25,6 +25,8 @@ interface SidebarDrawerProps {
   isGuest: boolean;
   /** 초기화/탈퇴 진행 중 여부 */
   isMutating: boolean;
+  /** 지식망 모드 등에서 라이브러리/카테고리 목록을 숨길지 여부 */
+  hideCategories?: boolean;
   /** 좌측 엣지 스와이프로 드로어를 여는 콜백 */
   onOpen?: () => void;
   onClose: () => void;
@@ -53,6 +55,7 @@ export function SidebarDrawer({
   accountStatusLabel,
   isGuest,
   isMutating,
+  hideCategories = false,
   onOpen,
   onClose,
   onSelectAllMemos,
@@ -111,48 +114,50 @@ export function SidebarDrawer({
           </button>
         </div>
 
-        <div className="drawer-section drawer-section-first">
-          <p className="drawer-caption">LIBRARY</p>
-          <button
-            type="button"
-            className={`drawer-item ${viewMode === "ALL" ? "selected" : ""}`}
-            onClick={onSelectAllMemos}
-          >
-            <Archive size={17} aria-hidden="true" />
-            전체 메모
-            <span>{totalMemoCount}</span>
-          </button>
+        {!hideCategories && (
+          <div className="drawer-section drawer-section-first">
+            <p className="drawer-caption">LIBRARY</p>
+            <button
+              type="button"
+              className={`drawer-item ${viewMode === "ALL" ? "selected" : ""}`}
+              onClick={onSelectAllMemos}
+            >
+              <Archive size={17} aria-hidden="true" />
+              전체 메모
+              <span>{totalMemoCount}</span>
+            </button>
 
-          {categories.map((category) => {
-            const hasSuggestion = suggestionCategoryIds.has(category.id);
-            return (
-              <button
-                key={category.id}
-                type="button"
-                className={`drawer-item ${
-                  viewMode === "CATEGORY" && selectedCategoryId === category.id
-                    ? "selected"
-                    : ""
-                }`}
-                onClick={() => onSelectCategory(category.id)}
-              >
-                <span
-                  className="dot"
-                  style={
-                    hasSuggestion
-                      ? {
-                          background: "#E9A14E",
-                          boxShadow: "0 0 8px rgba(233, 161, 78, 0.55)",
-                        }
-                      : undefined
-                  }
-                />
-                {category.name}
-                <span>{category.memoCount ?? 0}</span>
-              </button>
-            );
-          })}
-        </div>
+            {categories.map((category) => {
+              const hasSuggestion = suggestionCategoryIds.has(category.id);
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  className={`drawer-item ${
+                    viewMode === "CATEGORY" && selectedCategoryId === category.id
+                      ? "selected"
+                      : ""
+                  }`}
+                  onClick={() => onSelectCategory(category.id)}
+                >
+                  <span
+                    className="dot"
+                    style={
+                      hasSuggestion
+                        ? {
+                            background: "#E9A14E",
+                            boxShadow: "0 0 8px rgba(233, 161, 78, 0.55)",
+                          }
+                        : undefined
+                    }
+                  />
+                  {category.name}
+                  <span>{category.memoCount ?? 0}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="drawer-bottom">
           <button

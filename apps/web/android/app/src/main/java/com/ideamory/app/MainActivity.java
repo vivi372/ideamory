@@ -1,7 +1,9 @@
 package com.ideamory.app;
 
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.os.Bundle;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
@@ -15,6 +17,10 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getBridge() != null) {
+            WebView webView = getBridge().getWebView();
+            if (webView != null) {
+                webView.addJavascriptInterface(new OrientationBridge(), "AndroidOrientationBridge");
+            }
             getBridge().addWebViewListener(new WebViewListener() {
                 @Override
                 public void onPageLoaded(WebView webView) {
@@ -91,5 +97,17 @@ public class MainActivity extends BridgeActivity {
                         + payloadJson + "}));";
         pendingShareJson = null;
         webView.post(() -> webView.evaluateJavascript(script, null));
+    }
+
+    private class OrientationBridge {
+        @JavascriptInterface
+        public void setScreenOrientationAuto() {
+            runOnUiThread(() -> setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR));
+        }
+
+        @JavascriptInterface
+        public void setScreenOrientationPortrait() {
+            runOnUiThread(() -> setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
+        }
     }
 }
