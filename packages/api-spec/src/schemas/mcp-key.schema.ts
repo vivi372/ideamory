@@ -69,13 +69,19 @@ export type McpKeyStatusResponseDto = z.infer<
  * @param categoryId 조회할 카테고리 UUID v7 (선택)
  * @param categoryName 조회할 카테고리명 직접 지정 (선택, 공백 정규화 비교)
  * @param limit 한 번에 가져올 메모 수 (기본값: 20, 최대: 50)
- * @param cursor 커서 기반 페이징 식별자 (선택)
+ * @param cursor 커서 기반 페이징용 마지막 메모의 id (UUID v7 기준, createdAt 아님, 선택)
  */
 export const ListMemosToolInputSchema = z.object({
   categoryId: z.string().uuid().optional(),
   categoryName: z.string().trim().min(1).max(30).optional(),
   limit: z.number().int().positive().max(50).default(20),
-  cursor: z.string().trim().min(1).optional(),
+  cursor: z
+    .string()
+    .uuid("cursor는 createdAt이 아닌 마지막 메모의 id(UUID v7)여야 합니다.")
+    .describe(
+      "커서 기반 페이징 식별자 — createdAt이 아닌 직전 페이지 마지막 메모의 id(UUID v7) 전달 (선택)",
+    )
+    .optional(),
 });
 
 export type ListMemosToolInput = z.infer<typeof ListMemosToolInputSchema>;
