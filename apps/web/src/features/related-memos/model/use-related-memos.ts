@@ -13,7 +13,7 @@ export interface UseRelatedMemosOptions {
 /**
  * 특정 메모의 `관련 메모` 칩 클릭 시 활성화되는 1-Depth 연관 메모 라이브 필터 훅입니다.
  *
- * `relatedFilterMemoId`가 설정된 경우에만 `GET /api/v1/memos/:id/related` (코사인 유사도 >= 0.8)를
+ * `relatedFilterMemoId`가 설정된 경우에만 `GET /api/v1/memos/:id/related` (코사인 유사도 >= 0.75)를
  * 조회하여 별도의 상세 페이지 이동 없이 메인 타임라인을 연관 메모 묶음으로 즉시 전환합니다.
  *
  * @param options 부트스트랩 완료 후 쿼리를 활성화하기 위한 옵션
@@ -32,7 +32,7 @@ export function useRelatedMemos({ enabled }: UseRelatedMemosOptions) {
     queryKey: queryKeys.memos.related(relatedFilterMemoId ?? "none"),
     queryFn: () =>
       fetchRelatedMemosApi(relatedFilterMemoId!, {
-        threshold: 0.8,
+        threshold: 0.75,
         limit: 10,
       }),
     enabled: enabled && isRelatedActive,

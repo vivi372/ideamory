@@ -285,10 +285,20 @@ export class MemoService {
     initialCategory?: { id: string; name: string }
   ): Promise<void> {
     try {
-      const [classifiedCategory, ogpId] = await Promise.all([
+      const [classifyResult, ogpResult] = await Promise.allSettled([
         this.classifyCategoryInBackground(owner, content, hasExplicitDirective),
         this.resolveOgpIdInBackground(memoId, content),
       ]);
+
+      if (classifyResult.status === "rejected") {
+        this.logger.warn(
+          `AI 카테고리 분류 실패 — '미분류' 유지 후 임베딩 계속 진행 (memoId: ${memoId}): ${classifyResult.reason?.message || classifyResult.reason}`
+        );
+      }
+
+      const classifiedCategory =
+        classifyResult.status === "fulfilled" ? classifyResult.value : undefined;
+      const ogpId = ogpResult.status === "fulfilled" ? ogpResult.value : undefined;
 
       const resolvedCategoryId = classifiedCategory?.id;
       const targetCategory = classifiedCategory ?? initialCategory;
@@ -301,7 +311,12 @@ export class MemoService {
       const embedding = await this.generateEmbeddingsInBackground(
         content,
         targetCategory
-      );
+      ).catch((embedError: any) => {
+        this.logger.warn(
+          `백그라운드 임베딩 생성 실패 (memoId: ${memoId}): ${embedError?.message || embedError}`
+        );
+        return null;
+      });
 
       await this.memoRepository.updateMemoBackgroundEnrichment(memoId, {
         ...(resolvedCategoryId ? { categoryId: resolvedCategoryId } : {}),

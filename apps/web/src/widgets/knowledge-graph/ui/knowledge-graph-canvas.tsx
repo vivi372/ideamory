@@ -197,29 +197,21 @@ export function KnowledgeGraphCanvas({
 
         const lineHeight = fontSize * 1.25;
         const textStartY = y + radius + 5 / globalScale;
-        const maxWidth = Math.max(
-          ...lines.map((line) => ctx.measureText(line).width),
-        );
-        const padX = 5 / Math.max(globalScale, 0.8);
-        const padY = 2.5 / Math.max(globalScale, 0.8);
 
-        ctx.fillStyle = isDimmed
-          ? "rgba(20, 18, 16, 0.3)"
-          : "rgba(20, 18, 16, 0.72)";
-        ctx.fillRect(
-          x - maxWidth / 2 - padX,
-          textStartY - padY,
-          maxWidth + padX * 2,
-          lines.length * lineHeight + padY * 2,
-        );
-
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 3 / Math.max(globalScale, 0.8);
+        ctx.strokeStyle = isDimmed
+          ? "rgba(18, 16, 15, 0.35)"
+          : "rgba(18, 16, 15, 0.88)";
         ctx.fillStyle = isDimmed
           ? "rgba(241, 236, 230, 0.35)"
           : isFocused
             ? "#F6EFE7"
             : "#E3DBD2";
         lines.forEach((line, index) => {
-          ctx.fillText(line, x, textStartY + index * lineHeight);
+          const lineY = textStartY + index * lineHeight;
+          ctx.strokeText(line, x, lineY);
+          ctx.fillText(line, x, lineY);
         });
       }
 

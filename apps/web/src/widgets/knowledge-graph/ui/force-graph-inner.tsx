@@ -93,16 +93,17 @@ export default function ForceGraphInner({
     }
 
     const chargeForce = fg.d3Force("charge") as
-      | { strength?: (value: number) => void }
+      | { strength?: (value: number) => unknown; distanceMax?: (value: number) => unknown }
       | undefined;
-    chargeForce?.strength?.(-210);
+    chargeForce?.strength?.(-110);
+    chargeForce?.distanceMax?.(220);
 
     const linkForce = fg.d3Force("link") as
       | { distance?: (fn: (link: BaseLink) => number) => void }
       | undefined;
     linkForce?.distance?.((rawLink: BaseLink) => {
       const sim = (rawLink as ForceLink).similarity ?? 0.7;
-      return 105 - Math.max(0, sim - 0.6) * 55;
+      return 150 - Math.max(0, sim - 0.6) * 45;
     });
 
     const topologyKey = `${graphData.nodes.length}:${graphData.links.length}`;
@@ -121,7 +122,7 @@ export default function ForceGraphInner({
       backgroundColor="rgba(0, 0, 0, 0)"
       nodeId="id"
       nodeVal={(node) => (node as ForceNode).val}
-      nodeLabel={(node) => (node as ForceNode).label}
+      nodeLabel={() => ""}
       nodeCanvasObject={drawNode}
       nodePointerAreaPaint={paintNodePointerArea}
       linkWidth={getLinkWidth}

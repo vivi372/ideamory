@@ -97,6 +97,7 @@ export function SidebarDrawer({
             ? {
                 transform: `translateX(${Math.min(0, dragOffsetX)}px)`,
                 transition: "none",
+                overflowY: "hidden",
               }
             : undefined
         }
