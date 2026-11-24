@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ExternalLink, Globe, Pencil, Trash2, X } from "lucide-react";
+import { ArrowRight, ExternalLink, Globe, Pencil, Sparkles, Trash2, X } from "lucide-react";
 import type { MemoResponseDto } from "@ideamory/api-spec";
 import {
   extractHostname,
@@ -12,6 +12,7 @@ import {
 } from "@/entities/memo";
 import { InlineEditor, useUpdateMemo } from "@/features/memo-edit";
 import { useSoftDeleteMemo } from "@/features/memo-trash";
+import { useViewStore } from "@/shared/model/view-store";
 
 export interface GraphNodeSheetProps {
   memo: MemoResponseDto | null;
@@ -31,6 +32,7 @@ export function GraphNodeSheet({
   const [isEditing, setIsEditing] = useState(false);
   const updateMemo = useUpdateMemo();
   const softDeleteMemo = useSoftDeleteMemo();
+  const openCategoryPicker = useViewStore((state) => state.openCategoryPicker);
 
   useEffect(() => {
     setIsEditing(false);
@@ -40,8 +42,15 @@ export function GraphNodeSheet({
     return null;
   }
 
-  const categoryLabel = memo.categoryName ?? "미분류";
-  const categoryColor = resolveGraphCategoryColor(memo.categoryName);
+  const isPendingAi = memo.aiStatus === "PENDING";
+  const categoryLabel = isPendingAi
+    ? "AI 분류 중..."
+    : memo.aiStatus === "FAILED"
+      ? "미분류"
+      : (memo.categoryName ?? "미분류");
+  const categoryColor = resolveGraphCategoryColor(
+    isPendingAi ? "미분류" : memo.categoryName,
+  );
 
   const handleSave = (nextContent: string) => {
     setIsEditing(false);
@@ -67,12 +76,34 @@ export function GraphNodeSheet({
     >
       <div className="graph-node-sheet-header">
         <div className="graph-node-sheet-meta">
-          <span
-            className="graph-node-sheet-category"
+          <button
+            type="button"
+            className={`graph-node-sheet-category${isPendingAi ? " is-pending" : ""}`}
             style={{ borderColor: categoryColor, color: categoryColor }}
+            disabled={isPendingAi}
+            onClick={() => {
+              if (!isPendingAi) {
+                openCategoryPicker({
+                  memoId: memo.id,
+                  currentCategoryId: memo.categoryId,
+                });
+              }
+            }}
+            aria-label={
+              isPendingAi
+                ? "AI 분류 중 (완료 후 카테고리 변경 가능)"
+                : `${categoryLabel} 카테고리 변경`
+            }
           >
-            {categoryLabel}
-          </span>
+            {isPendingAi ? (
+              <span className="inline-flex items-center gap-1">
+                <Sparkles size={10} className="shrink-0 animate-pulse" />
+                {categoryLabel}
+              </span>
+            ) : (
+              categoryLabel
+            )}
+          </button>
           <span className="graph-node-sheet-time">
             {formatMemoTimestamp(memo.createdAt)}
           </span>
