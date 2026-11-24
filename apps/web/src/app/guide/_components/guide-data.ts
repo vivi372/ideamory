@@ -45,4 +45,11 @@ export const GUIDE_FEATURES: readonly GuideFeatureMeta[] = [
     title: "메뉴에서 찾고 한 번에 합치기",
     text: "왼쪽 엣지 스와이프로 사이드바 메뉴를 열어 카테고리를 선택하고, 오렌지 닷이 뜬 병합 제안을 확인하세요.",
   },
+  {
+    id: "zettelkasten",
+    number: "06",
+    eyebrow: "제텔카스텐 지식망",
+    title: "흩어진 메모가 지식으로 이어지는 지도",
+    text: "상단 ‘지식망’ 탭을 누르면 의미가 비슷한 메모들이 자동으로 연결됩니다. 연결 범위 슬라이더로 연결 폭을 조절하고, 노드를 눌러 바로 읽고 수정하세요.",
+  },
 ] as const;

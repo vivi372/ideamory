@@ -146,6 +146,25 @@ export class AuthRepository {
   }
 
   /**
+   * 특정 게스트 토큰과 카테고리 ID에 속한 메모를 영구 삭제합니다.
+   *
+   * @param guestToken 익명 게스트 세션 토큰
+   * @param categoryId 삭제할 카테고리 UUID
+   * @param tx 트랜잭션 컨텍스트 (기본값: db)
+   */
+  async deleteMemosByGuestCategoryId(
+    guestToken: string,
+    categoryId: string,
+    tx: DbExecutor = db
+  ): Promise<void> {
+    await tx
+      .delete(memos)
+      .where(
+        and(eq(memos.guestToken, guestToken), eq(memos.categoryId, categoryId))
+      );
+  }
+
+  /**
    * 특정 게스트 토큰 소유의 MCP API 키를 영구 삭제(Hard Delete)합니다.
    *
    * @param guestToken 익명 게스트 세션 토큰
