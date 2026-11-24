@@ -10,6 +10,7 @@ import {
   Globe,
   Layers3,
   Menu,
+  Network,
   Plus,
   RotateCcw,
   Search,
@@ -94,6 +95,12 @@ export function GuideFeatureSections() {
   const [mergeState, setMergeState] = useState<"suggestion" | "merged" | "kept">(
     "suggestion"
   );
+
+  // 06단계: 제텔카스텐 지식망 유사도 슬라이더 & 노드 선택 데모 상태
+  const [graphThreshold, setGraphThreshold] = useState<number>(72);
+  const [selectedGraphNode, setSelectedGraphNode] = useState<
+    "rag" | "vector" | "cache"
+  >("rag");
 
   const handleCommitQuickEdit = () => {
     if (quickCommittedRef.current) {
@@ -460,6 +467,139 @@ export function GuideFeatureSections() {
           </div>
 
           <span className="visual-footnote">정리는 조용하게, 결정은 내가 직접</span>
+        </div>
+      </GuideSectionFrame>
+
+      <GuideSectionFrame feature={GUIDE_FEATURES[5]}>
+        <div className="guide-visual">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#1B1917] px-3.5 py-2.5 text-xs">
+            <span className="inline-flex items-center gap-1.5 font-medium text-[#E5DFD7]">
+              <Network size={14} className="text-[#E9A14E]" />
+              유사도 기준 {(graphThreshold / 100).toFixed(2)}
+            </span>
+            <input
+              type="range"
+              min={60}
+              max={90}
+              step={2}
+              value={graphThreshold}
+              onChange={(event) => setGraphThreshold(Number(event.target.value))}
+              aria-label="지식망 유사도 기준 조절"
+              className="h-1.5 w-28 accent-[#E9A14E]"
+            />
+          </div>
+
+          <div className="relative mt-2.5 h-44 w-full overflow-hidden rounded-2xl border border-white/10 bg-[#141210]">
+            <svg
+              viewBox="0 0 320 176"
+              className="h-full w-full"
+              aria-label="제텔카스텐 지식망 미리보기"
+            >
+              {/* RAG <-> Vector (유사도 0.86) */}
+              {graphThreshold <= 86 && (
+                <line
+                  x1="96"
+                  y1="66"
+                  x2="220"
+                  y2="58"
+                  stroke="#E9A14E"
+                  strokeOpacity={0.75}
+                  strokeWidth={2.2}
+                />
+              )}
+              {/* RAG <-> Cache (유사도 0.72) */}
+              {graphThreshold <= 72 && (
+                <line
+                  x1="96"
+                  y1="66"
+                  x2="164"
+                  y2="132"
+                  stroke="#8A8279"
+                  strokeOpacity={0.6}
+                  strokeWidth={1.6}
+                  strokeDasharray="3 3"
+                />
+              )}
+              {/* Vector <-> Cache (유사도 0.64) */}
+              {graphThreshold <= 64 && (
+                <line
+                  x1="220"
+                  y1="58"
+                  x2="164"
+                  y2="132"
+                  stroke="#8A8279"
+                  strokeOpacity={0.45}
+                  strokeWidth={1.3}
+                />
+              )}
+            </svg>
+
+            <button
+              type="button"
+              onClick={() => setSelectedGraphNode("rag")}
+              className={`absolute left-[18%] top-[24%] -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                selectedGraphNode === "rag"
+                  ? "border-[#E9A14E] bg-[#2D241C] text-[#F5EFE6] shadow-[0_0_16px_rgba(233,161,78,0.32)]"
+                  : "border-white/15 bg-[#221F1C] text-[#D1C9BE]"
+              }`}
+            >
+              RAG 검색 설계
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedGraphNode("vector")}
+              className={`absolute left-[72%] top-[24%] -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                selectedGraphNode === "vector"
+                  ? "border-[#E9A14E] bg-[#2D241C] text-[#F5EFE6] shadow-[0_0_16px_rgba(233,161,78,0.32)]"
+                  : "border-white/15 bg-[#221F1C] text-[#D1C9BE]"
+              }`}
+            >
+              pgvector 인덱스
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedGraphNode("cache")}
+              className={`absolute left-[50%] top-[74%] -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                selectedGraphNode === "cache"
+                  ? "border-[#E9A14E] bg-[#2D241C] text-[#F5EFE6] shadow-[0_0_16px_rgba(233,161,78,0.32)]"
+                  : "border-white/15 bg-[#221F1C] text-[#D1C9BE]"
+              }`}
+            >
+              임베딩 캐시 전략
+            </button>
+          </div>
+
+          <div className="mt-2.5 rounded-xl border border-white/10 bg-[#1B1917] px-3.5 py-2.5 text-xs text-[#CFC7BC]">
+            {selectedGraphNode === "rag" && (
+              <span>
+                <strong className="text-[#F3ECE2]">RAG 검색 설계</strong> · 연관
+                노드{" "}
+                {graphThreshold <= 72
+                  ? "2건 (pgvector, 캐시)"
+                  : graphThreshold <= 86
+                    ? "1건 (pgvector)"
+                    : "0건"}
+              </span>
+            )}
+            {selectedGraphNode === "vector" && (
+              <span>
+                <strong className="text-[#F3ECE2]">pgvector 인덱스</strong> ·
+                유사도 0.86 연결
+              </span>
+            )}
+            {selectedGraphNode === "cache" && (
+              <span>
+                <strong className="text-[#F3ECE2]">임베딩 캐시 전략</strong> ·
+                슬라이더를 낮추면 약한 연결도 함께 탐색합니다
+              </span>
+            )}
+          </div>
+
+          <span className="visual-footnote">
+            노드를 탭하면 하단 시트에서 바로 읽고 수정할 수 있어요
+          </span>
         </div>
       </GuideSectionFrame>
     </div>

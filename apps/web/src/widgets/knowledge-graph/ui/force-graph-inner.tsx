@@ -95,14 +95,14 @@ export default function ForceGraphInner({
     const chargeForce = fg.d3Force("charge") as
       | { strength?: (value: number) => void }
       | undefined;
-    chargeForce?.strength?.(-360);
+    chargeForce?.strength?.(-210);
 
     const linkForce = fg.d3Force("link") as
       | { distance?: (fn: (link: BaseLink) => number) => void }
       | undefined;
     linkForce?.distance?.((rawLink: BaseLink) => {
       const sim = (rawLink as ForceLink).similarity ?? 0.7;
-      return 175 - Math.max(0, sim - 0.6) * 90;
+      return 105 - Math.max(0, sim - 0.6) * 55;
     });
 
     const topologyKey = `${graphData.nodes.length}:${graphData.links.length}`;

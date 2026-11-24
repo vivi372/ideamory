@@ -269,3 +269,48 @@
   - 뒤로가기 시 최상위 오버레이부터 우선순위(`약관 모달 ➔ 소셜 연동 시트 ➔ 카테고리 피커 ➔ 사이드바 드로어 ➔ 검색/관련 메모 필터 ➔ 서브 뷰`) 순으로 1개씩 닫히며, 홈 타임라인에서는 2초 내 2회 입력 시 종료 안내가 동작합니다.
   - 오프라인 시 하얀 에러 페이지 대신 Warm Dark 브랜드 오프라인 뷰가 표시되고 `[다시 시도]`로 정상 복구됩니다.
 - **증적**: `screenshots/tc11-bridge-and-offline.png`
+
+---
+
+## Group G. 제텔카스텐 지식망 & MCP 연동
+
+### `TC-12`: 제텔카스텐 지식망(Knowledge Graph) 탐색, OGP 미리보기 & 인라인 편집
+- **사전 조건**: 서로 주제가 유사한 메모 2건 이상(임베딩 생성 완료 상태) 및 URL/가이드 OGP가 포함된 메모 1건 이상
+- **화면 수행 절차**:
+  1. 상단 `타임라인 | 지식망` 뷰 전환 탭에서 `지식망`으로 전환합니다.
+  2. 상단 우측 유사도 슬라이더(`0.60` ~ `0.90`)를 좌우로 조절하여 연결선(엣지) 수 변화를 확인합니다.
+  3. 우측 하단 미니맵 및 리센터(`중앙 정렬`) 버튼을 클릭해 카메라 뷰포트 정렬을 확인합니다.
+  4. OGP 링크가 포함된 노드를 탭/클릭해 하단 미니 카드 시트(`.graph-node-sheet`)를 열고, 시트 내 OGP 미리보기 박스(`.ogp-card`) 클릭 시 가이드 이동(`/guide`) 또는 외부 링크 새 탭 열기가 동작하는지 확인합니다.
+  5. 미니 카드 시트에서 인라인 수정(`Pencil`) 및 휴지통 이동(`Trash2`)이 즉시 반영되는지 확인합니다.
+- **기대 결과 (UI)**:
+  - 유사도 기준을 높이면 강한 연결선만 남고, 낮추면 연관 노드 간 링크가 부드럽게 추가됩니다.
+  - 노드 간 거리가 모바일/웹 모두 화면 안에 자연스럽게 배치되며, 미니 카드 시트의 OGP 미리보기 박스를 통해 원문/가이드로 즉시 이동할 수 있습니다.
+- **Supabase MCP DB 검증 (`execute_sql`)**:
+  ```sql
+  SELECT id, left(content, 30) AS preview, ogp_id, (embedding IS NOT NULL) AS has_embedding
+  FROM memos
+  WHERE guest_token = '<guest_token>' AND deleted_at IS NULL;
+  ```
+  - 그래프에 표시되는 활성 메모에 `embedding`이 존재하고, OGP 연결 메모는 `ogp_id`가 매핑되어 있는지 확인합니다.
+- **증적**: `screenshots/tc12-knowledge-graph.png`
+
+### `TC-13`: MCP 연동 시트 (API 키 발급 · 재발급 · 폐기 & 연결 설정 복사)
+- **사전 조건**: 게스트 또는 소셜 로그인 세션 활성 상태
+- **화면 수행 절차**:
+  1. 사이드바 드로어 하단 `MCP 연동` 버튼을 클릭해 MCP 연동 바텀시트를 엽니다.
+  2. `[API 키 발급하기]` 클릭 후 마스킹되지 않은 원문 API 키(`idm_...`) 1회 노출 및 `[복사]` 버튼 동작을 확인합니다.
+  3. Claude Desktop / Cursor용 JSON 설정 스니펫 복사 버튼을 클릭하고, `https://.../api/v1/mcp` 엔드포인트 URL이 올바르게 포함되어 있는지 확인합니다.
+  4. 발급된 키를 이용해 외부 MCP JSON-RPC 호출(`tools/list` 또는 `search_memos`)이 `Authorization: Bearer idm_...` 헤더로 정상 응답하는지 확인합니다.
+  5. `[키 재발급]` 및 `[연결 해제(폐기)]` 동작 후 기존 키가 즉시 무효화(`401 Unauthorized`)되는지 확인합니다.
+- **기대 결과 (UI)**:
+  - 발급 직후에만 원문 키가 표시되고 이후 새로고침 시 prefix(`idm_xxxx...`)만 마스킹 표시됩니다.
+  - 모바일 뷰포트(`360×640`)에서도 바텀시트 스크롤 및 복사 버튼 배치가 깨지지 않습니다.
+- **Supabase MCP DB 검증 (`execute_sql`)**:
+  ```sql
+  SELECT id, key_prefix, last_used_at, revoked_at, created_at
+  FROM mcp_api_keys
+  WHERE (guest_token = '<guest_token>' OR user_id = '<user_id>')
+  ORDER BY created_at DESC;
+  ```
+  - DB에는 원문 키 대신 `key_hash`와 `key_prefix`만 저장되며, 재발급/폐기 시 이전 키에 `revoked_at`이 기록되는지 확인합니다.
+- **증적**: `screenshots/tc13-mcp-integration.png`

@@ -218,9 +218,26 @@ export class AuthService {
         userCategories.map((cat) => [cat.normalizedName, cat.id])
       );
 
-      // 동일 normalized_name 충돌 시 게스트 메모를 기존 소셜 카테고리로 재매핑하고 중복 게스트 카테고리 정리
-      const duplicateGuestCategoryIds: string[] = [];
+      // 0. 게스트 온보딩 시드("사용가이드") 메모·카테고리는 소셜 계정 이관 시 중복 축적 방지를 위해 제외/삭제
+      const guideGuestCategoryIds: string[] = [];
       for (const guestCat of guestCategories) {
+        if (guestCat.normalizedName === "사용가이드") {
+          await this.authRepository.deleteMemosByGuestCategoryId?.(
+            guestToken,
+            guestCat.id,
+            tx
+          );
+          guideGuestCategoryIds.push(guestCat.id);
+        }
+      }
+
+      const remainingGuestCategories = guestCategories.filter(
+        (cat) => !guideGuestCategoryIds.includes(cat.id)
+      );
+
+      // 동일 normalized_name 충돌 시 게스트 메모를 기존 소셜 카테고리로 재매핑하고 중복 게스트 카테고리 정리
+      const duplicateGuestCategoryIds: string[] = [...guideGuestCategoryIds];
+      for (const guestCat of remainingGuestCategories) {
         const existingUserCatId = userCategoryByNormalized.get(
           guestCat.normalizedName
         );

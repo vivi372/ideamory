@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil, Trash2, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, ExternalLink, Globe, Pencil, Trash2, X } from "lucide-react";
 import type { MemoResponseDto } from "@ideamory/api-spec";
 import {
+  extractHostname,
   formatMemoTimestamp,
+  isInternalGuideUrl,
   resolveGraphCategoryColor,
 } from "@/entities/memo";
 import { InlineEditor, useUpdateMemo } from "@/features/memo-edit";
@@ -121,13 +124,51 @@ export function GraphNodeSheet({
             onCancel={() => setIsEditing(false)}
           />
         ) : (
-          <p
-            className="graph-node-sheet-content"
-            onClick={() => setIsEditing(true)}
-            title="탭하여 바로 수정"
-          >
-            {memo.content}
-          </p>
+          <>
+            <p
+              className="graph-node-sheet-content"
+              onClick={() => setIsEditing(true)}
+              title="탭하여 바로 수정"
+            >
+              {memo.content}
+            </p>
+            {memo.ogp ? (
+              isInternalGuideUrl(memo.ogp.targetUrl) ? (
+                <Link href="/guide" className="ogp-card mt-2.5">
+                  <Globe size={15} className="shrink-0 opacity-70" aria-hidden="true" />
+                  <div>
+                    <strong className="truncate">
+                      {memo.ogp.title || "Ideamory 사용 가이드"}
+                    </strong>
+                    {memo.ogp.description ? (
+                      <span>{memo.ogp.description}</span>
+                    ) : null}
+                    <small>앱 내 사용 가이드</small>
+                  </div>
+                  <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              ) : (
+                <a
+                  href={memo.ogp.targetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ogp-card mt-2.5"
+                >
+                  <Globe size={15} className="shrink-0 opacity-70" aria-hidden="true" />
+                  <div>
+                    <strong className="truncate">
+                      {memo.ogp.title || extractHostname(memo.ogp.targetUrl)}
+                    </strong>
+                    {memo.ogp.description ? (
+                      <span>{memo.ogp.description}</span>
+                    ) : null}
+                    <small>{extractHostname(memo.ogp.targetUrl)}</small>
+                  </div>
+                  <ExternalLink size={14} aria-hidden="true" />
+                </a>
+              )
+            ) : null}
+          </>
         )}
       </div>
     </section>
