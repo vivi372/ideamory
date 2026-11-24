@@ -114,9 +114,9 @@ html, body { background: var(--bg); color: var(--text); }
 .view-mode-btn.is-active { background: rgba(229, 169, 92, 0.16); color: var(--accent-bright); box-shadow: inset 0 0 0 1px rgba(229, 169, 92, 0.32); }
 .view-mode-emoji { font-size: 12px; line-height: 1; }
 
-.graph-floating-top { position: fixed; top: 0; left: 0; right: 0; height: 68px; padding: 0 28px; z-index: 20; display: flex; align-items: center; justify-content: space-between; pointer-events: none; }
+.graph-floating-top { position: fixed; top: 0; left: 0; right: 0; height: 68px; padding: 0 28px; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 10px; pointer-events: none; }
 .graph-floating-top > * { pointer-events: auto; }
-.graph-floating-menu-btn { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 999px; background: rgba(25, 22, 20, 0.76); backdrop-filter: blur(12px); color: var(--text); cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); transition: border-color .16s ease, background .16s ease; }
+.graph-floating-menu-btn { width: 42px; height: 42px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 999px; background: rgba(25, 22, 20, 0.76); backdrop-filter: blur(12px); color: var(--text); cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); transition: border-color .16s ease, background .16s ease; }
 .graph-floating-menu-btn:hover { border-color: var(--border-accent); background: rgba(34, 30, 27, 0.88); }
 
 .ideamory-shell.is-graph-mode .capture-zone { background: linear-gradient(to top, rgba(16, 15, 14, 0.48) 55%, rgba(16, 15, 14, 0)); pointer-events: none; }
@@ -130,12 +130,13 @@ html, body { background: var(--bg); color: var(--text); }
 .knowledge-graph-empty { width: 100%; height: 100%; display: grid; place-items: center; padding: 32px 20px; color: var(--text-muted); font-size: 13px; text-align: center; line-height: 1.6; }
 .knowledge-graph-sync-badge { position: absolute; right: 16px; top: 124px; z-index: 6; padding: 4px 10px; border: 1px solid var(--border-accent); border-radius: 999px; background: rgba(25, 22, 20, 0.88); color: var(--accent-bright); font-size: 11px; pointer-events: none; }
 
-.graph-toolbar { position: fixed; top: calc(max(13px, env(safe-area-inset-top))); left: 82px; right: 176px; z-index: 21; max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.graph-threshold-pill { flex: 1; min-width: 0; max-width: 260px; height: 42px; display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: rgba(25, 22, 20, 0.76); backdrop-filter: blur(12px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+.graph-toolbar { position: fixed; top: calc(max(13px, env(safe-area-inset-top)) + 52px); left: 16px; right: 16px; z-index: 19; max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
 .graph-toolbar > * { pointer-events: auto; }
-.graph-toolbar-row { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 999px; background: rgba(25, 22, 20, 0.76); backdrop-filter: blur(12px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
-.graph-threshold-control { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 11px; white-space: nowrap; }
+.graph-threshold-control { width: 100%; min-width: 0; display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 11px; white-space: nowrap; }
+.graph-threshold-label { flex-shrink: 0; }
 .graph-threshold-label strong { color: var(--accent-bright); font-variant-numeric: tabular-nums; margin-left: 3px; }
-.graph-threshold-slider { width: 110px; accent-color: var(--accent); cursor: pointer; }
+.graph-threshold-slider { flex: 1; min-width: 36px; width: auto; accent-color: var(--accent); cursor: pointer; }
 .graph-stats-pill { padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; background: rgba(235, 225, 212, 0.04); color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 
 .graph-breadcrumb { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
@@ -168,12 +169,11 @@ html, body { background: var(--bg); color: var(--text); }
 
 @media (max-width: 640px) {
   .view-mode-btn { height: 26px; padding: 0 8px; font-size: 10px; gap: 4px; }
-  .graph-floating-top { height: 65px; padding: 0 16px; }
+  .graph-floating-top { height: 65px; padding: 0 12px; gap: 6px; }
   .graph-floating-menu-btn { width: 38px; height: 38px; }
-  .graph-toolbar { top: calc(max(13px, env(safe-area-inset-top))); left: 62px; right: 142px; }
-  .graph-toolbar-row { min-height: 38px; padding: 4px 10px; gap: 6px; justify-content: center; }
-  .graph-stats-pill { display: none; }
-  .graph-threshold-slider { width: 64px; }
+  .graph-threshold-pill { height: 38px; padding: 0 10px; }
+  .graph-threshold-control { gap: 5px; font-size: 10px; }
+  .graph-toolbar { top: calc(max(13px, env(safe-area-inset-top)) + 48px); left: 12px; right: 12px; }
   .graph-node-sheet { left: 12px; right: 12px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 90px); }
   .graph-minimap { width: 124px; height: 84px; right: 12px; bottom: calc(max(12px, env(safe-area-inset-bottom)) + 94px); }
 }

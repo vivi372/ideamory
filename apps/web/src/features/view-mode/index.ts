@@ -5,4 +5,5 @@ export {
   useViewModeStore,
   type DisplayMode,
 } from "./model/use-view-mode-store";
+export { GraphThresholdPill } from "./ui/graph-threshold-pill";
 export { ViewModeToggle } from "./ui/view-mode-toggle";
