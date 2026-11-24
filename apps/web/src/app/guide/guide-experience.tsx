@@ -21,28 +21,29 @@ export default function GuideExperience() {
    * - 동일 앱/탭 내부에서 이동한 경우 히스토리 뒤로가기 또는 메인 타임라인으로 복귀합니다.
    */
   const handleReturnToApp = (options?: { focusCapture?: boolean }) => {
+    const targetUrl = options?.focusCapture ? "/?focus=capture#capture" : "/";
+
+    if (typeof window !== "undefined" && isCapacitorNative()) {
+      window.location.assign(targetUrl);
+      return;
+    }
+
     if (
       typeof window !== "undefined" &&
       window.opener &&
-      !window.opener.closed &&
-      !isCapacitorNative()
+      !window.opener.closed
     ) {
       window.close();
       // 브라우저 보안 정책으로 window.close()가 차단된 경우에만 현재 탭에서 메인으로 폴백
       window.setTimeout(() => {
         if (!window.closed) {
-          router.replace(options?.focusCapture ? "/?focus=capture#capture" : "/");
+          router.replace(targetUrl);
         }
       }, 120);
       return;
     }
 
-    if (options?.focusCapture) {
-      router.replace("/?focus=capture#capture");
-      return;
-    }
-
-    router.replace("/");
+    router.replace(targetUrl);
   };
 
   return (

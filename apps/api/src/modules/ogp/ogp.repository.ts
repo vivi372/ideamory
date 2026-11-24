@@ -5,6 +5,7 @@ import {
   and,
   gt,
   lte,
+  sql,
   ogpCaches,
   type OgpCache,
   type DbExecutor,
@@ -87,7 +88,7 @@ export class OgpRepository {
 
   /**
    * 만료 시각(expires_at <= now)이 지난 OGP 캐시를 일괄 영구 삭제합니다.
-   * (100년 TTL이 설정된 온보딩 가이드 캐시는 만료되지 않으므로 안전하게 보존됩니다.)
+   * 온보딩 사용가이드(`/guide`) 캐시는 변하지 않는 정적 내부 리소스이므로 만료 정리 대상에서 항상 제외합니다.
    *
    * @param now 만료 기준 시각 (기본값: 현재 시각)
    * @param tx 트랜잭션 컨텍스트 (기본값: db)
@@ -99,7 +100,12 @@ export class OgpRepository {
   ): Promise<Array<{ id: string }>> {
     return tx
       .delete(ogpCaches)
-      .where(lte(ogpCaches.expiresAt, now))
+      .where(
+        and(
+          lte(ogpCaches.expiresAt, now),
+          sql`(${ogpCaches.targetUrl} NOT LIKE '%/guide' AND ${ogpCaches.targetUrl} NOT LIKE '%/guide?%' AND ${ogpCaches.targetUrl} NOT LIKE '%/guide#%')`
+        )
+      )
       .returning({ id: ogpCaches.id });
   }
 }

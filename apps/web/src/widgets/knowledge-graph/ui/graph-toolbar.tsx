@@ -13,7 +13,20 @@ export interface GraphToolbarProps {
 }
 
 /**
- * 지식망 상단의 유사도 임계값 슬라이더(0.70~0.85)와 생각 꼬리물기(Breadcrumb) 툴바입니다.
+ * 내부 유사도 임계값(0.60~0.85)을 사용자 친화적인 연결 범위 라벨로 변환합니다.
+ */
+function formatThresholdLabel(threshold: number): string {
+  if (threshold <= 0.7) {
+    return "넓게";
+  }
+  if (threshold >= 0.82) {
+    return "핵심만";
+  }
+  return "보통";
+}
+
+/**
+ * 지식망 상단의 연결 범위 슬라이더와 생각 꼬리물기(Breadcrumb) 툴바입니다.
  */
 export function GraphToolbar({
   nodeCount,
@@ -34,7 +47,7 @@ export function GraphToolbar({
       <div className="graph-toolbar-row">
         <label className="graph-threshold-control">
           <span className="graph-threshold-label">
-            연결 강도 <strong>{threshold.toFixed(2)}</strong>
+            연결 범위 <strong>{formatThresholdLabel(threshold)}</strong>
           </span>
           <input
             type="range"
@@ -46,7 +59,7 @@ export function GraphToolbar({
               setThreshold(Number.parseFloat(event.target.value))
             }
             className="graph-threshold-slider"
-            aria-label="유사도 연결 강도 조절"
+            aria-label="지식망 연결 범위 조절"
           />
         </label>
 
