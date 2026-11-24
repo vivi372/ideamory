@@ -231,7 +231,7 @@ export function McpKeySheet() {
                       onChange={() => toggleScope("READ")}
                     />
                     <span>
-                      <strong>READ</strong> — 메모 검색, 연관 메모, 카테고리 조회
+                      <strong>READ</strong> — list_memos (전체/카테고리별 조회), 메모 검색, 연관 메모, 카테고리 조회
                     </span>
                   </label>
                   <label className="mcp-scope-item">
