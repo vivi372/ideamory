@@ -73,7 +73,14 @@ Ideamory는 **Remote MCP Streamable HTTP** 엔드포인트(`/api/v1/mcp`)를 통
 
 | 도구명 | 필요 권한 | 설명 |
 | :--- | :---: | :--- |
+| `list_memos` | `READ` | 전체 최신순 메모 조회 또는 `categoryId`·`categoryName` 기반 카테고리별 필터링 조회 (`limit`, `cursor` 지원) |
 | `search_memos` | `READ` | Tier 1 키워드 일치 최우선 + Tier 2 코사인 유사도(`0.65+`) 하이브리드 검색 |
 | `get_related_memos` | `READ` | 기준 메모 ID 대비 코사인 유사도 `0.75+` 1-Depth 연관 메모 조회 |
 | `list_categories` | `READ` | 활성 메모가 1건 이상 존재하는 카테고리 목록 조회 |
 | `create_memo` | `WRITE` | 0.1초 퀵 캡처 저장 (고정 카테고리 설정 시 AI 분류를 건너뛰고 즉시 매핑) |
+
+### `list_memos` 활용 예시
+- **전체 최신 메모 훑어보기**: `list_memos()` (기본 `limit: 20`, 최대 `50`)
+- **고정 카테고리 적재 메모 모아보기**: `list_memos({ categoryName: "AI스크랩" })`
+- **페이지네이션**: `list_memos({ limit: 20, cursor: "018f3a2b-1234-7123-8456-9abcdef01234" })`
+  - `cursor`에는 `createdAt` 타임스탬프가 아닌 **직전 페이지 마지막 메모의 `id` (UUID v7)**를 전달해야 합니다.

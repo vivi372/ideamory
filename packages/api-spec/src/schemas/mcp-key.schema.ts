@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * MCP API 키 허용 권한(Scope) 열거 스키마입니다.
- * - READ: 메모 검색, 연관 메모 조회, 카테고리 목록 조회
+ * - READ: 전체/카테고리별 메모 조회(list_memos), 메모 검색, 연관 메모 조회, 카테고리 목록 조회
  * - WRITE: MCP를 통한 신규 메모 캡처 생성
  */
 export const McpKeyScopeSchema = z.enum(["READ", "WRITE"]);
@@ -61,3 +61,27 @@ export const McpKeyStatusResponseSchema = z.object({
 export type McpKeyStatusResponseDto = z.infer<
   typeof McpKeyStatusResponseSchema
 >;
+
+/**
+ * MCP `list_memos` 도구 입력 파라미터 스키마입니다.
+ * 전체 최신순 목록 조회 또는 `categoryId`/`categoryName` 기반 카테고리 필터링 조회를 지원합니다.
+ *
+ * @param categoryId 조회할 카테고리 UUID v7 (선택)
+ * @param categoryName 조회할 카테고리명 직접 지정 (선택, 공백 정규화 비교)
+ * @param limit 한 번에 가져올 메모 수 (기본값: 20, 최대: 50)
+ * @param cursor 커서 기반 페이징용 마지막 메모의 id (UUID v7 기준, createdAt 아님, 선택)
+ */
+export const ListMemosToolInputSchema = z.object({
+  categoryId: z.string().uuid().optional(),
+  categoryName: z.string().trim().min(1).max(30).optional(),
+  limit: z.number().int().positive().max(50).default(20),
+  cursor: z
+    .string()
+    .uuid("cursor는 createdAt이 아닌 마지막 메모의 id(UUID v7)여야 합니다.")
+    .describe(
+      "커서 기반 페이징 식별자 — createdAt이 아닌 직전 페이지 마지막 메모의 id(UUID v7) 전달 (선택)",
+    )
+    .optional(),
+});
+
+export type ListMemosToolInput = z.infer<typeof ListMemosToolInputSchema>;
