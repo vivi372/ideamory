@@ -13,7 +13,11 @@ import {
 import { CategoryPickerSheet } from "@/features/category-picker";
 import { McpKeySheet, useMcpKeySheetStore } from "@/features/mcp-keys";
 import { CaptureInput } from "@/features/memo-capture";
-import { ViewModeToggle, useViewModeStore } from "@/features/view-mode";
+import {
+  GraphThresholdPill,
+  ViewModeToggle,
+  useViewModeStore,
+} from "@/features/view-mode";
 import { SearchBar } from "@/widgets/header";
 import { KnowledgeGraphView } from "@/widgets/knowledge-graph";
 import { MemoTimeline } from "@/widgets/memo-timeline";
@@ -136,6 +140,7 @@ export default function HomePage() {
               />
             ) : null}
           </button>
+          <GraphThresholdPill />
           <ViewModeToggle />
         </div>
       ) : (
