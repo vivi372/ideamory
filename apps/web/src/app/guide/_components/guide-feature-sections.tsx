@@ -475,7 +475,14 @@ export function GuideFeatureSections() {
           <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#1B1917] px-3.5 py-2.5 text-xs">
             <span className="inline-flex items-center gap-1.5 font-medium text-[#E5DFD7]">
               <Network size={14} className="text-[#E9A14E]" />
-              유사도 기준 {(graphThreshold / 100).toFixed(2)}
+              연결 범위{" "}
+              <strong className="text-[#E9A14E]">
+                {graphThreshold <= 70
+                  ? "넓게"
+                  : graphThreshold >= 82
+                    ? "핵심만"
+                    : "보통"}
+              </strong>
             </span>
             <input
               type="range"
@@ -484,7 +491,7 @@ export function GuideFeatureSections() {
               step={2}
               value={graphThreshold}
               onChange={(event) => setGraphThreshold(Number(event.target.value))}
-              aria-label="지식망 유사도 기준 조절"
+              aria-label="지식망 연결 범위 조절"
               className="h-1.5 w-28 accent-[#E9A14E]"
             />
           </div>
@@ -586,7 +593,7 @@ export function GuideFeatureSections() {
             {selectedGraphNode === "vector" && (
               <span>
                 <strong className="text-[#F3ECE2]">pgvector 인덱스</strong> ·
-                유사도 0.86 연결
+                강하게 연결된 핵심 주제
               </span>
             )}
             {selectedGraphNode === "cache" && (
