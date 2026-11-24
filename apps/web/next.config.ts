@@ -38,6 +38,8 @@ function resolveAndroidApkVersion(): string {
 }
 
 const isCapacitorExport = process.env.CAPACITOR_EXPORT === "true";
+const DEFAULT_CAPACITOR_API_URL =
+  "https://p01--ideamory--fyppwr9k8xfj.code.run";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -46,6 +48,13 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APK_VERSION:
       process.env.NEXT_PUBLIC_APK_VERSION ?? resolveAndroidApkVersion(),
+    // Capacitor 정적 앱 빌드 시 루트 .env.local(localhost:3001)이 번들에 박히지 않도록 운영 백엔드를 자동 지정
+    ...(isCapacitorExport
+      ? {
+          NEXT_PUBLIC_API_URL:
+            process.env.CAPACITOR_API_URL?.trim() || DEFAULT_CAPACITOR_API_URL,
+        }
+      : {}),
   },
   ...(isCapacitorExport
     ? {

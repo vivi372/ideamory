@@ -1,3 +1,6 @@
+const DEFAULT_PRODUCTION_API_URL =
+  "https://p01--ideamory--fyppwr9k8xfj.code.run";
+
 /**
  * 환경변수 `NEXT_PUBLIC_API_URL`에 `/api/v1` 프리픽스가 포함되어 있든 없든
  * 일관된 `/api/v1` Base URL을 반환하도록 정규화합니다.
@@ -7,12 +10,33 @@
  * @returns `/api/v1`이 보장된 REST API Base URL
  */
 export function resolveApiBaseUrl(): string {
+  const isCapacitorRuntime =
+    typeof window !== "undefined" &&
+    Boolean(
+      (
+        window as Window & {
+          Capacitor?: { isNativePlatform?: () => boolean };
+        }
+      ).Capacitor?.isNativePlatform?.()
+    );
+
   const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (configuredUrl) {
     const normalizedHost = configuredUrl
       .replace(/\/+$/, "")
       .replace(/\/api\/v1$/, "");
+    // 네이티브 앱 런타임에서 실수로 localhost가 주입된 경우 운영 백엔드로 자동 보정
+    if (
+      isCapacitorRuntime &&
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalizedHost)
+    ) {
+      return `${DEFAULT_PRODUCTION_API_URL}/api/v1`;
+    }
     return `${normalizedHost}/api/v1`;
+  }
+
+  if (isCapacitorRuntime) {
+    return `${DEFAULT_PRODUCTION_API_URL}/api/v1`;
   }
 
   // 실기기 테스트 시 브라우저가 PC의 LAN IP(예: 192.168.x.x:3000)로 접속한 경우 동일 호스트의 :3001 API를 자동 타겟팅
