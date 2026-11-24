@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
+    "build:capacitor": "node -e \"const {execSync}=require('node:child_process'),fs=require('node:fs');execSync('npx next build',{stdio:'inherit',env:{...process.env,CAPACITOR_EXPORT:'true'}});fs.rmSync('.next-export/downloads',{recursive:true,force:true});\"",
     "start": "next start --port 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
