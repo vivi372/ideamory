@@ -133,7 +133,8 @@ const MCP_TOOLS: readonly McpToolDefinition[] = [
         },
         cursor: {
           type: "string",
-          description: "커서 기반 페이징 식별자 (선택)",
+          description:
+            "커서 기반 페이징 식별자 — createdAt이 아닌 마지막 메모의 id(UUID v7) 전달 (선택)",
         },
       },
     },
@@ -352,12 +353,14 @@ export class McpServerService {
 
   /**
    * 사용자의 전체 최신순 메모 목록 또는 특정 카테고리(`categoryId` / `categoryName`) 필터링 목록을 조회합니다.
-   * `categoryName`이 전달되면 `CategoryService`를 통해 공백 정규화 일치 카테고리를 우선 매핑하고,
-   * 일치하는 카테고리가 없으면 빈 배열을 반환합니다.
+   * `categoryName`이 전달되면 `categoryId`보다 우선해 `CategoryService`로 공백 정규화 일치 카테고리를 매핑하고,
+   * 일치하는 카테고리가 없으면 `categoryId`로 폴백하지 않고 즉시 빈 배열을 반환합니다.
+   * 또한 `cursor`(마지막 메모의 `id` UUID v7)가 현재 목록에 존재하지 않으면 무한 루프 페이징 방지를 위해 빈 배열을 반환합니다.
    *
    * @param context `McpAuthGuard`가 검증한 소유자 및 권한 컨텍스트
    * @param args `ListMemosToolInputSchema`로 검증된 조회 파라미터
    * @returns `MemoResponseDto[]` 최신순 메모 목록
+   * @throws BusinessException `CategoryService.getCategories` 또는 `MemoService.getMemos` 내부의 `assertOwnerIdentity` 검증 실패 시 401 Unauthorized 전파
    */
   private async listMemos(
     context: VerifiedMcpContext,
@@ -365,7 +368,7 @@ export class McpServerService {
   ): Promise<MemoResponseDto[]> {
     let resolvedCategoryId = args.categoryId;
 
-    if (!resolvedCategoryId && args.categoryName) {
+    if (args.categoryName) {
       const categories = await this.categoryService.getCategories(context.owner);
       const normalize = (name: string) =>
         typeof this.categoryService.normalizeCategoryName === "function"
@@ -392,9 +395,10 @@ export class McpServerService {
     let startIndex = 0;
     if (args.cursor) {
       const cursorIndex = memos.findIndex((memo) => memo.id === args.cursor);
-      if (cursorIndex >= 0) {
-        startIndex = cursorIndex + 1;
+      if (cursorIndex < 0) {
+        return [];
       }
+      startIndex = cursorIndex + 1;
     }
 
     return memos.slice(startIndex, startIndex + args.limit);

@@ -218,15 +218,18 @@ describe("McpKeyService & McpServerService", () => {
     assert.equal(missingIdRes?.error?.code, -32600);
   });
 
-  it("McpServerService list_memos는 전체 조회, categoryName 공백 정규화 매핑, 미존재 카테고리 빈 배열, cursor/limit을 처리해야 한다", async () => {
+  it("McpServerService list_memos는 전체 조회, categoryName 우선 매핑, 미존재 카테고리/무효 cursor 빈 배열, cursor(UUID)/limit을 처리해야 한다", async () => {
     const getMemosCalls: any[] = [];
+    const memoId3 = "018d0000-0000-7000-8000-000000000003";
+    const memoId2 = "018d0000-0000-7000-8000-000000000002";
+    const memoId1 = "018d0000-0000-7000-8000-000000000001";
     const mockMemoService = {
       getMemos: async (_owner: any, query: any) => {
         getMemosCalls.push(query);
         return [
-          { id: "m-3", content: "최신" },
-          { id: "m-2", content: "중간" },
-          { id: "m-1", content: "과거" },
+          { id: memoId3, content: "최신" },
+          { id: memoId2, content: "중간" },
+          { id: memoId1, content: "과거" },
         ];
       },
     } as any;
@@ -250,16 +253,16 @@ describe("McpKeyService & McpServerService", () => {
       fixedCategoryName: "AI스크랩",
     };
 
-    // 1. 무인자 전체 조회 + cursor/limit 슬라이싱
+    // 1. 무인자 전체 조회 + cursor(UUID v7)/limit 슬라이싱
     const allRes = await mcpServer.handleJsonRpc(readOnlyCtx, {
       jsonrpc: "2.0",
       id: 10,
       method: "tools/call",
-      params: { name: "list_memos", arguments: { cursor: "m-3", limit: 1 } },
+      params: { name: "list_memos", arguments: { cursor: memoId3, limit: 1 } },
     });
     const parsedAll = JSON.parse((allRes?.result as any).content[0].text);
     assert.equal(parsedAll.length, 1);
-    assert.equal(parsedAll[0].id, "m-2");
+    assert.equal(parsedAll[0].id, memoId2);
     assert.equal(getMemosCalls[0].categoryId, undefined);
 
     // 2. categoryName 공백 정규화 매핑 ("AI 스크랩" -> "AI스크랩" ID)
@@ -277,14 +280,17 @@ describe("McpKeyService & McpServerService", () => {
       "018d0000-0000-7000-8000-000000000777",
     );
 
-    // 3. 일치하는 카테고리가 없으면 getMemos를 호출하지 않고 빈 배열 반환
+    // 3. categoryName + categoryId 동시 전달 시 categoryName 우선 검사 후 미존재면 categoryId 폴백 없이 [] 반환
     const emptyRes = await mcpServer.handleJsonRpc(readOnlyCtx, {
       jsonrpc: "2.0",
       id: 12,
       method: "tools/call",
       params: {
         name: "list_memos",
-        arguments: { categoryName: "없는카테고리" },
+        arguments: {
+          categoryName: "없는카테고리",
+          categoryId: "018d0000-0000-7000-8000-000000000777",
+        },
       },
     });
     assert.deepEqual(
@@ -292,5 +298,32 @@ describe("McpKeyService & McpServerService", () => {
       [],
     );
     assert.equal(getMemosCalls.length, 2);
+
+    // 4. 목록에 없는 유효하지 않은 cursor(UUID) 전달 시 첫 페이지 중복 반환 대신 [] 반환
+    const missingCursorRes = await mcpServer.handleJsonRpc(readOnlyCtx, {
+      jsonrpc: "2.0",
+      id: 13,
+      method: "tools/call",
+      params: {
+        name: "list_memos",
+        arguments: { cursor: "018d0000-0000-7000-8000-000000000999" },
+      },
+    });
+    assert.deepEqual(
+      JSON.parse((missingCursorRes?.result as any).content[0].text),
+      [],
+    );
+
+    // 5. UUID가 아닌 createdAt 등을 cursor로 전달하면 Zod 검증 에러(isError: true) 반환
+    const invalidCursorRes = await mcpServer.handleJsonRpc(readOnlyCtx, {
+      jsonrpc: "2.0",
+      id: 14,
+      method: "tools/call",
+      params: {
+        name: "list_memos",
+        arguments: { cursor: "2026-11-24T10:00:00.000Z" },
+      },
+    });
+    assert.equal((invalidCursorRes?.result as any).isError, true);
   });
 });

@@ -82,4 +82,5 @@ Ideamory는 **Remote MCP Streamable HTTP** 엔드포인트(`/api/v1/mcp`)를 통
 ### `list_memos` 활용 예시
 - **전체 최신 메모 훑어보기**: `list_memos()` (기본 `limit: 20`, 최대 `50`)
 - **고정 카테고리 적재 메모 모아보기**: `list_memos({ categoryName: "AI스크랩" })`
-- **페이지네이션**: `list_memos({ limit: 20, cursor: "마지막_메모_UUID" })`
+- **페이지네이션**: `list_memos({ limit: 20, cursor: "018f3a2b-1234-7123-8456-9abcdef01234" })`
+  - `cursor`에는 `createdAt` 타임스탬프가 아닌 **직전 페이지 마지막 메모의 `id` (UUID v7)**를 전달해야 합니다.
