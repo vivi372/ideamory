@@ -121,11 +121,27 @@ describe("McpKeyService & McpServerService", () => {
         capturedCalls.push({ type: "related", memoId, query });
         return [];
       },
+      getMemos: async (_owner: any, query: any) => {
+        capturedCalls.push({ type: "getMemos", query });
+        return [
+          { id: "memo-3", content: "세 번째 메모" },
+          { id: "memo-2", content: "두 번째 메모" },
+          { id: "memo-1", content: "첫 번째 메모" },
+        ];
+      },
     } as any;
     const mockCategoryService = {
+      normalizeCategoryName: (name: string) =>
+        name.trim().replace(/\s+/g, "").toLowerCase(),
       getCategories: async () => {
         capturedCalls.push({ type: "categories" });
-        return [];
+        return [
+          {
+            id: "018d0000-0000-7000-8000-000000000777",
+            name: "AI스크랩",
+            memoCount: 3,
+          },
+        ];
       },
     } as any;
 
@@ -200,5 +216,81 @@ describe("McpKeyService & McpServerService", () => {
       method: "tools/list",
     });
     assert.equal(missingIdRes?.error?.code, -32600);
+  });
+
+  it("McpServerService list_memos는 전체 조회, categoryName 공백 정규화 매핑, 미존재 카테고리 빈 배열, cursor/limit을 처리해야 한다", async () => {
+    const getMemosCalls: any[] = [];
+    const mockMemoService = {
+      getMemos: async (_owner: any, query: any) => {
+        getMemosCalls.push(query);
+        return [
+          { id: "m-3", content: "최신" },
+          { id: "m-2", content: "중간" },
+          { id: "m-1", content: "과거" },
+        ];
+      },
+    } as any;
+    const mockCategoryService = {
+      normalizeCategoryName: (name: string) =>
+        name.trim().replace(/\s+/g, "").toLowerCase(),
+      getCategories: async () => [
+        {
+          id: "018d0000-0000-7000-8000-000000000777",
+          name: "AI스크랩",
+          memoCount: 3,
+        },
+      ],
+    } as any;
+
+    const mcpServer = new McpServerService(mockMemoService, mockCategoryService);
+    const readOnlyCtx = {
+      keyId: "key-1",
+      owner: { userId: "018d0000-0000-7000-8000-000000000001" },
+      scopes: ["READ" as const],
+      fixedCategoryName: "AI스크랩",
+    };
+
+    // 1. 무인자 전체 조회 + cursor/limit 슬라이싱
+    const allRes = await mcpServer.handleJsonRpc(readOnlyCtx, {
+      jsonrpc: "2.0",
+      id: 10,
+      method: "tools/call",
+      params: { name: "list_memos", arguments: { cursor: "m-3", limit: 1 } },
+    });
+    const parsedAll = JSON.parse((allRes?.result as any).content[0].text);
+    assert.equal(parsedAll.length, 1);
+    assert.equal(parsedAll[0].id, "m-2");
+    assert.equal(getMemosCalls[0].categoryId, undefined);
+
+    // 2. categoryName 공백 정규화 매핑 ("AI 스크랩" -> "AI스크랩" ID)
+    await mcpServer.handleJsonRpc(readOnlyCtx, {
+      jsonrpc: "2.0",
+      id: 11,
+      method: "tools/call",
+      params: {
+        name: "list_memos",
+        arguments: { categoryName: "AI 스크랩" },
+      },
+    });
+    assert.equal(
+      getMemosCalls[1].categoryId,
+      "018d0000-0000-7000-8000-000000000777",
+    );
+
+    // 3. 일치하는 카테고리가 없으면 getMemos를 호출하지 않고 빈 배열 반환
+    const emptyRes = await mcpServer.handleJsonRpc(readOnlyCtx, {
+      jsonrpc: "2.0",
+      id: 12,
+      method: "tools/call",
+      params: {
+        name: "list_memos",
+        arguments: { categoryName: "없는카테고리" },
+      },
+    });
+    assert.deepEqual(
+      JSON.parse((emptyRes?.result as any).content[0].text),
+      [],
+    );
+    assert.equal(getMemosCalls.length, 2);
   });
 });
