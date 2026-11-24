@@ -533,5 +533,22 @@ describe("MemoService & TrashCleanerScheduler (2단계 퀵 캡처 파이프라�
     await memoService.searchMemos(owner, { q: "개발" } as any);
     assert.equal(repoCalls.searchMemosHybrid[0].threshold, 0.65);
   });
+
+  it("시나리오 14: AI 카테고리 분류가 예외로 실패하더라도 미분류 메모의 768차원 임베딩 벡터는 독립적으로 생성되어 저장되어야 한다", async () => {
+    (aiService as any).classifyMemoCategory = async () => {
+      throw new Error("Gemini classification timeout");
+    };
+    (aiService as any).generateEmbedding = async () => new Array(768).fill(0.25);
+
+    await memoService.createMemo(owner, {
+      id: "018d0000-0000-7000-8000-000000000999",
+      content: "분류 실패 시에도 임베딩이 남아야 하는 메모",
+    });
+    await new Promise((r) => setTimeout(r, 20));
+
+    const lastUpdate = repoCalls.updateMemoBackgroundEnrichment.at(-1);
+    assert.equal(lastUpdate?.updates?.aiStatus, "FAILED");
+    assert.equal(lastUpdate?.updates?.embedding?.length, 768);
+  });
 });
 

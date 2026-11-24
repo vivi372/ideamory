@@ -117,6 +117,17 @@ export function useDrawerSwipe({
     };
   }, [onOpen, open]);
 
+  useEffect(() => {
+    if (typeof document === "undefined" || !open) {
+      return;
+    }
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open]);
+
   const handleDrawerTouchStart = (event: React.TouchEvent<HTMLElement>) => {
     if (!open || event.touches.length !== 1) return;
     const touch = event.touches[0];
