@@ -96,12 +96,48 @@ describe("memo-to-graph", () => {
     assert.equal(extractNodeLabel("가".repeat(30), 10), `${"가".repeat(9)}…`);
   });
 
-  it("resolveGraphCategoryColor는 미분류일 때 중립 색상을, 카테고리명일 때 결정론적 색상을 반환한다", () => {
+  it("resolveGraphCategoryColor는 미분류일 때 중립 색상을, PENDING일 때 앰버 색상을, 카테고리명일 때 결정론적 색상을 반환한다", () => {
     assert.equal(resolveGraphCategoryColor(null), "#78716C");
     assert.equal(resolveGraphCategoryColor("미분류"), "#78716C");
-    assert.equal(
-      resolveGraphCategoryColor("개발"),
-      resolveGraphCategoryColor("개발"),
+    assert.equal(resolveGraphCategoryColor("미분류", "PENDING"), "#E9A14E");
+    const devColor = resolveGraphCategoryColor("개발");
+    assert.equal(resolveGraphCategoryColor("개발"), devColor);
+    assert.notEqual(devColor, "#78716C");
+  });
+
+  it("buildKnowledgeGraphData는 PENDING 노드에 앰버 색상을 부여하고 서로 다른 카테고리에 중복 없는 색상을 배정한다", () => {
+    const categoryNames = [
+      "개발",
+      "아이디어",
+      "독서",
+      "금융",
+      "쇼핑",
+      "일정",
+      "건강",
+      "회고",
+      "여행",
+      "메모",
+    ];
+    const memos = [
+      createMockMemo({ id: "pending", categoryName: "미분류", aiStatus: "PENDING" }),
+      createMockMemo({ id: "failed", categoryName: "미분류", aiStatus: "FAILED" }),
+      ...categoryNames.map((name, idx) =>
+        createMockMemo({ id: `cat-${idx}`, categoryName: name }),
+      ),
+    ];
+
+    const graph = buildKnowledgeGraphData(memos, new Map(), 0.75);
+    const pendingNode = graph.nodes.find((n) => n.id === "pending");
+    const failedNode = graph.nodes.find((n) => n.id === "failed");
+
+    assert.equal(pendingNode?.color, "#E9A14E");
+    assert.equal(failedNode?.color, "#78716C");
+
+    const assignedColors = new Set(
+      graph.nodes
+        .filter((n) => n.id.startsWith("cat-"))
+        .map((n) => n.color),
     );
+    assert.equal(assignedColors.size, categoryNames.length);
   });
 });
