@@ -138,38 +138,59 @@ export class AiService {
         "당신은 개인 지식 서재의 메모 분류기입니다.",
         "반드시 아래 규칙을 지켜 카테고리 이름 한 단어(또는 짧은 명사구)만 출력하세요.",
         "1. 기존 카테고리 목록에 어울리는 항목이 있다면 반드시 기존 카테고리 이름 그대로 반환하세요.",
-        "2. 기존 카테고리에 적절한 것이 없을 때만 새로운 카테고리를 제안하세요.",
-        "3. 출력은 1자 이상 10자 이내의 순수 텍스트(한글 또는 영문)여야 합니다.",
-        "4. 이모지, 마침표, 따옴표, 부가 설명을 절대 포함하지 마세요.",
-        "5. '사용 가이드', '사용가이드', '미분류'는 시스템 예약 카테고리이므로 절대 선택하거나 새로 제안하지 마세요.",
+        "2. 기존 카테고리에 적절한 것이 없다면 새로운 일반 카테고리명(예: 개발, 금융, 정산, 쇼핑, 일정, 아이디어, 독서, 건강, 메모)을 제안하세요.",
+        "3. 짧은 단문이나 숫자·금액·할일 메모라도 절대 분류를 포기하지 말고 가장 가까운 일반 카테고리를 1개 선택하세요. (예: '119000원 돈 받기' -> 금융, '우유 사기' -> 쇼핑)",
+        "4. 출력은 1자 이상 10자 이내의 순수 텍스트(한글 또는 영문)여야 합니다.",
+        "5. 이모지, 마침표, 따옴표, 부가 설명을 절대 포함하지 마세요.",
+        "6. '사용 가이드', '사용가이드', '미분류'는 시스템 예약 카테고리이므로 절대 선택하거나 새로 제안하지 마세요.",
       ].join("\n");
 
       const prompt = `기존 카테고리 목록: [${existingListText}]\n\n메모 내용:\n${content}`;
 
-      const response = await client.models.generateContent({
-        model,
-        contents: prompt,
-        config: {
-          systemInstruction,
-          maxOutputTokens: 32,
-        },
-      });
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        try {
+          const response = await client.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              systemInstruction,
+              temperature: 0.1,
+              maxOutputTokens: 64,
+              abortSignal: AbortSignal.timeout(8000),
+            },
+          });
 
-      const rawText = response.text?.trim();
-      if (!rawText) {
-        return null;
+          const rawText = response.text?.trim();
+          if (!rawText) {
+            if (attempt < 2) {
+              continue;
+            }
+            return null;
+          }
+
+          const sanitized = this.sanitizeCategoryName(rawText);
+          if (
+            !sanitized ||
+            sanitized.normalizedName === "사용가이드" ||
+            sanitized.normalizedName === "미분류"
+          ) {
+            if (attempt < 2) {
+              continue;
+            }
+            return null;
+          }
+
+          return sanitized;
+        } catch (attemptError: any) {
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 250));
+            continue;
+          }
+          throw attemptError;
+        }
       }
 
-      const sanitized = this.sanitizeCategoryName(rawText);
-      if (
-        !sanitized ||
-        sanitized.normalizedName === "사용가이드" ||
-        sanitized.normalizedName === "미분류"
-      ) {
-        return null;
-      }
-
-      return sanitized;
+      return null;
     } catch (error: any) {
       this.logger.warn(
         `Gemini 카테고리 분류 실패 (비동기 폴백 유지): ${error?.message || error}`
