@@ -49,7 +49,8 @@ export function GraphNodeSheet({
       ? "미분류"
       : (memo.categoryName ?? "미분류");
   const categoryColor = resolveGraphCategoryColor(
-    isPendingAi ? "미분류" : memo.categoryName,
+    memo.categoryName,
+    memo.aiStatus,
   );
 
   const handleSave = (nextContent: string) => {
