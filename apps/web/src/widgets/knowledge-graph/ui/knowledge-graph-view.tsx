@@ -33,15 +33,14 @@ export function KnowledgeGraphView({
     ? (memoById.get(focusedNodeId) ?? null)
     : null;
 
-  const focusedRelatedCount = useMemo(() => {
+  const focusedNode = useMemo(() => {
     if (!focusedNodeId) {
-      return 0;
+      return null;
     }
-    return (
-      graphData.nodes.find((node) => node.id === focusedNodeId)?.relatedCount ??
-      0
-    );
+    return graphData.nodes.find((node) => node.id === focusedNodeId) ?? null;
   }, [focusedNodeId, graphData.nodes]);
+
+  const focusedRelatedCount = focusedNode?.relatedCount ?? 0;
 
   if (isLoading) {
     return (
@@ -89,6 +88,7 @@ export function KnowledgeGraphView({
       <GraphNodeSheet
         memo={focusedMemo}
         relatedCount={focusedRelatedCount}
+        nodeColor={focusedNode?.color}
         onClose={clearFocus}
       />
     </section>
