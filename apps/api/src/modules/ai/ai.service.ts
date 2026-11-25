@@ -156,6 +156,7 @@ export class AiService {
               systemInstruction,
               temperature: 0.1,
               maxOutputTokens: 64,
+              abortSignal: AbortSignal.timeout(8000),
             },
           });
 

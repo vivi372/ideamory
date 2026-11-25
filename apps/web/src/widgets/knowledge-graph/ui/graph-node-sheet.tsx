@@ -17,16 +17,18 @@ import { useViewStore } from "@/shared/model/view-store";
 export interface GraphNodeSheetProps {
   memo: MemoResponseDto | null;
   relatedCount: number;
+  nodeColor?: string;
   onClose: () => void;
 }
 
 /**
  * 지식망에서 노드를 탭했을 때 하단 퀵 캡처 바 위로 150ms 슬라이딩되는 1-Depth 미니 카드 시트입니다.
- * 인라인 수정 및 0ms 즉시 삭제(Soft Delete)를 지원합니다.
+ * 인라인 수정, 카테고리 변경 및 0ms 즉시 삭제(Soft Delete)를 지원합니다.
  */
 export function GraphNodeSheet({
   memo,
   relatedCount,
+  nodeColor,
   onClose,
 }: GraphNodeSheetProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -48,10 +50,8 @@ export function GraphNodeSheet({
     : memo.aiStatus === "FAILED"
       ? "미분류"
       : (memo.categoryName ?? "미분류");
-  const categoryColor = resolveGraphCategoryColor(
-    memo.categoryName,
-    memo.aiStatus,
-  );
+  const categoryColor =
+    nodeColor ?? resolveGraphCategoryColor(memo.categoryName, memo.aiStatus);
 
   const handleSave = (nextContent: string) => {
     setIsEditing(false);

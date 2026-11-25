@@ -134,5 +134,58 @@ describe("AiService (문두 @지시어 파싱, Gemini 가변 분류 & 768차원 
     assert.equal(capturedPrompt.includes("개발"), true);
     assert.equal(result, null);
   });
+
+  it("시나리오 8: classifyMemoCategory는 빈 응답·예약어·일시 예외 시 abortSignal 타임아웃 가드와 함께 최대 2회 재시도해야 한다", async () => {
+    // 1) 빈 응답 -> 2회차 정상 분류 + abortSignal 주입 확인
+    let emptyAttempts = 0;
+    let hasAbortSignal = false;
+    (aiService as any).getClient = () => ({
+      models: {
+        generateContent: async (params: any) => {
+          emptyAttempts += 1;
+          hasAbortSignal = params?.config?.abortSignal instanceof AbortSignal;
+          return emptyAttempts === 1 ? { text: "   " } : { text: "금융" };
+        },
+      },
+    });
+    const emptyRetryResult = await aiService.classifyMemoCategory(
+      "119000원 입금",
+      [],
+    );
+    assert.equal(emptyAttempts, 2);
+    assert.equal(hasAbortSignal, true);
+    assert.equal(emptyRetryResult?.name, "금융");
+
+    // 2) 예약어("미분류") 반복 반환 시 2회 시도 후 null 폴백
+    let reservedAttempts = 0;
+    (aiService as any).getClient = () => ({
+      models: {
+        generateContent: async () => {
+          reservedAttempts += 1;
+          return { text: "미분류" };
+        },
+      },
+    });
+    const reservedResult = await aiService.classifyMemoCategory("단문", []);
+    assert.equal(reservedAttempts, 2);
+    assert.equal(reservedResult, null);
+
+    // 3) 일시 예외 발생 시 250ms 백오프 후 2회차 재시도 성공
+    let errorAttempts = 0;
+    (aiService as any).getClient = () => ({
+      models: {
+        generateContent: async () => {
+          errorAttempts += 1;
+          if (errorAttempts === 1) {
+            throw new Error("Transient timeout");
+          }
+          return { text: "쇼핑" };
+        },
+      },
+    });
+    const errorRetryResult = await aiService.classifyMemoCategory("우유 사기", []);
+    assert.equal(errorAttempts, 2);
+    assert.equal(errorRetryResult?.name, "쇼핑");
+  });
 });
 
