@@ -15,9 +15,9 @@
 
 | 구분 | 전체 TC 수 | Pass | Fail | Blocked / Skip | 판정 |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **화면(UI) & 기능 점검** | 11 | 0 | 0 | 0 | ⏳ 대기 |
-| **Supabase MCP DB 정합성** | 9 | 0 | 0 | 0 | ⏳ 대기 |
-| **README 시연 영상 확보** | 4 | 0 | 0 | 0 | ⏳ 대기 |
+| **화면(UI) & 기능 점검** | 13 | 0 | 0 | 0 | ⏳ 대기 |
+| **Supabase MCP DB 정합성** | 11 | 0 | 0 | 0 | ⏳ 대기 |
+| **README 시연 영상 확보** | 5 | 0 | 0 | 0 | ⏳ 대기 |
 
 - **회차 최종 결론**: `[ ] PASS (이슈 0건, 배포 진행 가능)` / `[ ] FAIL (수정 후 N+1차 재검증 필요)`
 
@@ -38,6 +38,8 @@
 | `TC-09` | 소셜 연동(이관), Zero-Profile, 인앱 약관 & 탈퇴 | Pass / Fail | Pass / Fail | `screenshots/tc09-*.png` | - | |
 | `TC-10` | 모바일 3종 뷰포트 & `/guide`, `/download` 페이지 점검 | Pass / Fail | - | `screenshots/tc10-*.png` | - | |
 | `TC-11` | 웹뷰 브릿지(Share Intent·뒤로가기) & 오프라인 뷰 | Pass / Fail | - | `screenshots/tc11-*.png` | - | |
+| `TC-12` | 제텔카스텐 지식망 탐색, OGP 미리보기 & 인라인 편집 | Pass / Fail | Pass / Fail | `screenshots/tc12-*.png` | `videos/05-knowledge-graph.webm` | |
+| `TC-13` | MCP 연동 시트 (API 키 발급·폐기 & 설정 복사) | Pass / Fail | Pass / Fail | `screenshots/tc13-*.png` | - | |
 
 ---
 
@@ -68,3 +70,4 @@
 - [ ] `videos/02-ai-and-ogp.webm`: URL 포함 메모 입력 후 AI 자동 분류 및 OGP 카드 자동 전환
 - [ ] `videos/03-category-merge.webm`: 유사 카테고리 병합 제안 배너 노출 및 원클릭 병합
 - [ ] `videos/04-search-and-related.webm`: 자연어/키워드 하이브리드 검색 + 연관 메모 칩 필터 전환
+- [ ] `videos/05-knowledge-graph.webm`: 제텔카스텐 지식망 연결 범위 슬라이더·노드 탐색 및 미니 시트 인라인 편집

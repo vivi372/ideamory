@@ -85,16 +85,20 @@ describe("AiService (문두 @지시어 파싱, Gemini 가변 분류 & 768차원 
     assert.equal(vector.length, 768);
   });
 
-  it("시나리오 6: batchEmbedContents는 메모 본문과 카테고리명을 단일 호출로 동시 벡터화하고 실패 시 null 배열로 폴백해야 한다", async () => {
-    let calledContents: any = null;
+  it("시나리오 6: batchEmbedContents는 메모 본문과 카테고리명을 각각 병렬 embedContent로 독립 벡터화하고 실패 항목만 null로 폴백해야 한다", async () => {
+    const calledContents: string[] = [];
     (aiService as any).getClient = () => ({
       models: {
-        embedContent: async ({ contents }: { contents: string[] }) => {
-          calledContents = contents;
+        embedContent: async ({ contents }: { contents: string }) => {
+          calledContents.push(contents);
+          if (contents === "실패항목") {
+            throw new Error("Partial embedding failure");
+          }
           return {
             embeddings: [
-              { values: new Array(768).fill(0.11) },
-              { values: new Array(768).fill(0.22) },
+              {
+                values: new Array(768).fill(contents === "개발" ? 0.22 : 0.11),
+              },
             ],
           };
         },
@@ -106,6 +110,11 @@ describe("AiService (문두 @지시어 파싱, Gemini 가변 분류 & 768차원 
     assert.equal(vectors.length, 2);
     assert.equal(vectors[0]?.length, 768);
     assert.equal(vectors[1]?.length, 768);
+    assert.notEqual(vectors[0]?.[0], vectors[1]?.[0]);
+
+    const partial = await aiService.batchEmbedContents(["메모 본문", "실패항목"]);
+    assert.equal(partial[0]?.length, 768);
+    assert.equal(partial[1], null);
 
     (aiService as any).getClient = () => null;
     const fallback = await aiService.batchEmbedContents(["메모 본문", "개발"]);

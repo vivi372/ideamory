@@ -200,8 +200,9 @@ export class AiService {
   }
 
   /**
-   * Gemini `gemini-embedding-2` 모델을 사용하여 복수 텍스트의 768차원 시맨틱 임베딩 벡터를 단일 배치 요청으로 생성합니다.
-   * 메모 본문과 신규 카테고리명을 동시에 벡터화해 불필요한 네트워크 왕복 지연을 방지합니다.
+   * Gemini `gemini-embedding-2` 모델을 사용하여 복수 텍스트의 768차원 시맨틱 임베딩 벡터를 생성합니다.
+   * `@google/genai` `embedContent`는 문자열 배열을 단일 멀티-텍스트 컨텐츠로 합산해 1개의 벡터만 반환하므로,
+   * 각 텍스트마다 개별 `embedContent`를 병렬(`Promise.all`) 호출해 항목별 독립 768차원 벡터를 보장합니다.
    *
    * @param contents 임베딩을 생성할 문자열 배열 (예: [memoContent, categoryName])
    * @returns 입력 순서에 대응하는 768차원 실수 벡터 배열 (실패 또는 API 키 미설정 항목은 null)
@@ -222,34 +223,36 @@ export class AiService {
       return contents.map(() => null);
     }
 
-    try {
-      const model =
-        process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2";
+    const model =
+      process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2";
 
-      const response = await client.models.embedContent({
-        model,
-        contents,
-        config: {
-          outputDimensionality: 768,
-        },
-      });
+    return Promise.all(
+      contents.map(async (text, idx) => {
+        try {
+          const response = await client.models.embedContent({
+            model,
+            contents: text,
+            config: {
+              outputDimensionality: 768,
+            },
+          });
 
-      return contents.map((_, idx) => {
-        const values = response.embeddings?.[idx]?.values;
-        if (!values || values.length !== 768) {
+          const values = response.embeddings?.[0]?.values;
+          if (!values || values.length !== 768) {
+            this.logger.warn(
+              `비정상적인 임베딩 차원 수신 (index: ${idx}, 기대: 768, 실제: ${values?.length ?? 0})`
+            );
+            return null;
+          }
+          return values;
+        } catch (error: any) {
           this.logger.warn(
-            `비정상적인 임베딩 차원 수신 (index: ${idx}, 기대: 768, 실제: ${values?.length ?? 0})`
+            `Gemini 임베딩 생성 실패 (index: ${idx}): ${error?.message || error}`
           );
           return null;
         }
-        return values;
-      });
-    } catch (error: any) {
-      this.logger.warn(
-        `Gemini 배치 임베딩 생성 실패 (비동기 폴백 유지): ${error?.message || error}`
-      );
-      return contents.map(() => null);
-    }
+      })
+    );
   }
 
   /**
