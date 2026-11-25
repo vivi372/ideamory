@@ -228,12 +228,17 @@ export class AiService {
 
     return Promise.all(
       contents.map(async (text, idx) => {
+        if (!text || !text.trim()) {
+          return null;
+        }
+
         try {
           const response = await client.models.embedContent({
             model,
             contents: text,
             config: {
               outputDimensionality: 768,
+              abortSignal: AbortSignal.timeout(8000),
             },
           });
 
