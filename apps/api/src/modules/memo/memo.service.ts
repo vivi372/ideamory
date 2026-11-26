@@ -2,6 +2,8 @@ import { Injectable, Logger, HttpStatus, Optional } from "@nestjs/common";
 import { v7 as uuidv7 } from "uuid";
 import {
   ERROR_CODES,
+  type AiSearchRequestDto,
+  type AiSearchResponseDto,
   type CreateMemoDto,
   type UpdateMemoDto,
   type GetMemosQueryDto,
@@ -29,6 +31,7 @@ import {
   toSearchResultResponseList,
 } from "./memo.helper";
 import { MemoRepository } from "./memo.repository";
+import { RagService } from "./services/rag.service";
 
 /** 휴지통 영구 보관 기한 (30일, 밀리초 단위) */
 const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -48,7 +51,8 @@ export class MemoService {
     private readonly memoRepository: MemoRepository,
     private readonly aiService: AiService,
     private readonly ogpService: OgpService,
-    @Optional() private readonly categoryService?: CategoryService
+    @Optional() private readonly categoryService?: CategoryService,
+    @Optional() private readonly ragService?: RagService
   ) {}
 
   /**
@@ -577,6 +581,29 @@ export class MemoService {
     });
 
     return toRelatedMemoResponseList(rows);
+  }
+
+  /**
+   * 6-1. 내 메모 기반 AI 브레인 RAG 자연어 검색을 실행해 구조화 마크다운 브리핑과 근거 메모를 반환합니다.
+   *
+   * @param owner 요청 주체(userId 또는 guestToken)
+   * @param dto 자연어 검색 질문 DTO
+   * @returns 마크다운 브리핑(`answer`) 및 상위 3~5건 근거 메모(`sources`)
+   */
+  @LogTrace()
+  async aiSearchMemos(
+    owner: OwnerIdentity,
+    dto: AiSearchRequestDto
+  ): Promise<AiSearchResponseDto> {
+    assertOwnerIdentity(owner);
+    if (!this.ragService) {
+      throw new BusinessException(
+        "AI 검색 서비스가 초기화되지 않았습니다.",
+        ERROR_CODES.SYSTEM_FATAL_INTERNAL,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+    return this.ragService.searchAndBrief(owner, dto);
   }
 
   /**
