@@ -269,8 +269,8 @@ export function CaptureInput({
             enterKeyHint={isAiMode ? "search" : isMobileDevice ? "enter" : "send"}
             placeholder={
               isAiMode
-                ? "내 메모에 대해 무엇이든 물어보세요"
-                : "지금 떠오른 생각을 기록하세요"
+                ? "내 메모에 대해 물어보세요"
+                : "지금 생각을 기록하세요"
             }
             aria-label={isAiMode ? "AI 질문 입력" : "빠른 메모 입력"}
             onFocus={() => {

@@ -534,22 +534,6 @@ html, body { background: var(--bg); color: var(--text); }
 }
 
 @media (max-width: 360px) {
-  .capture-box {
-    gap: 6px;
-    padding: 6px 8px;
-  }
-  .capture-input-wrap textarea {
-    font-size: 13px;
-  }
-  .ai-mode-toggle {
-    height: 30px;
-    padding: 0 7px;
-    font-size: 11px;
-  }
-  .save-button {
-    width: 34px;
-    height: 34px;
-  }
   .ai-focus-header .topbar-left,
   .ai-focus-header .topbar-right {
     width: 38px;
