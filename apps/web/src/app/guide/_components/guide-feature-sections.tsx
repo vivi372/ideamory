@@ -14,6 +14,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -101,6 +102,10 @@ export function GuideFeatureSections() {
   const [selectedGraphNode, setSelectedGraphNode] = useState<
     "rag" | "vector" | "cache"
   >("rag");
+
+  // 07단계: 썸존 [AI] 브리핑 모드 데모 상태
+  const [aiDemoActive, setAiDemoActive] = useState(true);
+  const [aiDemoAnswered, setAiDemoAnswered] = useState(false);
 
   const handleCommitQuickEdit = () => {
     if (quickCommittedRef.current) {
@@ -606,6 +611,82 @@ export function GuideFeatureSections() {
 
           <span className="visual-footnote">
             노드를 탭하면 하단 시트에서 바로 읽고 수정할 수 있어요
+          </span>
+        </div>
+      </GuideSectionFrame>
+
+      {/* 07. 썸존 [AI] 브리핑 검색 */}
+      <GuideSectionFrame feature={GUIDE_FEATURES[6]}>
+        <div className="feature-visual">
+          <div className="rounded-2xl border border-white/10 bg-[#171513] p-3.5">
+            <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setAiDemoActive(false);
+                  setAiDemoAnswered(false);
+                }}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[#CFC7BC] transition hover:bg-white/10"
+                aria-label="AI 검색 데모 초기화"
+              >
+                <Sparkles size={14} className="text-[#E5A95C]" />
+              </button>
+              <span className="text-xs font-bold text-[#F5EFE6]">
+                {aiDemoActive ? "AI 검색 포커스 모드" : "일반 타임라인 모드"}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setAiDemoActive((prev) => !prev);
+                  setAiDemoAnswered(false);
+                }}
+                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold transition ${
+                  aiDemoActive
+                    ? "border-[#E9A14E] bg-[#E9A14E]/20 text-[#F0BE78]"
+                    : "border-white/15 bg-white/5 text-[#A59C90]"
+                }`}
+              >
+                AI {aiDemoActive ? "ON" : "OFF"}
+              </button>
+            </div>
+
+            {!aiDemoActive ? (
+              <p className="py-5 text-center text-xs text-[#A59C90]">
+                우측 상단 <b>AI OFF</b> 버튼을 눌러 포커스 모드를 체험해 보세요.
+              </p>
+            ) : !aiDemoAnswered ? (
+              <div className="space-y-2.5 py-2 text-center">
+                <p className="text-xs font-semibold text-[#F3ECE2]">
+                  내 메모에 대해 무엇이든 물어보세요
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAiDemoAnswered(true)}
+                  className="inline-flex w-full items-center gap-2 rounded-xl border border-[#E9A14E]/40 bg-[#E9A14E]/10 px-3 py-2 text-left text-xs text-[#F0BE78] transition hover:bg-[#E9A14E]/20"
+                >
+                  <Sparkles size={13} className="shrink-0" />
+                  <span>이번 주에 저장한 RAG 관련 아이디어 요약해줘</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2 rounded-xl border border-[#E9A14E]/40 bg-[#221D17] p-3 text-xs text-[#E8E0D5]">
+                <p className="font-bold text-[#F0BE78]">
+                  서브쿼리 분해와 RRF 결합으로 단일 브리핑을 생성하도록 설계했습니다.
+                </p>
+                <ul className="list-disc space-y-1 pl-4 text-[11px] text-[#CFC7BC]">
+                  <li>
+                    <strong className="text-[#F5EFE6]">하이브리드 검색</strong>: FTS와 벡터 유사도를 함께 결합
+                  </li>
+                  <li>
+                    <strong className="text-[#F5EFE6]">단일 브리핑 교체</strong>: 새 질문 시 이전 답변은 즉시 덮어쓰기
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <span className="visual-footnote">
+            상단 뒤로가기 화살표나 [AI] 버튼을 다시 누르면 0ms로 타임라인에 복귀해요
           </span>
         </div>
       </GuideSectionFrame>

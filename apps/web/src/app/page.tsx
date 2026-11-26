@@ -15,6 +15,7 @@ import { McpKeySheet, useMcpKeySheetStore } from "@/features/mcp-keys";
 import { CaptureInput } from "@/features/memo-capture";
 import {
   AiBriefingCard,
+  AiSearchIdle,
   AiSearchSkeleton,
   FocusHeader,
   useAiSearch,
@@ -190,7 +191,7 @@ export default function HomePage() {
       <section
         className={`content-wrap${displayMode === "GRAPH" && !isAiMode ? " is-graph-mode" : ""}`}
       >
-        {isAiMode && (isAiSearching || briefingResult) ? (
+        {isAiMode && viewMode !== "TRASH" ? (
           isAiSearching ? (
             <AiSearchSkeleton query={activeQuery} />
           ) : briefingResult ? (
@@ -201,7 +202,16 @@ export default function HomePage() {
               />
               <AiSourceCardList sources={briefingResult.sources} />
             </>
-          ) : null
+          ) : (
+            <AiSearchIdle
+              onSelectExample={(exampleQuery) => {
+                if (displayMode === "GRAPH") {
+                  setDisplayMode("CACHE");
+                }
+                askAi(exampleQuery);
+              }}
+            />
+          )
         ) : displayMode === "GRAPH" ? (
           <KnowledgeGraphView isBootstrapped={isBootstrapped} />
         ) : (

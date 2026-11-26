@@ -15,6 +15,10 @@ export {
   type AiSearchSkeletonProps,
 } from "./ui/ai-search-skeleton";
 export {
+  AiSearchIdle,
+  type AiSearchIdleProps,
+} from "./ui/ai-search-idle";
+export {
   AiBriefingCard,
   type AiBriefingCardProps,
 } from "./ui/ai-briefing-card";

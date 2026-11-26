@@ -52,4 +52,11 @@ export const GUIDE_FEATURES: readonly GuideFeatureMeta[] = [
     title: "흩어진 메모가 지식으로 이어지는 지도",
     text: "상단 ‘지식망’ 탭을 누르면 의미가 비슷한 메모들이 자동으로 연결됩니다. 연결 범위 슬라이더로 연결 폭을 조절하고, 노드를 눌러 바로 읽고 수정하세요.",
   },
+  {
+    id: "ai-briefing",
+    number: "07",
+    eyebrow: "썸존 AI 브리핑",
+    title: "메모에게 물어보고 1장 브리핑 받기",
+    text: "하단 입력 바 왼쪽의 [AI] 버튼을 켜고 자연어로 질문하면, 내 메모를 근거로 핵심 요약 브리핑과 출처 카드를 한 번에 보여드려요.",
+  },
 ] as const;

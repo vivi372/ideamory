@@ -215,15 +215,32 @@ html, body { background: var(--bg); color: var(--text); }
 .mcp-issue-btn:disabled, .mcp-revoke-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* 5. Thumb-Zone AI Mode & Focus Briefing UI */
-@keyframes aiMorphFadeIn {
+@keyframes aiHeaderEnter {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-8px) scale(0.985);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
+}
+
+@keyframes aiStageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes aiTogglePop {
+  0% { transform: scale(0.92); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
 }
 
 @keyframes aiSkeletonPulse {
@@ -233,33 +250,29 @@ html, body { background: var(--bg); color: var(--text); }
 
 .ai-focus-header {
   justify-content: space-between;
-  animation: aiMorphFadeIn 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: aiHeaderEnter 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ai-focus-header .topbar-left,
 .ai-focus-header .topbar-right {
-  min-width: 84px;
+  width: 42px;
+  min-width: 42px;
 }
 
 .ai-focus-back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 36px;
-  padding: 0 10px 0 6px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
+  border: 0;
+  background: transparent;
   color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 150ms ease, border-color 150ms ease;
+  transition: transform 150ms ease, background-color 150ms ease, color 150ms ease;
 }
 
 .ai-focus-back-btn:hover {
-  border-color: var(--border-accent);
-  background: rgba(229, 169, 92, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--accent-bright);
+}
+
+.ai-focus-back-btn:active {
+  transform: scale(0.94);
 }
 
 .ai-focus-title {
@@ -275,12 +288,12 @@ html, body { background: var(--bg); color: var(--text); }
 .capture-box {
   max-width: 28rem;
   margin-inline: auto;
-  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease, transform 180ms ease;
 }
 
 .capture-box.is-ai-mode {
   border-color: var(--border-accent);
-  box-shadow: 0 0 0 1px rgba(229, 169, 92, 0.2), 0 12px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 1px rgba(229, 169, 92, 0.24), 0 12px 28px rgba(0, 0, 0, 0.38);
 }
 
 .ai-mode-toggle {
@@ -298,27 +311,104 @@ html, body { background: var(--bg); color: var(--text); }
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: all 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: all 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .ai-mode-toggle.is-active {
   border-color: var(--border-accent);
-  background: rgba(229, 169, 92, 0.2);
+  background: rgba(229, 169, 92, 0.22);
   color: var(--accent-bright);
-  box-shadow: 0 0 12px rgba(229, 169, 92, 0.22);
+  box-shadow: 0 0 14px rgba(229, 169, 92, 0.28);
+  animation: aiTogglePop 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .save-button {
-  transition: transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1), background 150ms ease, opacity 150ms ease;
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), background 160ms ease, box-shadow 160ms ease, opacity 150ms ease;
 }
 
 .save-button.is-ai-mode {
   background: linear-gradient(135deg, var(--accent-bright), var(--accent));
+  box-shadow: 0 4px 14px rgba(229, 169, 92, 0.28);
 }
 
 .save-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.ai-idle-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 12px 24px;
+  animation: aiStageEnter 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ai-idle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border-accent);
+  border-radius: 16px;
+  background: rgba(229, 169, 92, 0.14);
+  color: var(--accent-bright);
+  box-shadow: 0 0 24px rgba(229, 169, 92, 0.18);
+}
+
+.ai-idle-title {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.ai-idle-sub {
+  margin: 0 0 22px;
+  max-width: 300px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ai-idle-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.ai-idle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.ai-idle-chip:hover {
+  border-color: var(--border-accent);
+  background: rgba(229, 169, 92, 0.1);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.ai-idle-chip svg {
+  color: var(--accent);
 }
 
 .ai-briefing-card {
@@ -327,7 +417,7 @@ html, body { background: var(--bg); color: var(--text); }
   border: 1px solid var(--border-accent);
   border-radius: 16px;
   background: linear-gradient(180deg, rgba(229, 169, 92, 0.08), rgba(28, 25, 23, 0.92));
-  animation: aiMorphFadeIn 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: aiStageEnter 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ai-briefing-header {
@@ -414,6 +504,7 @@ html, body { background: var(--bg); color: var(--text); }
   display: flex;
   flex-direction: column;
   gap: 10px;
+  animation: aiStageEnter 240ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .ai-sources-header {
@@ -439,8 +530,9 @@ html, body { background: var(--bg); color: var(--text); }
     padding: 0 8px;
     font-size: 11px;
   }
-  .ai-focus-back-btn {
-    padding: 0 8px 0 5px;
-    font-size: 12px;
+  .ai-focus-header .topbar-left,
+  .ai-focus-header .topbar-right {
+    width: 38px;
+    min-width: 38px;
   }
 }
