@@ -122,6 +122,17 @@ export function rankCandidatesByRrf(
 }
 
 /**
+ * XML 구분자 태그(`<user_query>`, `<memo_context>`) 경계 탈출을 방지하기 위해
+ * 사용자 입력·메모 본문 내 `<`, `>` 문자를 HTML/XML 엔티티로 이스케이프합니다.
+ *
+ * @param text 이스케이프할 원본 텍스트
+ * @returns 태그 경계가 안전하게 격리된 텍스트
+ */
+export function escapeXmlDelimiters(text: string): string {
+  return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
  * 선별된 RRF 후보들을 LLM 브리핑 프롬프트 컨텍스트 문자열로 직렬화합니다.
  * 프롬프트 인젝션 방어를 위해 질문(`<user_query>`)과 메모 데이터(`<memo_context>`)를 XML 태그로 명확히 격리하며,
  * 2개 이상 서브쿼리에 동시 등장한 앵커 메모에는 `[중요도: 매우 높음]` 태그를 부여합니다.
@@ -134,17 +145,20 @@ export function buildRagBriefingPrompt(
   query: string,
   candidates: RankedRagCandidate[]
 ): string {
+  const safeQuery = escapeXmlDelimiters(query);
   const contextLines = candidates.map((candidate, index) => {
     const anchorTag = candidate.appearances >= 2 ? "[중요도: 매우 높음] " : "";
     const clippedContent =
       candidate.dto.content.length > 500
         ? `${candidate.dto.content.slice(0, 500)}...`
         : candidate.dto.content;
-    return `[메모 ${index + 1}] ${anchorTag}(카테고리: ${candidate.dto.categoryName}, 작성일: ${candidate.dto.createdAt.slice(0, 10)})\n${clippedContent}`;
+    const safeCategory = escapeXmlDelimiters(candidate.dto.categoryName);
+    const safeContent = escapeXmlDelimiters(clippedContent);
+    return `[메모 ${index + 1}] ${anchorTag}(카테고리: ${safeCategory}, 작성일: ${candidate.dto.createdAt.slice(0, 10)})\n${safeContent}`;
   });
 
   return [
-    `<user_query>${query}</user_query>`,
+    `<user_query>${safeQuery}</user_query>`,
     "",
     "<memo_context>",
     contextLines.join("\n\n"),
