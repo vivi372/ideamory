@@ -122,8 +122,8 @@ export class RagService {
     const generatedAnswer = await this.aiService.generateTextWithInstruction({
       systemInstruction: RAG_BRIEFING_SYSTEM_INSTRUCTION,
       prompt: briefingPrompt,
-      temperature: 0.25,
-      maxOutputTokens: 512,
+      temperature: 0.35,
+      maxOutputTokens: 800,
       timeoutMs: 25000,
     });
 
