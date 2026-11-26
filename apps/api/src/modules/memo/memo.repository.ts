@@ -463,6 +463,11 @@ export class MemoRepository {
       ? sql`m.user_id = ${params.owner.userId}`
       : sql`m.guest_token = ${params.owner.guestToken!}`;
     const likePattern = `%${escapeLikePattern(params.queryText)}%`;
+    const textMatchExpr = sql`(
+      to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
+      OR m.content ILIKE ${likePattern} ESCAPE '!'
+      OR c.name ILIKE ${likePattern} ESCAPE '!'
+    )`;
     const ftsRankExpr = sql`
       LEAST(
         1.0,
@@ -476,6 +481,7 @@ export class MemoRepository {
           ),
           CASE
             WHEN m.content ILIKE ${likePattern} ESCAPE '!' THEN 0.5
+            WHEN c.name ILIKE ${likePattern} ESCAPE '!' THEN 0.45
             ELSE 0.0
           END
         )
@@ -506,10 +512,7 @@ export class MemoRepository {
           ON ogp.id = m.ogp_id AND ogp.expires_at > NOW()
         WHERE m.deleted_at IS NULL
           AND ${ownerFilter}
-          AND (
-            to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
-            OR m.content ILIKE ${likePattern} ESCAPE '!'
-          )
+          AND ${textMatchExpr}
         ORDER BY "finalScore" DESC, m.created_at DESC
         LIMIT ${params.limit}
       `);
@@ -547,10 +550,7 @@ export class MemoRepository {
           )
         )::float8 AS "finalScore",
         CASE
-          WHEN (
-            to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
-            OR m.content ILIKE ${likePattern} ESCAPE '!'
-          ) THEN 1
+          WHEN ${textMatchExpr} THEN 1
           ELSE 0
         END AS "tierRank",
         ogp.id AS "ogpId",
@@ -568,8 +568,7 @@ export class MemoRepository {
       WHERE m.deleted_at IS NULL
         AND ${ownerFilter}
         AND (
-          to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
-          OR m.content ILIKE ${likePattern} ESCAPE '!'
+          ${textMatchExpr}
           OR (
             m.embedding IS NOT NULL
             AND (1 - (m.embedding <=> ${vectorLiteral}::vector)) >= ${params.threshold}
