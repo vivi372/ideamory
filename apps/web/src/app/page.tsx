@@ -12,7 +12,14 @@ import {
 } from "@/features/auth-drawer";
 import { CategoryPickerSheet } from "@/features/category-picker";
 import { McpKeySheet, useMcpKeySheetStore } from "@/features/mcp-keys";
-import { CaptureInput } from "@/features/memo-capture";
+import { CaptureInput, useAiModeStore } from "@/features/memo-capture";
+import {
+  AiBriefingCard,
+  AiSearchSkeleton,
+  AiSourceCardList,
+  FocusHeader,
+  useAiSearch,
+} from "@/features/memo-search";
 import {
   GraphThresholdPill,
   ViewModeToggle,
@@ -38,6 +45,12 @@ export default function HomePage() {
   const setDisplayMode = useViewModeStore((state) => state.setDisplayMode);
   const enterTrashView = useViewModeStore((state) => state.enterTrashView);
   const exitTrashView = useViewModeStore((state) => state.exitTrashView);
+  const isAiMode = useAiModeStore((state) => state.isAiMode);
+  const isAiSearching = useAiModeStore((state) => state.isSearching);
+  const briefingResult = useAiModeStore((state) => state.briefingResult);
+  const activeQuery = useAiModeStore((state) => state.activeQuery);
+  const resetAiSearch = useAiModeStore((state) => state.resetAiSearch);
+  const { askAi } = useAiSearch();
   const setMcpSheetOpen = useMcpKeySheetStore((state) => state.setOpen);
   const hydrateFromStorage = useViewModeStore(
     (state) => state.hydrateFromStorage,
@@ -114,7 +127,9 @@ export default function HomePage() {
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
-      {displayMode === "GRAPH" ? (
+      {isAiMode && viewMode !== "TRASH" ? (
+        <FocusHeader onBack={resetAiSearch} />
+      ) : displayMode === "GRAPH" ? (
         <div className="graph-floating-top" aria-label="지식망 상단 제어">
           <button
             type="button"
@@ -172,9 +187,21 @@ export default function HomePage() {
       )}
 
       <section
-        className={`content-wrap${displayMode === "GRAPH" ? " is-graph-mode" : ""}`}
+        className={`content-wrap${displayMode === "GRAPH" && !isAiMode ? " is-graph-mode" : ""}`}
       >
-        {displayMode === "GRAPH" ? (
+        {isAiMode && (isAiSearching || briefingResult) ? (
+          isAiSearching ? (
+            <AiSearchSkeleton query={activeQuery} />
+          ) : briefingResult ? (
+            <>
+              <AiBriefingCard
+                query={activeQuery}
+                answer={briefingResult.answer}
+              />
+              <AiSourceCardList sources={briefingResult.sources} />
+            </>
+          ) : null
+        ) : displayMode === "GRAPH" ? (
           <KnowledgeGraphView isBootstrapped={isBootstrapped} />
         ) : (
           <>
@@ -202,7 +229,15 @@ export default function HomePage() {
         )}
       </section>
 
-      <CaptureInput />
+      <CaptureInput
+        isAiSearching={isAiSearching}
+        onAiSubmit={(query) => {
+          if (displayMode === "GRAPH") {
+            setDisplayMode("CACHE");
+          }
+          askAi(query);
+        }}
+      />
 
       <SidebarDrawer
         open={drawerOpen}

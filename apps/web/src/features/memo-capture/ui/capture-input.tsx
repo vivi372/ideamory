@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Clipboard, Plus, X } from "lucide-react";
+import { Check, Clipboard, Plus, Search, Sparkles, X } from "lucide-react";
 import {
   isMobileTouchDevice,
   useAndroidShareTarget,
@@ -12,6 +12,7 @@ import {
   extractValidClipboardUrl,
   splitLeadingCategoryHighlight,
 } from "../lib/capture-parser";
+import { useAiModeStore } from "../model/use-ai-mode-store";
 import { useCreateMemo } from "../model/use-create-memo";
 
 const MAX_MEMO_LENGTH = 5000;
@@ -19,22 +20,35 @@ const BASE_TEXTAREA_HEIGHT = 24;
 /** 1줄 입력 시 Android WebView 폰트 메트릭(25~27px)으로 오탐 확장되는 현상을 막기 위한 2줄 판정 임계치 */
 const MULTILINE_EXPAND_THRESHOLD = 32;
 
+export interface CaptureInputProps {
+  /** AI 질의 모드에서 질문 전송 시 호출되는 콜백 */
+  onAiSubmit?: (query: string) => void;
+  /** AI 브리핑 요청 진행 여부 */
+  isAiSearching?: boolean;
+}
+
 /**
- * 모바일 한 손 조작성(Thumb-Zone)에 최적화된 0.1초 퀵 캡처 하단 입력 바입니다.
+ * 모바일 한 손 조작성(Thumb-Zone)에 최적화된 0.1초 퀵 캡처 & AI 질의 겸용 하단 입력 바입니다.
  *
  * [설계 원칙]
  * 1. **Zero-Friction & 스크롤 없는 확장 입력란**: 기본 1줄(`24px` 알약형)에서 텍스트 줄바꿈/길이에 따라
  *    스크롤 없이 최대 뷰포트 `35vh`까지 부드럽게 확장(`.is-expanded`)됩니다.
- * 2. **보편적 단축키**: `Enter`로 즉시 저장(IME 조합 중 방어), `Shift + Enter`로 줄바꿈을 지원합니다.
- * 3. **클립보드 URL 원클릭 포착**: 포커스/화면 복귀 시 `navigator.clipboard.readText()`를 안전하게 감지해
- *    유효한 `http(s)://` 링크가 있으면 상단에 `링크 붙여넣기` 칩을 띄우고 터치 시 0ms 삽입합니다.
+ * 2. **보편적 단축키**: `Enter`로 즉시 저장/AI 전송(IME 조합 중 방어), `Shift + Enter`로 줄바꿈을 지원합니다.
+ * 3. **썸존 `[AI]` 모드 토글**: 좌측 `[AI]` 버튼 활성화 시 우측 버튼이 150ms 모핑으로 `[🔍]`로 전환되며,
+ *    전송 즉시 입력창을 비우고 포커스를 해제해 가상 키보드를 내려 포커스 브리핑 영역을 확보합니다.
  * 4. **휴지통 뷰 자동 숨김**: `viewMode === "TRASH"` 상태에서는 캡처 바를 숨깁니다.
  *
+ * @param props AI 질의 제출 콜백 및 로딩 상태
  * @returns 하단 썸존 퀵 캡처 JSX (휴지통 뷰에서는 null)
  */
-export function CaptureInput() {
+export function CaptureInput({
+  onAiSubmit,
+  isAiSearching = false,
+}: CaptureInputProps) {
   const viewMode = useViewStore((state) => state.viewMode);
   const { mutate: createMemo } = useCreateMemo();
+  const isAiMode = useAiModeStore((state) => state.isAiMode);
+  const toggleAiMode = useAiModeStore((state) => state.toggleAiMode);
 
   const [value, setValue] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
@@ -142,7 +156,9 @@ export function CaptureInput() {
 
   const handleSubmit = () => {
     if (!trimmed) {
-      setFieldError("메모 내용을 입력해 주세요.");
+      setFieldError(
+        isAiMode ? "질문 내용을 입력해 주세요." : "메모 내용을 입력해 주세요."
+      );
       textareaRef.current?.focus();
       return;
     }
@@ -156,6 +172,13 @@ export function CaptureInput() {
     setValue("");
     setClipboardUrl(null);
     syncTextareaHeight(textareaRef.current, "");
+
+    if (isAiMode) {
+      textareaRef.current?.blur();
+      onAiSubmit?.(trimmed);
+      return;
+    }
+
     createMemo({ id: generateUuidV7(), rawContent: trimmed });
   };
 
@@ -177,7 +200,7 @@ export function CaptureInput() {
 
   return (
     <div className="capture-zone">
-      {clipboardUrl ? (
+      {!isAiMode && clipboardUrl ? (
         <div className="clipboard-chip">
           <button type="button" onClick={handleInsertClipboardUrl}>
             <Clipboard size={15} aria-hidden="true" />
@@ -196,9 +219,25 @@ export function CaptureInput() {
         </div>
       ) : null}
 
-      <div className={`capture-box${isExpanded ? " is-expanded" : ""}`}>
+      <div
+        className={`capture-box${isExpanded ? " is-expanded" : ""}${isAiMode ? " is-ai-mode" : ""}`}
+      >
+        <button
+          type="button"
+          className={`ai-mode-toggle shrink-0${isAiMode ? " is-active" : ""}`}
+          onClick={() => {
+            toggleAiMode();
+            setFieldError(null);
+            textareaRef.current?.focus();
+          }}
+          aria-pressed={isAiMode}
+          aria-label={isAiMode ? "AI 검색 모드 끄기" : "AI 검색 모드 켜기"}
+        >
+          <Sparkles size={14} aria-hidden="true" />
+          <span>AI</span>
+        </button>
         <div className="capture-input-wrap">
-          {hasDirectiveHighlight ? (
+          {!isAiMode && hasDirectiveHighlight ? (
             <div
               ref={backdropRef}
               className="capture-highlight-backdrop"
@@ -214,14 +253,24 @@ export function CaptureInput() {
           ) : null}
           <textarea
             ref={textareaRef}
-            className={hasDirectiveHighlight ? "has-directive-highlight" : undefined}
+            className={
+              !isAiMode && hasDirectiveHighlight
+                ? "has-directive-highlight"
+                : undefined
+            }
             value={value}
             rows={1}
-            enterKeyHint={isMobileDevice ? "enter" : "send"}
-            placeholder="지금 떠오른 생각을 기록하세요..."
-            aria-label="빠른 메모 입력"
+            enterKeyHint={isAiMode ? "search" : isMobileDevice ? "enter" : "send"}
+            placeholder={
+              isAiMode
+                ? "내 메모에 대해 무엇이든 물어보세요..."
+                : "지금 떠오른 생각을 기록하세요..."
+            }
+            aria-label={isAiMode ? "AI 질문 입력" : "빠른 메모 입력"}
             onFocus={() => {
-              void checkClipboardForUrl();
+              if (!isAiMode) {
+                void checkClipboardForUrl();
+              }
             }}
             onScroll={(event) => {
               if (backdropRef.current) {
@@ -241,7 +290,7 @@ export function CaptureInput() {
             }}
             onKeyDown={(event) => {
               if (
-                !isMobileDevice &&
+                !(isMobileDevice && !isAiMode) &&
                 event.key === "Enter" &&
                 !event.shiftKey &&
                 !event.nativeEvent.isComposing
@@ -254,16 +303,26 @@ export function CaptureInput() {
         </div>
         <button
           type="button"
-          className="save-button shrink-0"
+          className={`save-button shrink-0${isAiMode ? " is-ai-mode" : ""}`}
           onClick={handleSubmit}
-          aria-label="메모 저장"
+          disabled={isAiMode && isAiSearching}
+          aria-label={isAiMode ? "AI 질문 전송" : "메모 저장"}
         >
-          {trimmed ? (
-            <Check size={17} aria-hidden="true" />
+          {isAiMode ? (
+            <>
+              <Search size={17} aria-hidden="true" />
+              <span>검색</span>
+            </>
           ) : (
-            <Plus size={18} aria-hidden="true" />
+            <>
+              {trimmed ? (
+                <Check size={17} aria-hidden="true" />
+              ) : (
+                <Plus size={18} aria-hidden="true" />
+              )}
+              <span>저장</span>
+            </>
           )}
-          <span>저장</span>
         </button>
       </div>
 

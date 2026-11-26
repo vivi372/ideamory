@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { useAuthStore } from "@/features/auth-drawer";
+import { useAiModeStore } from "@/features/memo-capture";
 import { useMcpKeySheetStore } from "@/features/mcp-keys";
 import { useViewModeStore } from "@/features/view-mode";
 import { useFeedbackStore } from "@/shared/lib/feedback/use-feedback";
@@ -41,6 +42,7 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
       const viewState = useViewStore.getState();
       const viewModeState = useViewModeStore.getState();
       const feedbackState = useFeedbackStore.getState();
+      const aiModeState = useAiModeStore.getState();
 
       const nowMs = Date.now();
       const action = resolveNextBackAction(
@@ -51,6 +53,7 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
           socialSheetOpen: authState.socialSheetOpen,
           legalModalOpen: Boolean(authState.legalModalType),
           feedbackModalOpen: Boolean(feedbackState.modal),
+          aiModeActive: aiModeState.isAiMode,
           searchActive: viewState.searchQuery.trim().length > 0,
           relatedFilterActive: Boolean(viewState.relatedFilterMemoId),
           graphNodeFocused: Boolean(viewModeState.focusedNodeId),
@@ -78,6 +81,9 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
           return true;
         case "CLOSE_DRAWER":
           authState.setDrawerOpen(false);
+          return true;
+        case "EXIT_AI_MODE":
+          aiModeState.resetAiSearch();
           return true;
         case "CLEAR_SEARCH":
           viewState.clearSearch();

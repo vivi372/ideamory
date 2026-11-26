@@ -14,6 +14,7 @@ export interface BackStackSnapshot {
   socialSheetOpen: boolean;
   legalModalOpen: boolean;
   feedbackModalOpen: boolean;
+  aiModeActive?: boolean;
   searchActive: boolean;
   relatedFilterActive: boolean;
   graphNodeFocused?: boolean;
@@ -27,6 +28,7 @@ export type BackButtonAction =
   | "CLOSE_SOCIAL_SHEET"
   | "CLOSE_CATEGORY_PICKER"
   | "CLOSE_DRAWER"
+  | "EXIT_AI_MODE"
   | "CLEAR_SEARCH"
   | "CLEAR_RELATED_FILTER"
   | "CLEAR_GRAPH_FOCUS"
@@ -74,7 +76,10 @@ export function resolveNextBackAction(
     return "CLOSE_DRAWER";
   }
 
-  // 오버레이가 모두 닫혀 있으면 활성 검색/연관 필터/서브 뷰를 해제하고 메인 최신순 타임라인으로 복귀
+  // 오버레이가 모두 닫혀 있으면 AI 브리핑 포커스 모드를 최우선으로 해제하고 메인 타임라인으로 복귀
+  if (snapshot.aiModeActive) {
+    return "EXIT_AI_MODE";
+  }
   if (snapshot.searchActive) {
     return "CLEAR_SEARCH";
   }

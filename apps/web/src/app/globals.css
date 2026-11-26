@@ -213,3 +213,234 @@ html, body { background: var(--bg); color: var(--text); }
 .mcp-issue-btn { flex: 1; height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-bright)); color: var(--accent-ink); font-size: 13px; font-weight: 700; cursor: pointer; }
 .mcp-revoke-btn { height: 44px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(224, 122, 122, 0.35); border-radius: 12px; background: rgba(153, 48, 48, 0.16); color: #F5A3A3; font-size: 12px; font-weight: 600; cursor: pointer; }
 .mcp-issue-btn:disabled, .mcp-revoke-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 5. Thumb-Zone AI Mode & Focus Briefing UI */
+@keyframes aiMorphFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes aiSkeletonPulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.9; }
+}
+
+.ai-focus-header {
+  justify-content: space-between;
+  animation: aiMorphFadeIn 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ai-focus-header .topbar-left,
+.ai-focus-header .topbar-right {
+  min-width: 84px;
+}
+
+.ai-focus-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 10px 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.ai-focus-back-btn:hover {
+  border-color: var(--border-accent);
+  background: rgba(229, 169, 92, 0.12);
+}
+
+.ai-focus-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.capture-box {
+  max-width: 28rem;
+  margin-inline: auto;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.capture-box.is-ai-mode {
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 1px rgba(229, 169, 92, 0.2), 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.ai-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ai-mode-toggle.is-active {
+  border-color: var(--border-accent);
+  background: rgba(229, 169, 92, 0.2);
+  color: var(--accent-bright);
+  box-shadow: 0 0 12px rgba(229, 169, 92, 0.22);
+}
+
+.save-button {
+  transition: transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1), background 150ms ease, opacity 150ms ease;
+}
+
+.save-button.is-ai-mode {
+  background: linear-gradient(135deg, var(--accent-bright), var(--accent));
+}
+
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ai-briefing-card {
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--border-accent);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(229, 169, 92, 0.08), rgba(28, 25, 23, 0.92));
+  animation: aiMorphFadeIn 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ai-briefing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ai-briefing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(229, 169, 92, 0.16);
+  color: var(--accent-bright);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ai-briefing-query {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.ai-briefing-markdown {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ai-briefing-markdown p {
+  margin: 0 0 8px;
+}
+
+.ai-briefing-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.ai-briefing-markdown strong {
+  color: var(--accent-bright);
+  font-weight: 700;
+}
+
+.ai-briefing-markdown ul,
+.ai-briefing-markdown ol {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.ai-briefing-markdown li {
+  margin-bottom: 5px;
+}
+
+.ai-briefing-markdown a {
+  color: var(--accent-bright);
+  text-decoration: underline;
+}
+
+.ai-skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.ai-skeleton-line {
+  height: 13px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.09);
+  animation: aiSkeletonPulse 1.2s ease-in-out infinite;
+}
+
+.ai-skeleton-line-lg { width: 92%; height: 15px; }
+.ai-skeleton-line-md { width: 78%; }
+.ai-skeleton-line-sm { width: 62%; }
+
+.ai-sources-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-sources-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.ai-sources-title {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ai-sources-count {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+@media (max-width: 360px) {
+  .ai-mode-toggle {
+    padding: 0 8px;
+    font-size: 11px;
+  }
+  .ai-focus-back-btn {
+    padding: 0 8px 0 5px;
+    font-size: 12px;
+  }
+}
