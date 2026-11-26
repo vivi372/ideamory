@@ -272,5 +272,52 @@ export class AiService {
     const [embedding] = await this.batchEmbedContents([content]);
     return embedding ?? null;
   }
+
+  /**
+   * 시스템 지시문과 사용자 프롬프트를 기반으로 Gemini Flash 텍스트 응답을 생성합니다.
+   * RAG 서브쿼리 분해 및 마크다운 브리핑 생성 등 범용 텍스트 추론에 재사용됩니다.
+   *
+   * @param params 시스템 지시문, 입력 프롬프트, 온도, 최대 출력 토큰, 타임아웃(ms)
+   * @returns 생성된 텍스트(trim) 또는 API 키 미설정/실패 시 null
+   */
+  @LogTrace()
+  async generateTextWithInstruction(params: {
+    systemInstruction: string;
+    prompt: string;
+    temperature?: number;
+    maxOutputTokens?: number;
+    timeoutMs?: number;
+  }): Promise<string | null> {
+    const client = this.getClient();
+    if (!client) {
+      this.logger.debug(
+        "GEMINI_API_KEY가 설정되지 않아 Gemini 텍스트 추론을 건너뜁니다."
+      );
+      return null;
+    }
+
+    try {
+      const model =
+        process.env.GEMINI_MODEL || "gemini-3.1-flash-lite-preview";
+      const response = await client.models.generateContent({
+        model,
+        contents: params.prompt,
+        config: {
+          systemInstruction: params.systemInstruction,
+          temperature: params.temperature ?? 0.2,
+          maxOutputTokens: params.maxOutputTokens ?? 512,
+          abortSignal: AbortSignal.timeout(params.timeoutMs ?? 10000),
+        },
+      });
+
+      const text = response.text?.trim();
+      return text || null;
+    } catch (error: any) {
+      this.logger.warn(
+        `Gemini 텍스트 추론 실패 (폴백 유지): ${error?.message || error}`
+      );
+      return null;
+    }
+  }
 }
 
