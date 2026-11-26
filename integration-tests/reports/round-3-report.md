@@ -18,7 +18,7 @@
 | **핵심 기능 회귀 (`390x844`)** | `TC-01`, `TC-02`, `TC-03`, `TC-05`, `TC-10`, `TC-12` | 6 | 0 | 0 | ✅ **PASS** |
 | **RAG AI 브리핑 (`6-1`/`6-2`)** | `TC-14`, `TC-15` | 2 | 0 | 0 | ✅ **PASS** |
 | **Supabase MCP DB 정합성** | `memos`, `categories`, `ogp_caches`, 768차원 `embedding` | 2 | 0 | 0 | ✅ **PASS** |
-| **주요 기능 시연 영상 확보** | `integration-tests/evidence/round-3/videos/*.mp4` | 2개 | 0 | 0 | ✅ **완료** |
+| **주요 기능 시연 영상 확보** | `integration-tests/evidence/round-3/videos/*` (`01`~`05` `.webp`, `06` `.mp4`) | 6개 | 0 | 0 | ✅ **완료** |
 
 - **회차 최종 결론**: `[x] PASS (Critical / Major 이슈 0건 — 운영 환경 전체 핵심 플로우 정상)`
 
@@ -28,13 +28,14 @@
 
 | TC ID | 시나리오명 | 화면(UI) 결과 | Supabase DB 결과 | 증적 | 비고 |
 | :--- | :--- | :---: | :---: | :--- | :--- |
-| `TC-01` | 게스트 자동 세션 발급 & 온보딩 시드 메모 | Pass | Pass | `videos/01-full-round3-flow.mp4` | `gst_e66a51cbad976af3dc986384566df15c29034abb52675e78` 발급 및 `사용 가이드` 1건 확인 |
-| `TC-02` | 0.1초 퀵 캡처 & 문두 `@카테고리` 즉시 반영 | Pass | Pass | `videos/01-full-round3-flow.mp4` | `@일정`, `@스케줄`, `@개발`(2건) 즉시 반영 확인 |
-| `TC-03` | AI 백그라운드 분류, 768차원 임베딩 & OGP 링크 카드 | Pass | Pass | `videos/01-full-round3-flow.mp4` | `https://nextjs.org/ App Router 공식 문서 참고` ➔ `개발` 자동 분류 및 OGP 카드 + `관련 메모 1건` 확인 |
-| `TC-05` | **AI 유사 카테고리 병합 제안 배너 & 원자적 병합 (UI/UX 개선 검증)** | **Pass** | **Pass** | `videos/01-full-round3-flow.mp4` | 사이드바 `일정 병합 1` / `스케줄 병합 1` 배지, `유사도 90%` 병합 배너 노출 및 `[합치기]` 클릭 시 `일정 2`로 통합·`스케줄` 삭제 확인 |
-| `TC-14` | **썸존 `[AI]` 토글, 포커스 헤더, RAG 단일 브리핑 & `[■ 중단]` 제어 (`★`)** | **Pass** | **Pass** | `videos/02-ai-rag-briefing.mp4` | 화살표 전용 `FocusHeader`, `AiSearchIdle` 안내·예시 칩, `AI 검색 중단` 버튼 전환, `개발 메모 정리해줘` 브리핑+근거 5건, 연속 질문 Single-Briefing Replace 확인 |
-| `TC-15` | **AI 모드 `0ms` 이탈 복귀 & 드로어 전환 시 상태 잔류 차단** | **Pass** | - | `videos/02-ai-rag-briefing.mp4` | `[←]` 즉시 타임라인 복귀 및 `휴지통` → `전체 메모` 복귀 시 `isAiMode` 재노출 없음 확인 |
-| `TC-12` | 제텔카스텐 지식망 탐색 (`390x844`) | Pass | Pass | `videos/01-full-round3-flow.mp4` | `지식망` 전환 및 연결 범위 슬라이더(`0.8`) 정상 렌더링 |
+| `TC-01` | 게스트 자동 세션 발급 & 온보딩 시드 메모 | Pass | Pass | `videos/01-quick-capture.webp` | `gst_e66a51cbad976af3dc986384566df15c29034abb52675e78` 발급 및 `사용 가이드` 1건 확인 |
+| `TC-02` | 0.1초 퀵 캡처 & 문두 `@카테고리` 즉시 반영 (`★`) | Pass | Pass | `videos/01-quick-capture.webp` | `@일정`, `@스케줄` 즉시 반영 확인 |
+| `TC-03` | AI 백그라운드 분류, 768차원 임베딩 & OGP 링크 카드 (`★`) | Pass | Pass | `videos/02-ai-and-ogp.webp` | `https://nextjs.org/ App Router 공식 문서 참고` ➔ `개발` 자동 분류 및 OGP 카드 + `관련 메모 1건` 확인 |
+| `TC-05` | **AI 유사 카테고리 병합 제안 배너 & 원자적 병합 (`★` UI/UX 개선 검증)** | **Pass** | **Pass** | `videos/03-category-merge.webp` | 사이드바 `일정 병합 1` / `스케줄 병합 1` 배지, `유사도 90%` 병합 배너 노출 및 `[합치기]` 클릭 시 `일정 2`로 통합·`스케줄` 삭제 확인 |
+| `TC-07` | 하이브리드 검색(`Enter`) & 1-Depth 연관 메모 필터 (`★`) | Pass | Pass | `videos/04-search-and-related.webp` | `“RAG” 검색 결과 (2건)` 및 `관련 메모 1건` 필터링 확인 |
+| `TC-14` | **썸존 `[AI]` 토글, 포커스 헤더, RAG 단일 브리핑 & `[■ 중단]` 제어 (`★`)** | **Pass** | **Pass** | `videos/06-ai-rag-briefing.mp4` | 화살표 전용 `FocusHeader`, `AiSearchIdle` 안내·예시 칩, `AI 검색 중단` 버튼 전환, `개발 메모 정리해줘` 브리핑+근거 5건, 연속 질문 Single-Briefing Replace 확인 |
+| `TC-15` | **AI 모드 `0ms` 이탈 복귀 & 드로어 전환 시 상태 잔류 차단** | **Pass** | - | `videos/06-ai-rag-briefing.mp4` | `[←]` 즉시 타임라인 복귀 및 `휴지통` → `전체 메모` 복귀 시 `isAiMode` 재노출 없음 확인 |
+| `TC-12` | 제텔카스텐 지식망 탐색 (`★` `390x844`) | Pass | Pass | `videos/05-knowledge-graph.webp` | `지식망` 전환 및 연결 범위 슬라이더(`0.60` → `0.85` → `0.70`) 실시간 조절 확인 |
 | `TC-10` | `/download` 모바일 앱 뷰포트 & `v1.1.0` 표기 점검 | Pass | - | - | `Capacitor Android Preview · v1.1.0` 및 `ideamory-android-v1.1.0.apk` 다운로드 링크 확인 |
 
 ---
@@ -56,4 +57,4 @@
 
 ## 4. 참고 관찰 사항 (Minor Observation)
 - `TC-14` 연속 질문에서 `"일정 메모도 요약해줘"` 질의 시 Single-Briefing Replace UI 교체 및 파트너 어조 폴백 응답은 정상 동작했으나, 서브쿼리가 `"일정 메모"` 등 복합어로 분해될 때 단일 단어 카테고리(`일정`)와의 `ILIKE` 매칭이 누락되어 `근거 메모 0개`로 응답됨(단일 단어 키워드 분해 또는 토큰 단위 카테고리 매칭은 추후 개선 후보로 기록).
-- 이번 회차 브라우저 MCP 환경에 `take_screenshot` 도구가 노출되지 않아, 전체 UI/UX 및 시연 증적은 `01-full-round3-flow.mp4` (`67,258` bytes) 및 `02-ai-rag-briefing.mp4` (`1,214,384` bytes) 영상으로 확보함.
+- 이번 회차 주요 기능 시연 영상은 `01-quick-capture.webp`, `02-ai-and-ogp.webp`, `03-category-merge.webp`, `04-search-and-related.webp`, `05-knowledge-graph.webp`, `06-ai-rag-briefing.mp4` 총 6종으로 확보함. (`TC-12` 녹화 시 브라우저 MCP 툴셋에 마우스 휠·JS 실행 도구가 없어 캔버스 축소는 미수행하고 연결 강도 슬라이더 조절 중심으로 녹화함)
