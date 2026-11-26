@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import {
   LegalWebviewModal,
   SidebarDrawer,
@@ -148,6 +148,7 @@ export default function HomePage() {
           <button
             type="button"
             className="icon-button relative"
+            style={{ position: "relative" }}
             aria-label={drawerOpen ? "메뉴 닫기" : "메뉴 열기"}
             aria-expanded={drawerOpen}
             onClick={(event) => {
@@ -176,28 +177,6 @@ export default function HomePage() {
             <img src="/ideamory-logo.png" alt="Ideamory 로고" />
             <span>IDEAMORY</span>
           </div>
-          {viewMode !== "ALL" ? (
-            <button
-              type="button"
-              className="topbar-view-pill"
-              onClick={() => {
-                if (viewMode === "TRASH") {
-                  exitTrashView();
-                }
-                selectAllMemos();
-              }}
-              title={
-                viewMode === "TRASH"
-                  ? "이전 화면으로 돌아가기"
-                  : "전체 메모로 돌아가기"
-              }
-              aria-label={`${currentLabel} 필터 해제하고 이전 화면 보기`}
-            >
-              <span className="topbar-view-dot" aria-hidden="true" />
-              <span className="topbar-view-text">{currentLabel}</span>
-              <X size={12} aria-hidden="true" />
-            </button>
-          ) : null}
           {viewMode !== "TRASH" ? (
             <>
               <SearchBar />
@@ -224,7 +203,16 @@ export default function HomePage() {
               </div>
             ) : null}
 
-            <MemoTimeline isBootstrapped={isBootstrapped} />
+            <MemoTimeline
+              isBootstrapped={isBootstrapped}
+              activeFilterLabel={viewMode !== "ALL" ? currentLabel : null}
+              onClearFilter={() => {
+                if (viewMode === "TRASH") {
+                  exitTrashView();
+                }
+                selectAllMemos();
+              }}
+            />
           </>
         )}
       </section>

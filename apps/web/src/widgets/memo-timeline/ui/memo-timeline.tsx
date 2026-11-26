@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Archive, Search, Sparkles, Trash2 } from "lucide-react";
+import { Archive, Search, Sparkles, Trash2, X } from "lucide-react";
 import type { MemoResponseDto } from "@ideamory/api-spec";
 import { MemoCard } from "@/entities/memo";
 import { MergeSuggestionBanner } from "@/features/category-merge";
@@ -26,6 +26,10 @@ import { useTimelineMemos } from "../model/use-timeline-memos";
 export interface MemoTimelineProps {
   /** 게스트/소셜 세션 부트스트랩 완료 여부 */
   isBootstrapped: boolean;
+  /** 선택된 카테고리 또는 휴지통 필터 라벨 */
+  activeFilterLabel?: string | null;
+  /** 카테고리/휴지통 필터 해제 콜백 */
+  onClearFilter?: () => void;
 }
 
 /**
@@ -35,10 +39,14 @@ export interface MemoTimelineProps {
  * `entities/memo`의 순수 표현 카드(`MemoCard`)에 각 피처 슬라이스의 인터랙션을
  * 슬롯으로 주입하여 FSD 단방향 레이어링 원칙을 유지합니다.
  *
- * @param props 세션 부트스트랩 완료 상태
+ * @param props 세션 부트스트랩 완료 상태 및 활성 필터 정보
  * @returns 타임라인 피드 및 상단 컨텍스트 배너 JSX
  */
-export function MemoTimeline({ isBootstrapped }: MemoTimelineProps) {
+export function MemoTimeline({
+  isBootstrapped,
+  activeFilterLabel,
+  onClearFilter,
+}: MemoTimelineProps) {
   const viewMode = useViewStore((state) => state.viewMode);
   const openCategoryPicker = useViewStore((state) => state.openCategoryPicker);
   const isTrash = viewMode === "TRASH";
@@ -168,6 +176,29 @@ export function MemoTimeline({ isBootstrapped }: MemoTimelineProps) {
           relatedCount={relatedResults.length}
           onClear={clearRelatedFilter}
         />
+      ) : null}
+
+      {!isSearchActive && !isRelatedActive && activeFilterLabel && onClearFilter ? (
+        <div className="related-filter-banner" role="status">
+          <span className="search-banner-content">
+            {isTrash ? (
+              <Trash2 size={14} aria-hidden="true" className="search-banner-icon" />
+            ) : (
+              <span className="related-dot" aria-hidden="true" />
+            )}
+            <span className="search-banner-text">{activeFilterLabel}</span>
+          </span>
+          <button
+            type="button"
+            onClick={onClearFilter}
+            aria-label={`${activeFilterLabel} 필터 해제하고 이전 화면 보기`}
+            title={
+              isTrash ? "이전 화면으로 돌아가기" : "전체 메모로 돌아가기"
+            }
+          >
+            <X size={13} aria-hidden="true" />
+          </button>
+        </div>
       ) : null}
 
       {!isSearchActive && !isRelatedActive ? <MergeSuggestionBanner /> : null}
