@@ -21,6 +21,7 @@ export type AiSearchRequestDto = z.infer<typeof AiSearchRequestSchema>;
 export const AiSearchSourceSchema = z.object({
   id: UuidV7Schema,
   content: z.string(),
+  categoryId: UuidV7Schema,
   categoryName: z.string(),
   ogp: OgpResponseSchema.nullable().optional(),
   createdAt: z.string().datetime(),
