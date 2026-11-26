@@ -49,19 +49,21 @@ export function MergeSuggestionBanner() {
 
   return (
     <div
-      className="merge-card mt-3.5 mb-1"
+      className="merge-card"
       role="region"
       aria-label="유사 카테고리 병합 제안"
     >
-      <span className="merge-dot" aria-hidden="true" />
-      <div>
-        <strong>
-          &lsquo;{peerName}&rsquo; 카테고리와 비슷해요. 하나로 합칠까요?
-        </strong>
-        <small>
-          유사도 {Math.round(matched.similarity * 100)}% · 메모는 손실 없이 모두
-          유지됩니다
-        </small>
+      <div className="merge-card-head">
+        <span className="merge-dot" aria-hidden="true" />
+        <div className="merge-card-content">
+          <strong>
+            &lsquo;{peerName}&rsquo; 카테고리와 비슷해요. 하나로 합칠까요?
+          </strong>
+          <small>
+            유사도 {Math.round(matched.similarity * 100)}% · 메모는 손실 없이 모두
+            유지됩니다
+          </small>
+        </div>
       </div>
       <div className="merge-actions">
         <button

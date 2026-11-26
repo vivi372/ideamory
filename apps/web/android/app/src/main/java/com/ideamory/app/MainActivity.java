@@ -4,11 +4,16 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
@@ -20,8 +25,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
         super.onCreate(savedInstanceState);
         applyDarkSystemBars();
+        setupSystemBarInsets();
         if (getBridge() != null) {
             WebView webView = getBridge().getWebView();
             if (webView != null) {
@@ -66,6 +73,12 @@ public class MainActivity extends BridgeActivity {
         int bgColor = Color.parseColor("#121110");
         window.setStatusBarColor(bgColor);
         window.setNavigationBarColor(bgColor);
+        window.getDecorView().setBackgroundColor(bgColor);
+
+        View contentView = findViewById(android.R.id.content);
+        if (contentView != null) {
+            contentView.setBackgroundColor(bgColor);
+        }
 
         WindowInsetsControllerCompat controller =
                 WindowCompat.getInsetsController(window, window.getDecorView());
@@ -73,6 +86,20 @@ public class MainActivity extends BridgeActivity {
             controller.setAppearanceLightStatusBars(false);
             controller.setAppearanceLightNavigationBars(false);
         }
+    }
+
+    private void setupSystemBarInsets() {
+        View contentView = findViewById(android.R.id.content);
+        if (contentView == null) {
+            return;
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(contentView, (view, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.ime());
+            view.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+            return WindowInsetsCompat.CONSUMED;
+        });
+        ViewCompat.requestApplyInsets(contentView);
     }
 
     private void handleShareIntent(Intent intent) {
