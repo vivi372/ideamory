@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { AiSearchResponseDto } from "@ideamory/api-spec";
 
-interface AiModeState {
+interface AiModeData {
   /** 썸존 [AI] 질의 모드 활성화 여부 */
   isAiMode: boolean;
   /** AI 브리핑 API 요청 진행 여부 */
@@ -10,6 +10,9 @@ interface AiModeState {
   briefingResult: AiSearchResponseDto | null;
   /** 현재 브리핑을 생성한 사용자 질문 원문 */
   activeQuery: string;
+}
+
+interface AiModeState extends AiModeData {
   /** AI 모드 토글 (끄면 브리핑 상태도 즉시 초기화하여 타임라인으로 복귀) */
   toggleAiMode: () => void;
   /** AI 모드 명시적 설정 */
@@ -24,39 +27,28 @@ interface AiModeState {
   resetAiSearch: () => void;
 }
 
-/**
- * 썸존 `[AI]` 질의 모드 및 단일 브리핑(Single-Briefing Replace) 상태를 관리하는 Zustand 스토어입니다.
- *
- * 대화 히스토리 누적 없이 항상 최신 질문 1건과 브리핑 결과만 유지하며,
- * 뒤로가기나 `[AI]` 토글 해제 시 0ms 지연으로 기존 타임라인 상태로 복귀합니다.
- */
-export const useAiModeStore = create<AiModeState>((set) => ({
+const INITIAL_AI_MODE_STATE: AiModeData = {
   isAiMode: false,
   isSearching: false,
   briefingResult: null,
   activeQuery: "",
+};
+
+/**
+ * 썸존 `[AI]` 질의 모드 및 단일 브리핑(Single-Briefing Replace) 상태를 관리하는 전역 공유 스토어입니다.
+ *
+ * FSD 단방향 레이어링 원칙에 따라 `shared/model`에 위치하며,
+ * `memo-capture`, `memo-search`, `widgets/ai-briefing`, `BackButtonProvider`가
+ * 상호 참조 없이 단일 스토어를 구독할 수 있도록 합니다.
+ */
+export const useAiModeStore = create<AiModeState>((set) => ({
+  ...INITIAL_AI_MODE_STATE,
   toggleAiMode: () =>
     set((state) =>
-      state.isAiMode
-        ? {
-            isAiMode: false,
-            isSearching: false,
-            briefingResult: null,
-            activeQuery: "",
-          }
-        : { isAiMode: true }
+      state.isAiMode ? INITIAL_AI_MODE_STATE : { isAiMode: true }
     ),
   setAiMode: (enabled) =>
-    set(() =>
-      enabled
-        ? { isAiMode: true }
-        : {
-            isAiMode: false,
-            isSearching: false,
-            briefingResult: null,
-            activeQuery: "",
-          }
-    ),
+    set(() => (enabled ? { isAiMode: true } : INITIAL_AI_MODE_STATE)),
   setSearching: (searching, query) =>
     set((state) => ({
       isSearching: searching,
@@ -84,11 +76,5 @@ export const useAiModeStore = create<AiModeState>((set) => ({
         },
       };
     }),
-  resetAiSearch: () =>
-    set({
-      isAiMode: false,
-      isSearching: false,
-      briefingResult: null,
-      activeQuery: "",
-    }),
+  resetAiSearch: () => set(INITIAL_AI_MODE_STATE),
 }));

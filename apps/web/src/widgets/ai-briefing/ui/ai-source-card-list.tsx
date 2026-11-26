@@ -3,8 +3,8 @@
 import { useState } from "react";
 import type { AiSearchSourceDto, MemoResponseDto } from "@ideamory/api-spec";
 import { MemoCard } from "@/entities/memo";
-import { useAiModeStore } from "@/features/memo-capture";
 import { InlineEditor, useUpdateMemo } from "@/features/memo-edit";
+import { useAiModeStore } from "@/shared/model/ai-mode-store";
 import { useViewStore } from "@/shared/model/view-store";
 
 export interface AiSourceCardListProps {
@@ -34,7 +34,7 @@ function toMemoCardDto(source: AiSearchSourceDto): MemoResponseDto {
 
 /**
  * AI 브리핑 하단에 근거 메모 카드(3~5개)를 렌더링하며,
- * 기존 `MemoCard`, `InlineEditor`, `CategoryPickerSheet` 인터랙션을 그대로 재사용하는 리스트입니다.
+ * 기존 `MemoCard`, `InlineEditor`, `CategoryPickerSheet` 인터랙션을 조합하는 위젯입니다.
  *
  * @param props AI 검색 출처 메모 목록
  * @returns 근거 메모 카드 목록 JSX

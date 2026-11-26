@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { useAiModeStore } from "@/features/memo-capture";
 import { useFeedbackStore } from "@/shared/lib/feedback/use-feedback";
+import { useAiModeStore } from "@/shared/model/ai-mode-store";
 import { aiSearchApi } from "../api/ai-search.api";
 
 /**

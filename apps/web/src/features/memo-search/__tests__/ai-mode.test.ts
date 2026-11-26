@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
-import { useAiModeStore } from "../../memo-capture/model/use-ai-mode-store";
+import { useAiModeStore } from "../../../shared/model/ai-mode-store";
 
 describe("useAiModeStore (썸존 AI 질의 모드 & Single-Briefing Replace)", () => {
   beforeEach(() => {

@@ -7,12 +7,12 @@ import {
   useAndroidShareTarget,
 } from "@/shared/lib/native-bridge";
 import { generateUuidV7 } from "@/shared/lib/uuid-v7";
+import { useAiModeStore } from "@/shared/model/ai-mode-store";
 import { useViewStore } from "@/shared/model/view-store";
 import {
   extractValidClipboardUrl,
   splitLeadingCategoryHighlight,
 } from "../lib/capture-parser";
-import { useAiModeStore } from "../model/use-ai-mode-store";
 import { useCreateMemo } from "../model/use-create-memo";
 
 const MAX_MEMO_LENGTH = 5000;

@@ -12,11 +12,10 @@ import {
 } from "@/features/auth-drawer";
 import { CategoryPickerSheet } from "@/features/category-picker";
 import { McpKeySheet, useMcpKeySheetStore } from "@/features/mcp-keys";
-import { CaptureInput, useAiModeStore } from "@/features/memo-capture";
+import { CaptureInput } from "@/features/memo-capture";
 import {
   AiBriefingCard,
   AiSearchSkeleton,
-  AiSourceCardList,
   FocusHeader,
   useAiSearch,
 } from "@/features/memo-search";
@@ -25,6 +24,8 @@ import {
   ViewModeToggle,
   useViewModeStore,
 } from "@/features/view-mode";
+import { useAiModeStore } from "@/shared/model/ai-mode-store";
+import { AiSourceCardList } from "@/widgets/ai-briefing";
 import { SearchBar } from "@/widgets/header";
 import { KnowledgeGraphView } from "@/widgets/knowledge-graph";
 import { MemoTimeline } from "@/widgets/memo-timeline";
