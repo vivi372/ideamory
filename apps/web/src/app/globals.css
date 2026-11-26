@@ -117,8 +117,8 @@ html, body { background: var(--bg); color: var(--text); }
 .merge-card-content small { color: var(--text-muted); font-size: 11px; line-height: 1.45; }
 .merge-card .merge-actions button:last-child { background: rgba(235, 225, 212, 0.08); border-color: var(--border); color: var(--text-secondary); }
 
-.view-mode-single-btn { display: inline-flex; align-items: center; gap: 5px; height: 34px; padding: 0 11px; border: 1px solid var(--border); border-radius: 999px; background: rgba(25, 22, 20, 0.88); backdrop-filter: blur(12px); color: var(--text-secondary); font-size: 11px; font-weight: 600; cursor: pointer; flex-shrink: 0; white-space: nowrap; transition: border-color .16s ease, background .16s ease, color .16s ease; }
-.view-mode-single-btn:hover, .view-mode-single-btn.is-graph { border-color: var(--border-accent); background: rgba(229, 169, 92, 0.14); color: var(--accent-bright); }
+.view-mode-single-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; width: 82px; height: 34px; padding: 0 10px; border: 1px solid var(--border-accent); border-radius: 999px; background: rgba(229, 169, 92, 0.14); backdrop-filter: blur(12px); color: var(--accent-bright); font-size: 11px; font-weight: 600; cursor: pointer; flex-shrink: 0; white-space: nowrap; transition: border-color .16s ease, background .16s ease, color .16s ease; }
+.view-mode-single-btn:hover, .view-mode-single-btn.is-graph { border-color: var(--accent); background: rgba(229, 169, 92, 0.22); color: var(--accent-bright); }
 .view-mode-emoji { font-size: 12px; line-height: 1; }
 
 .graph-floating-top { position: fixed; top: 0; left: 0; right: 0; height: 68px; padding: 0 28px; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 10px; pointer-events: none; }
