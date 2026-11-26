@@ -131,10 +131,9 @@ public class MainActivity extends BridgeActivity {
             return;
         }
         ViewCompat.setOnApplyWindowInsetsListener(contentView, (view, windowInsets) -> {
-            Insets insets = windowInsets.getInsets(
-                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.ime());
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
             view.setPadding(insets.left, insets.top, insets.right, insets.bottom);
-            return WindowInsetsCompat.CONSUMED;
+            return windowInsets;
         });
         ViewCompat.requestApplyInsets(contentView);
     }
