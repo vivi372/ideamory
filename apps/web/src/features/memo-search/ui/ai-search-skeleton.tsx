@@ -23,7 +23,7 @@ export function AiSearchSkeleton({ query }: AiSearchSkeletonProps) {
     >
       <div className="ai-briefing-header">
         <span className="ai-briefing-badge">
-          <Sparkles className="h-3.5 w-3.5 animate-pulse" aria-hidden="true" />
+          <Sparkles size={14} className="ai-pulse-icon" aria-hidden="true" />
           <span>AI 브리핑 생성 중...</span>
         </span>
       </div>

@@ -476,18 +476,20 @@ export function GuideFeatureSections() {
       </GuideSectionFrame>
 
       <GuideSectionFrame feature={GUIDE_FEATURES[5]}>
-        <div className="guide-visual">
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#1B1917] px-3.5 py-2.5 text-xs">
-            <span className="inline-flex items-center gap-1.5 font-medium text-[#E5DFD7]">
-              <Network size={14} className="text-[#E9A14E]" />
-              연결 범위{" "}
-              <strong className="text-[#E9A14E]">
-                {graphThreshold <= 70
-                  ? "넓게"
-                  : graphThreshold >= 82
-                    ? "핵심만"
-                    : "보통"}
-              </strong>
+        <div className="feature-visual">
+          <div className="guide-graph-bar">
+            <span className="guide-graph-label">
+              <Network size={14} className="guide-accent-icon" aria-hidden="true" />
+              <span>
+                연결 범위{" "}
+                <strong>
+                  {graphThreshold <= 70
+                    ? "넓게"
+                    : graphThreshold >= 82
+                      ? "핵심만"
+                      : "보통"}
+                </strong>
+              </span>
             </span>
             <input
               type="range"
@@ -497,14 +499,14 @@ export function GuideFeatureSections() {
               value={graphThreshold}
               onChange={(event) => setGraphThreshold(Number(event.target.value))}
               aria-label="지식망 연결 범위 조절"
-              className="h-1.5 w-28 accent-[#E9A14E]"
+              className="guide-graph-slider"
             />
           </div>
 
-          <div className="relative mt-2.5 h-44 w-full overflow-hidden rounded-2xl border border-white/10 bg-[#141210]">
+          <div className="guide-graph-canvas">
             <svg
               viewBox="0 0 320 176"
-              className="h-full w-full"
+              className="guide-graph-svg"
               aria-label="제텔카스텐 지식망 미리보기"
             >
               {/* RAG <-> Vector (유사도 0.86) */}
@@ -549,11 +551,7 @@ export function GuideFeatureSections() {
             <button
               type="button"
               onClick={() => setSelectedGraphNode("rag")}
-              className={`absolute left-[18%] top-[24%] -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                selectedGraphNode === "rag"
-                  ? "border-[#E9A14E] bg-[#2D241C] text-[#F5EFE6] shadow-[0_0_16px_rgba(233,161,78,0.32)]"
-                  : "border-white/15 bg-[#221F1C] text-[#D1C9BE]"
-              }`}
+              className={`guide-graph-node node-rag${selectedGraphNode === "rag" ? " is-selected" : ""}`}
             >
               RAG 검색 설계
             </button>
@@ -561,11 +559,7 @@ export function GuideFeatureSections() {
             <button
               type="button"
               onClick={() => setSelectedGraphNode("vector")}
-              className={`absolute left-[72%] top-[24%] -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                selectedGraphNode === "vector"
-                  ? "border-[#E9A14E] bg-[#2D241C] text-[#F5EFE6] shadow-[0_0_16px_rgba(233,161,78,0.32)]"
-                  : "border-white/15 bg-[#221F1C] text-[#D1C9BE]"
-              }`}
+              className={`guide-graph-node node-vector${selectedGraphNode === "vector" ? " is-selected" : ""}`}
             >
               pgvector 인덱스
             </button>
@@ -573,21 +567,16 @@ export function GuideFeatureSections() {
             <button
               type="button"
               onClick={() => setSelectedGraphNode("cache")}
-              className={`absolute left-[50%] top-[74%] -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                selectedGraphNode === "cache"
-                  ? "border-[#E9A14E] bg-[#2D241C] text-[#F5EFE6] shadow-[0_0_16px_rgba(233,161,78,0.32)]"
-                  : "border-white/15 bg-[#221F1C] text-[#D1C9BE]"
-              }`}
+              className={`guide-graph-node node-cache${selectedGraphNode === "cache" ? " is-selected" : ""}`}
             >
               임베딩 캐시 전략
             </button>
           </div>
 
-          <div className="mt-2.5 rounded-xl border border-white/10 bg-[#1B1917] px-3.5 py-2.5 text-xs text-[#CFC7BC]">
+          <div className="guide-graph-info">
             {selectedGraphNode === "rag" && (
               <span>
-                <strong className="text-[#F3ECE2]">RAG 검색 설계</strong> · 연관
-                노드{" "}
+                <strong>RAG 검색 설계</strong> · 연관 노드{" "}
                 {graphThreshold <= 72
                   ? "2건 (pgvector, 캐시)"
                   : graphThreshold <= 86
@@ -597,14 +586,12 @@ export function GuideFeatureSections() {
             )}
             {selectedGraphNode === "vector" && (
               <span>
-                <strong className="text-[#F3ECE2]">pgvector 인덱스</strong> ·
-                강하게 연결된 핵심 주제
+                <strong>pgvector 인덱스</strong> · 강하게 연결된 핵심 주제
               </span>
             )}
             {selectedGraphNode === "cache" && (
               <span>
-                <strong className="text-[#F3ECE2]">임베딩 캐시 전략</strong> ·
-                슬라이더를 낮추면 약한 연결도 함께 탐색합니다
+                <strong>임베딩 캐시 전략</strong> · 슬라이더를 낮추면 약한 연결도 함께 탐색합니다
               </span>
             )}
           </div>
@@ -618,20 +605,20 @@ export function GuideFeatureSections() {
       {/* 07. 썸존 [AI] 브리핑 검색 */}
       <GuideSectionFrame feature={GUIDE_FEATURES[6]}>
         <div className="feature-visual">
-          <div className="rounded-2xl border border-white/10 bg-[#171513] p-3.5">
-            <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-2.5">
+          <div className="guide-ai-demo">
+            <div className="guide-ai-header">
               <button
                 type="button"
                 onClick={() => {
                   setAiDemoActive(false);
                   setAiDemoAnswered(false);
                 }}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[#CFC7BC] transition hover:bg-white/10"
+                className="guide-ai-reset"
                 aria-label="AI 검색 데모 초기화"
               >
-                <Sparkles size={14} className="text-[#E5A95C]" />
+                <Sparkles size={14} className="guide-accent-icon" aria-hidden="true" />
               </button>
-              <span className="text-xs font-bold text-[#F5EFE6]">
+              <span className="guide-ai-title">
                 {aiDemoActive ? "AI 검색 포커스 모드" : "일반 타임라인 모드"}
               </span>
               <button
@@ -640,45 +627,41 @@ export function GuideFeatureSections() {
                   setAiDemoActive((prev) => !prev);
                   setAiDemoAnswered(false);
                 }}
-                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold transition ${
-                  aiDemoActive
-                    ? "border-[#E9A14E] bg-[#E9A14E]/20 text-[#F0BE78]"
-                    : "border-white/15 bg-white/5 text-[#A59C90]"
-                }`}
+                className={`guide-ai-toggle${aiDemoActive ? " is-active" : ""}`}
               >
                 AI {aiDemoActive ? "ON" : "OFF"}
               </button>
             </div>
 
             {!aiDemoActive ? (
-              <p className="py-5 text-center text-xs text-[#A59C90]">
+              <p className="guide-ai-off-msg">
                 우측 상단 <b>AI OFF</b> 버튼을 눌러 포커스 모드를 체험해 보세요.
               </p>
             ) : !aiDemoAnswered ? (
-              <div className="space-y-2.5 py-2 text-center">
-                <p className="text-xs font-semibold text-[#F3ECE2]">
+              <div className="guide-ai-idle">
+                <p className="guide-ai-prompt-title">
                   내 메모에 대해 무엇이든 물어보세요
                 </p>
                 <button
                   type="button"
                   onClick={() => setAiDemoAnswered(true)}
-                  className="inline-flex w-full items-center gap-2 rounded-xl border border-[#E9A14E]/40 bg-[#E9A14E]/10 px-3 py-2 text-left text-xs text-[#F0BE78] transition hover:bg-[#E9A14E]/20"
+                  className="guide-ai-chip"
                 >
-                  <Sparkles size={13} className="shrink-0" />
+                  <Sparkles size={13} className="guide-accent-icon" aria-hidden="true" />
                   <span>이번 주에 저장한 RAG 관련 아이디어 요약해줘</span>
                 </button>
               </div>
             ) : (
-              <div className="space-y-2 rounded-xl border border-[#E9A14E]/40 bg-[#221D17] p-3 text-xs text-[#E8E0D5]">
-                <p className="font-bold text-[#F0BE78]">
+              <div className="guide-ai-briefing">
+                <p className="guide-ai-briefing-lead">
                   서브쿼리 분해와 RRF 결합으로 단일 브리핑을 생성하도록 설계했습니다.
                 </p>
-                <ul className="list-disc space-y-1 pl-4 text-[11px] text-[#CFC7BC]">
+                <ul className="guide-ai-briefing-list">
                   <li>
-                    <strong className="text-[#F5EFE6]">하이브리드 검색</strong>: FTS와 벡터 유사도를 함께 결합
+                    <strong>하이브리드 검색</strong>: FTS와 벡터 유사도를 함께 결합
                   </li>
                   <li>
-                    <strong className="text-[#F5EFE6]">단일 브리핑 교체</strong>: 새 질문 시 이전 답변은 즉시 덮어쓰기
+                    <strong>단일 브리핑 교체</strong>: 새 질문 시 이전 답변은 즉시 덮어쓰기
                   </li>
                 </ul>
               </div>

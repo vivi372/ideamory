@@ -24,7 +24,7 @@ export function AiBriefingCard({ query, answer }: AiBriefingCardProps) {
     <section className="ai-briefing-card" aria-label="AI 요약 브리핑">
       <div className="ai-briefing-header">
         <span className="ai-briefing-badge">
-          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+          <Sparkles size={14} aria-hidden="true" />
           <span>AI 브리핑</span>
         </span>
       </div>

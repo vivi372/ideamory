@@ -30,7 +30,7 @@ export function FocusHeader({ onBack }: FocusHeaderProps) {
         </button>
       </div>
       <div className="ai-focus-title">
-        <Sparkles className="h-4 w-4 text-[var(--color-accent)]" aria-hidden="true" />
+        <Sparkles size={16} className="ai-accent-icon" aria-hidden="true" />
         <span>AI 검색</span>
       </div>
       <div className="topbar-right" aria-hidden="true" />
