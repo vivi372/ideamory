@@ -3,7 +3,7 @@
 > **프로젝트**: Ideamory (아이디모리) — 모바일 퍼스트 0.1초 퀵 캡처 & AI 하이브리드 지식 서재  
 > **아키텍처**: Monorepo (Turborepo + pnpm workspaces)  
 > **핵심 스택**: Next.js 15 (React 19) + NestJS + PostgreSQL 17 (Drizzle ORM, postgres.js, pgvector) + Supabase Auth (jose ES256) + Gemini AI  
-> **최근 업데이트**: 2026-11-24 (4-2 Ideamory Remote MCP 서버 · API 키 바텀시트 및 Android v1.0.12 APK 빌드 완료)  
+> **최근 업데이트**: 2026-11-26 (5단계 E2E 통합 테스트·프로덕션 배포 및 Android v1.0.16 다크 시스템 바 완료, 6단계 AI 브레인 어시스턴트 RAG 플랜 추가)  
 
 ---
 
@@ -16,11 +16,12 @@
 | **2단계** | **백엔드 API** | NestJS 코어 비즈니스, AI 임베딩, 검색, 캡처 | ✅ 완료 | `6 / 6` (100%) |
 | **3단계** | **프론트엔드** | Next.js 15 퍼블리싱 이식, 낙관적 UI, API 연동 (FSD) | ✅ 완료 | `6 / 6` (100%) |
 | **4단계** | **확장 고도화** | Zero-Effort AI 제텔카스텐(지식망) & MCP 서버·API 키 관리 | ✅ 완료 | `2 / 2` (100%) |
-| **5단계** | **E2E & 배포** | 3-Tier 통합 연동, 분산 트레이싱, 무결성 검증 | 🔄 진행중 | `1 / 3` (33.3%) |
-| **전체** | **Total** | **엔드투엔드 프로덕션 릴리스 (확장 기능 포함)** | **진행중** | **`22 / 24` (91.7%)** |
+| **5단계** | **E2E & 배포** | 3-Tier 통합 연동, 분산 트레이싱, 무결성 검증 | ✅ 완료 | `3 / 3` (100%) |
+| **6단계** | **AI 브레인 RAG** | 썸존 `[AI]` 토글 & 단일 브리핑 교체(Single-Briefing Replace) RAG | ⏳ 대기 | `0 / 2` (0%) |
+| **전체** | **Total** | **엔드투엔드 프로덕션 릴리스 및 AI 브레인 확장** | **진행중** | **`24 / 26` (92.3%)** |
 
 ```
-진행률: [============================================----] 91.7%
+진행률: [============================================----] 92.3%
 ```
 
 ---
@@ -155,12 +156,30 @@
 - [x] **5-1. 3-Tier 인프라 연동 및 네트워크/보안 검증**
   - `Vercel` (프론트) ➔ `Northflank` (백엔드) ➔ `Supabase` (DB) 간 CORS 및 보안 헤더 검증
   - 엔드투엔드 `X-Trace-Id` 분산 추적 로그 정상 수집 확인
-- [ ] **5-2. 화면(UI) 기능 점검 및 Supabase MCP DB 정합성 N차 통합 테스트**
+- [x] **5-2. 화면(UI) 기능 점검 및 Supabase MCP DB 정합성 N차 통합 테스트**
   - API·로그 단위 검증은 기존 백엔드 테스트 스위트로 갈음하고, 실제 웹/모바일 화면에서 전체 UI/UX 및 핵심 기능(퀵 캡처, `@카테고리`, AI/OGP 파이프라인, 하이브리드 검색, 연관 메모, 병합 제안, 휴지통, 제텔카스텐/MCP 연동) 전수 점검
-  - Supabase MCP를 통해 실제 DB(`memos`, `categories`, `ogp_caches`, `category_merge_suggestions`, `mcp_api_keys`) 적재·갱신·삭제 값 교차 검증 (`integration-tests/` 시나리오 기준 이슈 0건 달성 시까지 N차 반복)
-- [ ] **5-3. 게스트/회원 라이프사이클 DB 무결성 및 증적(스크린샷·README 영상) 마감**
+  - Supabase MCP를 통해 실제 DB(`memos`, `categories`, `ogp_caches`, `category_merge_suggestions`, `mcp_api_keys`) 적재·갱신·삭제 값 교차 검증 (`integration-tests/` 시나리오 기준 Round 1·2 완료, 이슈 0건 달성)
+- [x] **5-3. 게스트/회원 라이프사이클 DB 무결성 및 증적(스크린샷·README 영상) 마감**
   - 게스트 데이터 초기화(Hard Delete), 소셜 계정 데이터 이관 및 회원탈퇴 화면 플로우 + Supabase MCP DB 무결성 검증
-  - 회차별 통합 테스트 결과서·스크린샷 증적 정리 및 GitHub README 첨부용 주요 기능 시연 영상 녹화 완료
+  - 회차별 통합 테스트 결과서(`round-1-report.md`, `round-2-report.md`)·스크린샷 증적 정리 및 GitHub README 첨부용 주요 기능 시연 영상(`.webm` 5종) 녹화 완료
+
+---
+
+## 💡 6단계: AI 브레인 어시스턴트 고도화 (AI 메모 검색 RAG 모드)
+
+- **목표**: 썸존 듀얼 인터랙션(`[AI]` 토글)과 기존 768차원 임베딩/하이브리드 검색을 결합하여, 사용자의 질문에 내 메모를 엮어 즉시 핵심을 떠먹여 주는 RAG 기능을 완성합니다.
+- **주요 산출물**: 썸존 `[AI]` 토글 바 및 포커스 모드 헤더, `POST /api/v1/memos/ai-search` 엔드포인트, 단일 브리핑 교체(Single-Briefing Replace) 카드 UI
+
+- [ ] **6-1. 백엔드 Gemini RAG 검색 파이프라인 구축**
+  - `AiSearchRequestDto(query: string)` 및 `AiSearchResponseDto(answer, sources)` Zod 스키마 정의
+  - 기존 `search_memos_hybrid` 상위 3~5건 추출 ➔ Gemini 1.5/Flash 프롬프트 바인딩 ➔ 2~3줄 핵심 브리핑 생성 서비스 로직 구현
+  - `POST /api/v1/memos/ai-search` 컨트롤러 및 단위 테스트 완비
+- [ ] **6-2. 프론트엔드 썸존 `[AI]` 토글 & 포커스 헤더 단일 브리핑 UI 구축**
+  - 하단 썸존 좌측 `[AI]` 토글 버튼 및 우측 버튼 모핑(`[+]` ⇄ `[🔍]`) 구현
+  - AI 모드 활성화 시 상단 일반 검색바 ➔ `[← 뒤로가기]` + AI 검색 미니멀 포커스 헤더 150ms 모핑 연동
+  - AI 브리핑 카드 및 1-Depth 근거 메모 카드 목록 렌더링
+  - 연속 질문 시 기존 카드를 최신 브리핑으로 100% 덮어쓰기 교체(Single-Briefing Replace) 인터랙션 구현
+  - 상단 `[←]` 터치, `[AI]` 토글 해제 및 안드로이드 뒤로가기 시 0ms 타임라인 복귀 연동
 
 ---
 
