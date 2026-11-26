@@ -671,25 +671,76 @@ html, body { background: var(--bg); color: var(--text); }
 }
 
 .guide-ai-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: #F5EFE6;
   font-size: 12px;
   font-weight: 700;
 }
 
+.guide-ai-header-spacer {
+  width: 28px;
+  height: 28px;
+}
+
 .guide-ai-toggle {
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 9px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.05);
   color: #A59C90;
   font-size: 11px;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .guide-ai-toggle.is-active {
   border-color: #E9A14E;
   background: rgba(233, 161, 78, 0.2);
   color: #F0BE78;
+}
+
+.guide-ai-capture {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: #1E1C19;
+}
+
+.guide-ai-placeholder {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8A8279;
+  font-size: 11px;
+}
+
+.guide-ai-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #F5EFE6;
+  flex-shrink: 0;
+}
+
+.guide-ai-submit.is-active {
+  background: linear-gradient(135deg, #F0BE78, #E5A95C);
+  color: #161412;
 }
 
 .guide-ai-off-msg {

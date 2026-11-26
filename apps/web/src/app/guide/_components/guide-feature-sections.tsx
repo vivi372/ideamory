@@ -3,6 +3,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import {
   Archive,
+  ArrowLeft,
   Check,
   Clipboard,
   Clock3,
@@ -607,35 +608,37 @@ export function GuideFeatureSections() {
         <div className="feature-visual">
           <div className="guide-ai-demo">
             <div className="guide-ai-header">
-              <button
-                type="button"
-                onClick={() => {
-                  setAiDemoActive(false);
-                  setAiDemoAnswered(false);
-                }}
-                className="guide-ai-reset"
-                aria-label="AI 검색 데모 초기화"
-              >
-                <Sparkles size={14} className="guide-accent-icon" aria-hidden="true" />
-              </button>
+              {aiDemoActive ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiDemoActive(false);
+                    setAiDemoAnswered(false);
+                  }}
+                  className="guide-ai-reset"
+                  aria-label="타임라인으로 돌아가기"
+                >
+                  <ArrowLeft size={15} aria-hidden="true" />
+                </button>
+              ) : (
+                <span className="guide-ai-header-spacer" aria-hidden="true" />
+              )}
               <span className="guide-ai-title">
-                {aiDemoActive ? "AI 검색 포커스 모드" : "일반 타임라인 모드"}
+                {aiDemoActive ? (
+                  <>
+                    <Sparkles size={13} className="guide-accent-icon" aria-hidden="true" />
+                    <span>AI 검색</span>
+                  </>
+                ) : (
+                  "일반 타임라인"
+                )}
               </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setAiDemoActive((prev) => !prev);
-                  setAiDemoAnswered(false);
-                }}
-                className={`guide-ai-toggle${aiDemoActive ? " is-active" : ""}`}
-              >
-                AI {aiDemoActive ? "ON" : "OFF"}
-              </button>
+              <span className="guide-ai-header-spacer" aria-hidden="true" />
             </div>
 
             {!aiDemoActive ? (
               <p className="guide-ai-off-msg">
-                우측 상단 <b>AI OFF</b> 버튼을 눌러 포커스 모드를 체험해 보세요.
+                아래 캡처 바 왼쪽의 <b>[AI]</b> 버튼을 눌러 포커스 모드를 켜보세요.
               </p>
             ) : !aiDemoAnswered ? (
               <div className="guide-ai-idle">
@@ -648,28 +651,66 @@ export function GuideFeatureSections() {
                   className="guide-ai-chip"
                 >
                   <Sparkles size={13} className="guide-accent-icon" aria-hidden="true" />
-                  <span>이번 주에 저장한 RAG 관련 아이디어 요약해줘</span>
+                  <span>이번 주에 저장한 개발 관련 메모 요약해줘</span>
                 </button>
               </div>
             ) : (
               <div className="guide-ai-briefing">
                 <p className="guide-ai-briefing-lead">
-                  서브쿼리 분해와 RRF 결합으로 단일 브리핑을 생성하도록 설계했습니다.
+                  이번 주에는 RAG 검색 정확도와 모바일 입력 UX를 다듬는 데 집중하셨네요.
                 </p>
                 <ul className="guide-ai-briefing-list">
                   <li>
-                    <strong>하이브리드 검색</strong>: FTS와 벡터 유사도를 함께 결합
+                    <strong>하이브리드 검색 정교화</strong>: 서브쿼리 분해와 RRF 빈도 가중치를 엮어 핵심 메모를 우선 떠올리도록 정리해 두셨습니다.
                   </li>
                   <li>
-                    <strong>단일 브리핑 교체</strong>: 새 질문 시 이전 답변은 즉시 덮어쓰기
+                    <strong>이어서 챙겨볼 포인트</strong>: 새 질문을 보내면 이전 브리핑이 즉시 교체되니, 궁금한 흐름을 이어서 바로 확인해 보세요.
                   </li>
                 </ul>
               </div>
             )}
+
+            <div className="guide-ai-capture">
+              <button
+                type="button"
+                onClick={() => {
+                  setAiDemoActive((prev) => !prev);
+                  setAiDemoAnswered(false);
+                }}
+                className={`guide-ai-toggle${aiDemoActive ? " is-active" : ""}`}
+                aria-pressed={aiDemoActive}
+              >
+                <Sparkles size={11} aria-hidden="true" />
+                <span>AI</span>
+              </button>
+              <span className="guide-ai-placeholder">
+                {aiDemoActive
+                  ? "내 메모에 대해 무엇이든 물어보세요..."
+                  : "지금 떠오른 생각을 기록하세요..."}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!aiDemoActive) {
+                    setAiDemoActive(true);
+                    return;
+                  }
+                  setAiDemoAnswered(true);
+                }}
+                className={`guide-ai-submit${aiDemoActive ? " is-active" : ""}`}
+                aria-label={aiDemoActive ? "AI 질문 전송 체험" : "AI 모드 켜기"}
+              >
+                {aiDemoActive ? (
+                  <Search size={13} aria-hidden="true" />
+                ) : (
+                  <Plus size={14} aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
 
           <span className="visual-footnote">
-            상단 뒤로가기 화살표나 [AI] 버튼을 다시 누르면 0ms로 타임라인에 복귀해요
+            좌측 화살표 또는 하단 [AI] 버튼을 다시 누르면 0ms로 타임라인에 복귀해요
           </span>
         </div>
       </GuideSectionFrame>
