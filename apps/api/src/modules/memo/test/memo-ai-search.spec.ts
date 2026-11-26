@@ -235,4 +235,31 @@ describe("RagService & MemoController AI RAG 검색 (6-1)", () => {
     assert.equal(calledWith.dto.query, "리액트 요약해줘");
     assert.equal(res.answer, "**요약**");
   });
+
+  it("시나리오 6: 브리핑 LLM이 null을 반환(장애/키 미설정)해도 근거 메모 기반 마크다운 폴백 브리핑을 반환해야 한다", async () => {
+    const mockAiService = {
+      generateTextWithInstruction: async ({ prompt }: { prompt: string }) => {
+        if (prompt.startsWith("질문:")) {
+          return '["상태관리"]';
+        }
+        return null;
+      },
+      batchEmbedContents: async () => [new Array(768).fill(0.1)],
+    };
+
+    const mockRepo = {
+      searchMemosHybrid: async () => [
+        createRawRow({ content: "Zustand 셀렉터 최적화 메모" }),
+      ],
+    };
+
+    const ragService = new RagService(mockRepo as any, mockAiService as any);
+    const result = await ragService.searchAndBrief(owner, {
+      query: "상태관리",
+    });
+
+    assert.equal(result.sources.length, 1);
+    assert.equal(result.answer.startsWith('**"상태관리"와 관련된 메모 1건'), true);
+    assert.equal(result.answer.includes("* **개발**: Zustand 셀렉터 최적화 메모"), true);
+  });
 });
