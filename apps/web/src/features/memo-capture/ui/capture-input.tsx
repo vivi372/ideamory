@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Clipboard, Plus, Search, Sparkles, X } from "lucide-react";
+import { Check, Clipboard, Plus, Search, Sparkles, Square, X } from "lucide-react";
 import {
   isMobileTouchDevice,
   useAndroidShareTarget,
@@ -23,6 +23,8 @@ const MULTILINE_EXPAND_THRESHOLD = 32;
 export interface CaptureInputProps {
   /** AI 질의 모드에서 질문 전송 시 호출되는 콜백 */
   onAiSubmit?: (query: string) => void;
+  /** AI 브리핑 요청 진행 중 사용자가 중단(Stop) 버튼 클릭 시 호출되는 콜백 */
+  onAiCancel?: () => void;
   /** AI 브리핑 요청 진행 여부 */
   isAiSearching?: boolean;
 }
@@ -43,6 +45,7 @@ export interface CaptureInputProps {
  */
 export function CaptureInput({
   onAiSubmit,
+  onAiCancel,
   isAiSearching = false,
 }: CaptureInputProps) {
   const viewMode = useViewStore((state) => state.viewMode);
@@ -155,6 +158,9 @@ export function CaptureInput({
   const trimmed = value.trim();
 
   const handleSubmit = () => {
+    if (isAiMode && isAiSearching) {
+      return;
+    }
     if (!trimmed) {
       setFieldError(
         isAiMode ? "질문 내용을 입력해 주세요." : "메모 내용을 입력해 주세요."
@@ -263,8 +269,8 @@ export function CaptureInput({
             enterKeyHint={isAiMode ? "search" : isMobileDevice ? "enter" : "send"}
             placeholder={
               isAiMode
-                ? "내 메모에 대해 무엇이든 물어보세요..."
-                : "지금 떠오른 생각을 기록하세요..."
+                ? "내 메모에 대해 무엇이든 물어보세요"
+                : "지금 떠오른 생각을 기록하세요"
             }
             aria-label={isAiMode ? "AI 질문 입력" : "빠른 메모 입력"}
             onFocus={() => {
@@ -296,6 +302,9 @@ export function CaptureInput({
                 !event.nativeEvent.isComposing
               ) {
                 event.preventDefault();
+                if (isAiMode && isAiSearching) {
+                  return;
+                }
                 handleSubmit();
               }
             }}
@@ -303,16 +312,28 @@ export function CaptureInput({
         </div>
         <button
           type="button"
-          className={`save-button shrink-0${isAiMode ? " is-ai-mode" : ""}`}
-          onClick={handleSubmit}
-          disabled={isAiMode && isAiSearching}
-          aria-label={isAiMode ? "AI 질문 전송" : "메모 저장"}
+          className={`save-button shrink-0${isAiMode ? " is-ai-mode" : ""}${isAiMode && isAiSearching ? " is-ai-stop" : ""}`}
+          onClick={isAiMode && isAiSearching ? () => onAiCancel?.() : handleSubmit}
+          aria-label={
+            isAiMode
+              ? isAiSearching
+                ? "AI 검색 중단"
+                : "AI 질문 전송"
+              : "메모 저장"
+          }
         >
           {isAiMode ? (
-            <>
-              <Search size={17} aria-hidden="true" />
-              <span>검색</span>
-            </>
+            isAiSearching ? (
+              <>
+                <Square size={14} fill="currentColor" aria-hidden="true" />
+                <span>중단</span>
+              </>
+            ) : (
+              <>
+                <Search size={17} aria-hidden="true" />
+                <span>검색</span>
+              </>
+            )
           ) : (
             <>
               {trimmed ? (

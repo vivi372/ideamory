@@ -6,6 +6,7 @@ import {
 } from "@ideamory/api-spec";
 import { ZodValidationPipe } from "../../../common/pipes/zod-validation.pipe";
 import { MemoController } from "../memo.controller";
+import { MemoRepository } from "../memo.repository";
 import { MemoService } from "../memo.service";
 import { RAG_EMPTY_SOURCES_ANSWER } from "../prompts/rag-briefing.prompt";
 import {
@@ -329,5 +330,63 @@ describe("RagService & MemoController AI RAG 검색 (6-1)", () => {
     );
     assert.equal(escapedPrompt.match(/<\/user_query>/g)?.length, 1);
     assert.equal(escapedPrompt.match(/<\/memo_context>/g)?.length, 1);
+  });
+
+  it("시나리오 8: RagService는 threshold 0.45를 전달하고, MemoRepository.searchMemosHybrid는 c.name ILIKE 카테고리명 매칭 SQL을 포함해야 한다", async () => {
+    const observedThresholds: number[] = [];
+    const mockAiService = {
+      generateTextWithInstruction: async () => JSON.stringify(["개발"]),
+      batchEmbedContents: async () => [new Array(768).fill(0.1)],
+    };
+    const mockRepo = {
+      searchMemosHybrid: async (params: { threshold: number }) => {
+        observedThresholds.push(params.threshold);
+        return [];
+      },
+    };
+
+    const ragService = new RagService(mockRepo as any, mockAiService as any);
+    await ragService.searchAndBrief(owner, { query: "개발 메모 정리" });
+    assert.deepEqual(observedThresholds, [0.45]);
+
+    const executedSqlChunks: string[] = [];
+    const collectSqlText = (node: unknown): void => {
+      if (!node || typeof node !== "object") {
+        return;
+      }
+      const record = node as { value?: unknown; queryChunks?: unknown[] };
+      if (Array.isArray(record.value)) {
+        for (const piece of record.value) {
+          if (typeof piece === "string") {
+            executedSqlChunks.push(piece);
+          }
+        }
+      }
+      if (Array.isArray(record.queryChunks)) {
+        for (const chunk of record.queryChunks) {
+          collectSqlText(chunk);
+        }
+      }
+    };
+
+    const repo = new MemoRepository();
+    await repo.searchMemosHybrid(
+      {
+        owner,
+        queryText: "개발",
+        queryVector: new Array(768).fill(0.1),
+        threshold: 0.45,
+        limit: 30,
+      },
+      {
+        execute: async (query: unknown) => {
+          collectSqlText(query);
+          return [];
+        },
+      } as any
+    );
+
+    const sqlText = executedSqlChunks.join(" ");
+    assert.equal(sqlText.includes("c.name ILIKE"), true);
   });
 });

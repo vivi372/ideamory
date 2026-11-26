@@ -12,12 +12,13 @@ import { apiClient } from "@/shared/api";
  * @returns 마크다운 브리핑(`answer`) 및 근거 메모(`sources`) DTO
  */
 export async function aiSearchApi(
-  payload: AiSearchRequestDto
+  payload: AiSearchRequestDto,
+  signal?: AbortSignal
 ): Promise<AiSearchResponseDto> {
   const { data } = await apiClient.post<AiSearchResponseDto>(
     "/memos/ai-search",
     payload,
-    { timeout: 30000 }
+    { timeout: 30000, signal }
   );
   return data;
 }

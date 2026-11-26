@@ -52,7 +52,7 @@ export default function HomePage() {
   const briefingResult = useAiModeStore((state) => state.briefingResult);
   const activeQuery = useAiModeStore((state) => state.activeQuery);
   const resetAiSearch = useAiModeStore((state) => state.resetAiSearch);
-  const { askAi } = useAiSearch();
+  const { askAi, cancelAiSearch } = useAiSearch();
   const setMcpSheetOpen = useMcpKeySheetStore((state) => state.setOpen);
   const hydrateFromStorage = useViewModeStore(
     (state) => state.hydrateFromStorage,
@@ -130,7 +130,12 @@ export default function HomePage() {
       <div className="ambient ambient-two" />
 
       {isAiMode && viewMode !== "TRASH" ? (
-        <FocusHeader onBack={resetAiSearch} />
+        <FocusHeader
+          onBack={() => {
+            cancelAiSearch();
+            resetAiSearch();
+          }}
+        />
       ) : displayMode === "GRAPH" ? (
         <div className="graph-floating-top" aria-label="지식망 상단 제어">
           <button
@@ -205,6 +210,9 @@ export default function HomePage() {
           ) : (
             <AiSearchIdle
               onSelectExample={(exampleQuery) => {
+                if (isAiSearching) {
+                  return;
+                }
                 if (displayMode === "GRAPH") {
                   setDisplayMode("CACHE");
                 }
@@ -242,6 +250,7 @@ export default function HomePage() {
 
       <CaptureInput
         isAiSearching={isAiSearching}
+        onAiCancel={cancelAiSearch}
         onAiSubmit={(query) => {
           if (displayMode === "GRAPH") {
             setDisplayMode("CACHE");
@@ -264,18 +273,24 @@ export default function HomePage() {
         onOpen={() => setDrawerOpen(true)}
         onClose={() => setDrawerOpen(false)}
         onSelectAllMemos={() => {
+          cancelAiSearch();
+          resetAiSearch();
           if (displayMode === "GRAPH") {
             setDisplayMode("CACHE");
           }
           selectAllMemos();
         }}
         onSelectCategory={(categoryId) => {
+          cancelAiSearch();
+          resetAiSearch();
           if (displayMode === "GRAPH") {
             setDisplayMode("CACHE");
           }
           selectCategory(categoryId);
         }}
         onSelectTrash={() => {
+          cancelAiSearch();
+          resetAiSearch();
           enterTrashView();
           selectTrash();
         }}

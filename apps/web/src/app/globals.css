@@ -332,6 +332,13 @@ html, body { background: var(--bg); color: var(--text); }
   box-shadow: 0 4px 14px rgba(229, 169, 92, 0.28);
 }
 
+.save-button.is-ai-stop {
+  background: rgba(229, 169, 92, 0.18);
+  border: 1px solid var(--border-accent);
+  color: var(--accent-bright);
+  box-shadow: none;
+}
+
 .save-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -527,9 +534,21 @@ html, body { background: var(--bg); color: var(--text); }
 }
 
 @media (max-width: 360px) {
+  .capture-box {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+  .capture-input-wrap textarea {
+    font-size: 13px;
+  }
   .ai-mode-toggle {
-    padding: 0 8px;
+    height: 30px;
+    padding: 0 7px;
     font-size: 11px;
+  }
+  .save-button {
+    width: 34px;
+    height: 34px;
   }
   .ai-focus-header .topbar-left,
   .ai-focus-header .topbar-right {
