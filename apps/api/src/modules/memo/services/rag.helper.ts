@@ -49,10 +49,11 @@ export function parseDecomposedSubQueries(
         continue;
       }
       const normalized = sanitizeSearchQuery(item);
-      if (!normalized || seen.has(normalized)) {
+      const dedupeKey = normalized.replace(/\s+/g, "").toLowerCase();
+      if (!normalized || !dedupeKey || seen.has(dedupeKey)) {
         continue;
       }
-      seen.add(normalized);
+      seen.add(dedupeKey);
       uniqueQueries.push(normalized);
       if (uniqueQueries.length >= maxCount) {
         break;
@@ -122,6 +123,7 @@ export function rankCandidatesByRrf(
 
 /**
  * 선별된 RRF 후보들을 LLM 브리핑 프롬프트 컨텍스트 문자열로 직렬화합니다.
+ * 프롬프트 인젝션 방어를 위해 질문(`<user_query>`)과 메모 데이터(`<memo_context>`)를 XML 태그로 명확히 격리하며,
  * 2개 이상 서브쿼리에 동시 등장한 앵커 메모에는 `[중요도: 매우 높음]` 태그를 부여합니다.
  *
  * @param query 정제된 사용자 질문
@@ -142,10 +144,11 @@ export function buildRagBriefingPrompt(
   });
 
   return [
-    `사용자 질문: ${query}`,
+    `<user_query>${query}</user_query>`,
     "",
-    "검색된 근거 메모 목록:",
+    "<memo_context>",
     contextLines.join("\n\n"),
+    "</memo_context>",
   ].join("\n");
 }
 
@@ -161,10 +164,35 @@ export function toAiSearchSources(
   return candidates.map(({ dto }) => ({
     id: dto.id,
     content: dto.content,
+    categoryId: dto.categoryId,
     categoryName: dto.categoryName,
     ogp: dto.ogp ?? null,
     createdAt: dto.createdAt,
   }));
+}
+
+/**
+ * LLM 브리핑 응답에 마크다운 코드펜스(```markdown ... ```)나 불필요한 서두 인사말이 섞여 있을 경우
+ * 이를 제거하여 일관된 `**1행 결론** + 불릿 포인트` 형식으로 정제합니다.
+ *
+ * @param raw LLM 원시 브리핑 문자열
+ * @returns 정제된 마크다운 브리핑 문자열
+ */
+export function sanitizeBriefingMarkdown(raw: string): string {
+  const withoutFence = raw
+    .trim()
+    .replace(/^```(?:markdown|md)?\s*\r?\n?/i, "")
+    .replace(/\r?\n?```\s*$/i, "")
+    .trim();
+
+  const lines = withoutFence.split(/\r?\n/);
+  const greetingPattern =
+    /^(안녕하세요|네,|물론입니다|사용자님의\s*메모에\s*따르면|요청하신\s*내용)/;
+  while (lines.length > 1 && greetingPattern.test(lines[0].trim())) {
+    lines.shift();
+  }
+
+  return lines.join("\n").trim();
 }
 
 /**

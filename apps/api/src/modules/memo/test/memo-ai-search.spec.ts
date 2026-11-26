@@ -8,6 +8,10 @@ import { ZodValidationPipe } from "../../../common/pipes/zod-validation.pipe";
 import { MemoController } from "../memo.controller";
 import { MemoService } from "../memo.service";
 import { RAG_EMPTY_SOURCES_ANSWER } from "../prompts/rag-briefing.prompt";
+import {
+  parseDecomposedSubQueries,
+  sanitizeBriefingMarkdown,
+} from "../services/rag.helper";
 import { RagService } from "../services/rag.service";
 
 function createRawRow(overrides: Partial<{
@@ -107,7 +111,16 @@ describe("RagService & MemoController AI RAG 검색 (6-1)", () => {
     ]);
     assert.equal(hybridCalls.length, 3);
     assert.equal(result.sources[0]?.id, memoAnchor.id);
+    assert.equal(result.sources[0]?.categoryId, memoAnchor.categoryId);
     assert.equal(result.sources.length, 3);
+    assert.equal(
+      capturedBriefingPrompt.includes("<user_query>"),
+      true
+    );
+    assert.equal(
+      capturedBriefingPrompt.includes("<memo_context>"),
+      true
+    );
     assert.equal(
       capturedBriefingPrompt.includes("[중요도: 매우 높음]"),
       true
@@ -261,5 +274,27 @@ describe("RagService & MemoController AI RAG 검색 (6-1)", () => {
     assert.equal(result.sources.length, 1);
     assert.equal(result.answer.startsWith('**"상태관리"와 관련된 메모 1건'), true);
     assert.equal(result.answer.includes("* **개발**: Zustand 셀렉터 최적화 메모"), true);
+  });
+
+  it("시나리오 7: parseDecomposedSubQueries는 대소문자·공백만 다른 중복 키워드를 제거하고, sanitizeBriefingMarkdown은 코드펜스와 인사말을 제거해야 한다", () => {
+    const deduped = parseDecomposedSubQueries(
+      JSON.stringify([
+        "React 상태관리",
+        "react상태관리",
+        "  React  상태관리  ",
+        "Zustand",
+      ]),
+      "원문",
+      3
+    );
+    assert.deepEqual(deduped, ["React 상태관리", "Zustand"]);
+
+    const cleaned = sanitizeBriefingMarkdown(
+      "```markdown\n안녕하세요!\n**핵심 결론 요약입니다.**\n\n* **포인트 1**\n```"
+    );
+    assert.equal(
+      cleaned,
+      "**핵심 결론 요약입니다.**\n\n* **포인트 1**"
+    );
   });
 });

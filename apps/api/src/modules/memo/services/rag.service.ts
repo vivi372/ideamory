@@ -21,6 +21,7 @@ import {
   buildRagBriefingPrompt,
   parseDecomposedSubQueries,
   rankCandidatesByRrf,
+  sanitizeBriefingMarkdown,
   toAiSearchSources,
 } from "./rag.helper";
 
@@ -126,9 +127,13 @@ export class RagService {
       timeoutMs: 12000,
     });
 
+    const sanitizedAnswer = generatedAnswer
+      ? sanitizeBriefingMarkdown(generatedAnswer)
+      : "";
+
     return {
       answer:
-        generatedAnswer ??
+        sanitizedAnswer ||
         buildFallbackBriefing(sanitizedQuery, rankedCandidates),
       sources: toAiSearchSources(rankedCandidates),
     };
