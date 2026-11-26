@@ -149,12 +149,17 @@ export function SidebarDrawer({
                       hasSuggestion
                         ? {
                             background: "#E9A14E",
-                            boxShadow: "0 0 8px rgba(233, 161, 78, 0.55)",
+                            boxShadow: "0 0 8px rgba(233, 161, 78, 0.7)",
                           }
-                        : undefined
+                        : {
+                            background: "rgba(235, 225, 212, 0.25)",
+                          }
                     }
                   />
                   {category.name}
+                  {hasSuggestion ? (
+                    <em className="drawer-merge-badge">병합</em>
+                  ) : null}
                   <span>{category.memoCount ?? 0}</span>
                 </button>
               );
