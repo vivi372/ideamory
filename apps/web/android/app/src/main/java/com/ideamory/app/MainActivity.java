@@ -2,9 +2,14 @@ package com.ideamory.app;
 
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.view.Window;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
 import org.json.JSONObject;
@@ -16,6 +21,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        applyDarkSystemBars();
         if (getBridge() != null) {
             WebView webView = getBridge().getWebView();
             if (webView != null) {
@@ -47,7 +53,26 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
+        applyDarkSystemBars();
         flushPendingShareToWebView();
+    }
+
+    private void applyDarkSystemBars() {
+        Window window = getWindow();
+        if (window == null) {
+            return;
+        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        int bgColor = Color.parseColor("#121110");
+        window.setStatusBarColor(bgColor);
+        window.setNavigationBarColor(bgColor);
+
+        WindowInsetsControllerCompat controller =
+                WindowCompat.getInsetsController(window, window.getDecorView());
+        if (controller != null) {
+            controller.setAppearanceLightStatusBars(false);
+            controller.setAppearanceLightNavigationBars(false);
+        }
     }
 
     private void handleShareIntent(Intent intent) {
