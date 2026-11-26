@@ -463,10 +463,17 @@ export class MemoRepository {
       ? sql`m.user_id = ${params.owner.userId}`
       : sql`m.guest_token = ${params.owner.guestToken!}`;
     const likePattern = `%${escapeLikePattern(params.queryText)}%`;
+    const categoryMatchExpr = sql`(
+      c.name ILIKE ${likePattern} ESCAPE '!'
+      OR (
+        char_length(c.name) >= 2
+        AND strpos(lower(${params.queryText}), lower(c.name)) > 0
+      )
+    )`;
     const textMatchExpr = sql`(
       to_tsvector('simple', m.content) @@ plainto_tsquery('simple', ${params.queryText})
       OR m.content ILIKE ${likePattern} ESCAPE '!'
-      OR c.name ILIKE ${likePattern} ESCAPE '!'
+      OR ${categoryMatchExpr}
     )`;
     const ftsRankExpr = sql`
       LEAST(
@@ -481,7 +488,7 @@ export class MemoRepository {
           ),
           CASE
             WHEN m.content ILIKE ${likePattern} ESCAPE '!' THEN 0.5
-            WHEN c.name ILIKE ${likePattern} ESCAPE '!' THEN 0.45
+            WHEN ${categoryMatchExpr} THEN 0.45
             ELSE 0.0
           END
         )

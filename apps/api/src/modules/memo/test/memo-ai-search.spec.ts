@@ -388,5 +388,6 @@ describe("RagService & MemoController AI RAG 검색 (6-1)", () => {
 
     const sqlText = executedSqlChunks.join(" ");
     assert.equal(sqlText.includes("c.name ILIKE"), true);
+    assert.equal(sqlText.includes("strpos(lower("), true);
   });
 });
