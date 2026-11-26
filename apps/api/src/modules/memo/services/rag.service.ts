@@ -124,7 +124,7 @@ export class RagService {
       prompt: briefingPrompt,
       temperature: 0.25,
       maxOutputTokens: 512,
-      timeoutMs: 12000,
+      timeoutMs: 25000,
     });
 
     const sanitizedAnswer = generatedAnswer

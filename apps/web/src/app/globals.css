@@ -286,7 +286,8 @@ html, body { background: var(--bg); color: var(--text); }
 }
 
 .capture-box {
-  max-width: 28rem;
+  width: 100%;
+  max-width: 44rem;
   margin-inline: auto;
   transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease, transform 180ms ease;
 }

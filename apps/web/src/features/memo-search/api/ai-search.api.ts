@@ -16,7 +16,8 @@ export async function aiSearchApi(
 ): Promise<AiSearchResponseDto> {
   const { data } = await apiClient.post<AiSearchResponseDto>(
     "/memos/ai-search",
-    payload
+    payload,
+    { timeout: 30000 }
   );
   return data;
 }
