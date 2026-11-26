@@ -3,6 +3,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import {
   Archive,
+  ArrowLeft,
   Check,
   Clipboard,
   Clock3,
@@ -14,6 +15,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -101,6 +103,10 @@ export function GuideFeatureSections() {
   const [selectedGraphNode, setSelectedGraphNode] = useState<
     "rag" | "vector" | "cache"
   >("rag");
+
+  // 07단계: 썸존 [AI] 브리핑 모드 데모 상태
+  const [aiDemoActive, setAiDemoActive] = useState(true);
+  const [aiDemoAnswered, setAiDemoAnswered] = useState(false);
 
   const handleCommitQuickEdit = () => {
     if (quickCommittedRef.current) {
@@ -471,18 +477,20 @@ export function GuideFeatureSections() {
       </GuideSectionFrame>
 
       <GuideSectionFrame feature={GUIDE_FEATURES[5]}>
-        <div className="guide-visual">
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#1B1917] px-3.5 py-2.5 text-xs">
-            <span className="inline-flex items-center gap-1.5 font-medium text-[#E5DFD7]">
-              <Network size={14} className="text-[#E9A14E]" />
-              연결 범위{" "}
-              <strong className="text-[#E9A14E]">
-                {graphThreshold <= 70
-                  ? "넓게"
-                  : graphThreshold >= 82
-                    ? "핵심만"
-                    : "보통"}
-              </strong>
+        <div className="feature-visual">
+          <div className="guide-graph-bar">
+            <span className="guide-graph-label">
+              <Network size={14} className="guide-accent-icon" aria-hidden="true" />
+              <span>
+                연결 범위{" "}
+                <strong>
+                  {graphThreshold <= 70
+                    ? "넓게"
+                    : graphThreshold >= 82
+                      ? "핵심만"
+                      : "보통"}
+                </strong>
+              </span>
             </span>
             <input
               type="range"
@@ -492,14 +500,14 @@ export function GuideFeatureSections() {
               value={graphThreshold}
               onChange={(event) => setGraphThreshold(Number(event.target.value))}
               aria-label="지식망 연결 범위 조절"
-              className="h-1.5 w-28 accent-[#E9A14E]"
+              className="guide-graph-slider"
             />
           </div>
 
-          <div className="relative mt-2.5 h-44 w-full overflow-hidden rounded-2xl border border-white/10 bg-[#141210]">
+          <div className="guide-graph-canvas">
             <svg
               viewBox="0 0 320 176"
-              className="h-full w-full"
+              className="guide-graph-svg"
               aria-label="제텔카스텐 지식망 미리보기"
             >
               {/* RAG <-> Vector (유사도 0.86) */}
@@ -544,11 +552,7 @@ export function GuideFeatureSections() {
             <button
               type="button"
               onClick={() => setSelectedGraphNode("rag")}
-              className={`absolute left-[18%] top-[24%] -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                selectedGraphNode === "rag"
-                  ? "border-[#E9A14E] bg-[#2D241C] text-[#F5EFE6] shadow-[0_0_16px_rgba(233,161,78,0.32)]"
-                  : "border-white/15 bg-[#221F1C] text-[#D1C9BE]"
-              }`}
+              className={`guide-graph-node node-rag${selectedGraphNode === "rag" ? " is-selected" : ""}`}
             >
               RAG 검색 설계
             </button>
@@ -556,11 +560,7 @@ export function GuideFeatureSections() {
             <button
               type="button"
               onClick={() => setSelectedGraphNode("vector")}
-              className={`absolute left-[72%] top-[24%] -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                selectedGraphNode === "vector"
-                  ? "border-[#E9A14E] bg-[#2D241C] text-[#F5EFE6] shadow-[0_0_16px_rgba(233,161,78,0.32)]"
-                  : "border-white/15 bg-[#221F1C] text-[#D1C9BE]"
-              }`}
+              className={`guide-graph-node node-vector${selectedGraphNode === "vector" ? " is-selected" : ""}`}
             >
               pgvector 인덱스
             </button>
@@ -568,21 +568,16 @@ export function GuideFeatureSections() {
             <button
               type="button"
               onClick={() => setSelectedGraphNode("cache")}
-              className={`absolute left-[50%] top-[74%] -translate-x-1/2 -translate-y-1/2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                selectedGraphNode === "cache"
-                  ? "border-[#E9A14E] bg-[#2D241C] text-[#F5EFE6] shadow-[0_0_16px_rgba(233,161,78,0.32)]"
-                  : "border-white/15 bg-[#221F1C] text-[#D1C9BE]"
-              }`}
+              className={`guide-graph-node node-cache${selectedGraphNode === "cache" ? " is-selected" : ""}`}
             >
               임베딩 캐시 전략
             </button>
           </div>
 
-          <div className="mt-2.5 rounded-xl border border-white/10 bg-[#1B1917] px-3.5 py-2.5 text-xs text-[#CFC7BC]">
+          <div className="guide-graph-info">
             {selectedGraphNode === "rag" && (
               <span>
-                <strong className="text-[#F3ECE2]">RAG 검색 설계</strong> · 연관
-                노드{" "}
+                <strong>RAG 검색 설계</strong> · 연관 노드{" "}
                 {graphThreshold <= 72
                   ? "2건 (pgvector, 캐시)"
                   : graphThreshold <= 86
@@ -592,20 +587,130 @@ export function GuideFeatureSections() {
             )}
             {selectedGraphNode === "vector" && (
               <span>
-                <strong className="text-[#F3ECE2]">pgvector 인덱스</strong> ·
-                강하게 연결된 핵심 주제
+                <strong>pgvector 인덱스</strong> · 강하게 연결된 핵심 주제
               </span>
             )}
             {selectedGraphNode === "cache" && (
               <span>
-                <strong className="text-[#F3ECE2]">임베딩 캐시 전략</strong> ·
-                슬라이더를 낮추면 약한 연결도 함께 탐색합니다
+                <strong>임베딩 캐시 전략</strong> · 슬라이더를 낮추면 약한 연결도 함께 탐색합니다
               </span>
             )}
           </div>
 
           <span className="visual-footnote">
             노드를 탭하면 하단 시트에서 바로 읽고 수정할 수 있어요
+          </span>
+        </div>
+      </GuideSectionFrame>
+
+      {/* 07. 썸존 [AI] 브리핑 검색 */}
+      <GuideSectionFrame feature={GUIDE_FEATURES[6]}>
+        <div className="feature-visual">
+          <div className="guide-ai-demo">
+            <div className="guide-ai-header">
+              {aiDemoActive ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiDemoActive(false);
+                    setAiDemoAnswered(false);
+                  }}
+                  className="guide-ai-reset"
+                  aria-label="타임라인으로 돌아가기"
+                >
+                  <ArrowLeft size={15} aria-hidden="true" />
+                </button>
+              ) : (
+                <span className="guide-ai-header-spacer" aria-hidden="true" />
+              )}
+              <span className="guide-ai-title">
+                {aiDemoActive ? (
+                  <>
+                    <Sparkles size={13} className="guide-accent-icon" aria-hidden="true" />
+                    <span>AI 검색</span>
+                  </>
+                ) : (
+                  "일반 타임라인"
+                )}
+              </span>
+              <span className="guide-ai-header-spacer" aria-hidden="true" />
+            </div>
+
+            {!aiDemoActive ? (
+              <p className="guide-ai-off-msg">
+                아래 캡처 바 왼쪽의 <b>[AI]</b> 버튼을 눌러 포커스 모드를 켜보세요.
+              </p>
+            ) : !aiDemoAnswered ? (
+              <div className="guide-ai-idle">
+                <p className="guide-ai-prompt-title">
+                  내 메모에 대해 무엇이든 물어보세요
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAiDemoAnswered(true)}
+                  className="guide-ai-chip"
+                >
+                  <Sparkles size={13} className="guide-accent-icon" aria-hidden="true" />
+                  <span>이번 주에 저장한 개발 관련 메모 요약해줘</span>
+                </button>
+              </div>
+            ) : (
+              <div className="guide-ai-briefing">
+                <p className="guide-ai-briefing-lead">
+                  이번 주에는 RAG 검색 정확도와 모바일 입력 UX를 다듬는 데 집중하셨네요.
+                </p>
+                <ul className="guide-ai-briefing-list">
+                  <li>
+                    <strong>하이브리드 검색 정교화</strong>: 서브쿼리 분해와 RRF 빈도 가중치를 엮어 핵심 메모를 우선 떠올리도록 정리해 두셨습니다.
+                  </li>
+                  <li>
+                    <strong>이어서 챙겨볼 포인트</strong>: 새 질문을 보내면 이전 브리핑이 즉시 교체되니, 궁금한 흐름을 이어서 바로 확인해 보세요.
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            <div className="guide-ai-capture">
+              <button
+                type="button"
+                onClick={() => {
+                  setAiDemoActive((prev) => !prev);
+                  setAiDemoAnswered(false);
+                }}
+                className={`guide-ai-toggle${aiDemoActive ? " is-active" : ""}`}
+                aria-pressed={aiDemoActive}
+              >
+                <Sparkles size={11} aria-hidden="true" />
+                <span>AI</span>
+              </button>
+              <span className="guide-ai-placeholder">
+                {aiDemoActive
+                  ? "내 메모에 대해 무엇이든 물어보세요..."
+                  : "지금 떠오른 생각을 기록하세요..."}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!aiDemoActive) {
+                    setAiDemoActive(true);
+                    return;
+                  }
+                  setAiDemoAnswered(true);
+                }}
+                className={`guide-ai-submit${aiDemoActive ? " is-active" : ""}`}
+                aria-label={aiDemoActive ? "AI 질문 전송 체험" : "AI 모드 켜기"}
+              >
+                {aiDemoActive ? (
+                  <Search size={13} aria-hidden="true" />
+                ) : (
+                  <Plus size={14} aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          <span className="visual-footnote">
+            좌측 화살표 또는 하단 [AI] 버튼을 다시 누르면 0ms로 타임라인에 복귀해요
           </span>
         </div>
       </GuideSectionFrame>

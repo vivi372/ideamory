@@ -14,10 +14,19 @@ import { CategoryPickerSheet } from "@/features/category-picker";
 import { McpKeySheet, useMcpKeySheetStore } from "@/features/mcp-keys";
 import { CaptureInput } from "@/features/memo-capture";
 import {
+  AiBriefingCard,
+  AiSearchIdle,
+  AiSearchSkeleton,
+  FocusHeader,
+  useAiSearch,
+} from "@/features/memo-search";
+import {
   GraphThresholdPill,
   ViewModeToggle,
   useViewModeStore,
 } from "@/features/view-mode";
+import { useAiModeStore } from "@/shared/model/ai-mode-store";
+import { AiSourceCardList } from "@/widgets/ai-briefing";
 import { SearchBar } from "@/widgets/header";
 import { KnowledgeGraphView } from "@/widgets/knowledge-graph";
 import { MemoTimeline } from "@/widgets/memo-timeline";
@@ -38,6 +47,12 @@ export default function HomePage() {
   const setDisplayMode = useViewModeStore((state) => state.setDisplayMode);
   const enterTrashView = useViewModeStore((state) => state.enterTrashView);
   const exitTrashView = useViewModeStore((state) => state.exitTrashView);
+  const isAiMode = useAiModeStore((state) => state.isAiMode);
+  const isAiSearching = useAiModeStore((state) => state.isSearching);
+  const briefingResult = useAiModeStore((state) => state.briefingResult);
+  const activeQuery = useAiModeStore((state) => state.activeQuery);
+  const resetAiSearch = useAiModeStore((state) => state.resetAiSearch);
+  const { askAi, cancelAiSearch } = useAiSearch();
   const setMcpSheetOpen = useMcpKeySheetStore((state) => state.setOpen);
   const hydrateFromStorage = useViewModeStore(
     (state) => state.hydrateFromStorage,
@@ -114,7 +129,14 @@ export default function HomePage() {
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
-      {displayMode === "GRAPH" ? (
+      {isAiMode && viewMode !== "TRASH" ? (
+        <FocusHeader
+          onBack={() => {
+            cancelAiSearch();
+            resetAiSearch();
+          }}
+        />
+      ) : displayMode === "GRAPH" ? (
         <div className="graph-floating-top" aria-label="지식망 상단 제어">
           <button
             type="button"
@@ -172,9 +194,33 @@ export default function HomePage() {
       )}
 
       <section
-        className={`content-wrap${displayMode === "GRAPH" ? " is-graph-mode" : ""}`}
+        className={`content-wrap${displayMode === "GRAPH" && !isAiMode ? " is-graph-mode" : ""}`}
       >
-        {displayMode === "GRAPH" ? (
+        {isAiMode && viewMode !== "TRASH" ? (
+          isAiSearching ? (
+            <AiSearchSkeleton query={activeQuery} />
+          ) : briefingResult ? (
+            <>
+              <AiBriefingCard
+                query={activeQuery}
+                answer={briefingResult.answer}
+              />
+              <AiSourceCardList sources={briefingResult.sources} />
+            </>
+          ) : (
+            <AiSearchIdle
+              onSelectExample={(exampleQuery) => {
+                if (isAiSearching) {
+                  return;
+                }
+                if (displayMode === "GRAPH") {
+                  setDisplayMode("CACHE");
+                }
+                askAi(exampleQuery);
+              }}
+            />
+          )
+        ) : displayMode === "GRAPH" ? (
           <KnowledgeGraphView isBootstrapped={isBootstrapped} />
         ) : (
           <>
@@ -202,7 +248,16 @@ export default function HomePage() {
         )}
       </section>
 
-      <CaptureInput />
+      <CaptureInput
+        isAiSearching={isAiSearching}
+        onAiCancel={cancelAiSearch}
+        onAiSubmit={(query) => {
+          if (displayMode === "GRAPH") {
+            setDisplayMode("CACHE");
+          }
+          askAi(query);
+        }}
+      />
 
       <SidebarDrawer
         open={drawerOpen}
@@ -218,18 +273,24 @@ export default function HomePage() {
         onOpen={() => setDrawerOpen(true)}
         onClose={() => setDrawerOpen(false)}
         onSelectAllMemos={() => {
+          cancelAiSearch();
+          resetAiSearch();
           if (displayMode === "GRAPH") {
             setDisplayMode("CACHE");
           }
           selectAllMemos();
         }}
         onSelectCategory={(categoryId) => {
+          cancelAiSearch();
+          resetAiSearch();
           if (displayMode === "GRAPH") {
             setDisplayMode("CACHE");
           }
           selectCategory(categoryId);
         }}
         onSelectTrash={() => {
+          cancelAiSearch();
+          resetAiSearch();
           enterTrashView();
           selectTrash();
         }}

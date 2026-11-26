@@ -298,7 +298,9 @@ export class AiService {
 
     try {
       const model =
-        process.env.GEMINI_MODEL || "gemini-3.1-flash-lite-preview";
+        process.env.GEMINI_MODEL ||
+        process.env.GEMINI_CLASSIFY_MODEL ||
+        "gemini-3.1-flash-lite";
       const response = await client.models.generateContent({
         model,
         contents: params.prompt,

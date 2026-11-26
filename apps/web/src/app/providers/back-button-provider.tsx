@@ -15,6 +15,7 @@ import {
   EXIT_CONFIRM_TOAST_MESSAGE,
   resolveNextBackAction,
 } from "@/shared/lib/navigation/back-button-handler";
+import { useAiModeStore } from "@/shared/model/ai-mode-store";
 import { useViewStore } from "@/shared/model/view-store";
 
 interface BackButtonProviderProps {
@@ -41,6 +42,7 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
       const viewState = useViewStore.getState();
       const viewModeState = useViewModeStore.getState();
       const feedbackState = useFeedbackStore.getState();
+      const aiModeState = useAiModeStore.getState();
 
       const nowMs = Date.now();
       const action = resolveNextBackAction(
@@ -51,6 +53,7 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
           socialSheetOpen: authState.socialSheetOpen,
           legalModalOpen: Boolean(authState.legalModalType),
           feedbackModalOpen: Boolean(feedbackState.modal),
+          aiModeActive: aiModeState.isAiMode,
           searchActive: viewState.searchQuery.trim().length > 0,
           relatedFilterActive: Boolean(viewState.relatedFilterMemoId),
           graphNodeFocused: Boolean(viewModeState.focusedNodeId),
@@ -78,6 +81,9 @@ export function BackButtonProvider({ children }: BackButtonProviderProps) {
           return true;
         case "CLOSE_DRAWER":
           authState.setDrawerOpen(false);
+          return true;
+        case "EXIT_AI_MODE":
+          aiModeState.resetAiSearch();
           return true;
         case "CLEAR_SEARCH":
           viewState.clearSearch();

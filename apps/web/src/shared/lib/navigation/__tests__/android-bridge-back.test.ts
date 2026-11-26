@@ -108,6 +108,21 @@ describe("안드로이드 브릿지 Share Target & 물리 뒤로가기 스택", 
       );
     });
 
+    it("AI 검색/브리핑 포커스 모드에서는 오버레이가 없을 때 EXIT_AI_MODE를 반환해야 한다", () => {
+      assert.equal(
+        resolveNextBackAction({ ...baseState, aiModeActive: true }, 1000, null),
+        "EXIT_AI_MODE"
+      );
+      assert.equal(
+        resolveNextBackAction(
+          { ...baseState, aiModeActive: true, categoryPickerOpen: true },
+          1000,
+          null
+        ),
+        "CLOSE_CATEGORY_PICKER"
+      );
+    });
+
     it("홈 타임라인에서 1회 입력 시 종료 안내 토스트, 2초 이내 재입력 시 앱 종료를 반환해야 한다", () => {
       assert.equal(
         resolveNextBackAction(baseState, 1000, null),

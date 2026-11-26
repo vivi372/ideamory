@@ -27,8 +27,8 @@ import {
 
 /** 서브쿼리당 하이브리드 검색 후보 조회 상한 */
 const SUBQUERY_SEARCH_LIMIT = 30;
-/** 하이브리드 검색 최소 코사인 유사도 임계값 */
-const SUBQUERY_VECTOR_THRESHOLD = 0.65;
+/** 하이브리드 검색 최소 코사인 유사도 임계값 (gemini-embedding-2 단문·키워드 매칭 보정) */
+const SUBQUERY_VECTOR_THRESHOLD = 0.45;
 /** LLM 브리핑 컨텍스트 및 sources 배열에 포함할 최대 근거 메모 수 */
 const MAX_RAG_SOURCES = 5;
 /** 서브쿼리 분해 최대 개수 */
@@ -122,9 +122,9 @@ export class RagService {
     const generatedAnswer = await this.aiService.generateTextWithInstruction({
       systemInstruction: RAG_BRIEFING_SYSTEM_INSTRUCTION,
       prompt: briefingPrompt,
-      temperature: 0.25,
-      maxOutputTokens: 512,
-      timeoutMs: 12000,
+      temperature: 0.35,
+      maxOutputTokens: 800,
+      timeoutMs: 25000,
     });
 
     const sanitizedAnswer = generatedAnswer
