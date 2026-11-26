@@ -5,15 +5,16 @@ import { OgpModule } from "../ogp/ogp.module";
 import { MemoRepository } from "./memo.repository";
 import { MemoService } from "./memo.service";
 import { MemoController } from "./memo.controller";
+import { RagService } from "./services/rag.service";
 
 /**
- * 메모 코어 파이프라인(퀵 캡처, 타임라인, 인라인 수정, 소프트 삭제/복구) 모듈
+ * 메모 코어 파이프라인(퀵 캡처, 타임라인, 인라인 수정, 소프트 삭제/복구, AI RAG 검색) 모듈
  */
 @Module({
   imports: [AiModule, CategoryModule, OgpModule],
   controllers: [MemoController],
-  providers: [MemoRepository, MemoService],
-  exports: [MemoService, MemoRepository],
+  providers: [MemoRepository, MemoService, RagService],
+  exports: [MemoService, MemoRepository, RagService],
 })
 export class MemoModule {}
 

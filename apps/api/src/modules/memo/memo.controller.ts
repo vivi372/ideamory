@@ -21,12 +21,15 @@ import {
   ApiBody,
 } from "@nestjs/swagger";
 import {
+  AiSearchRequestSchema,
   CreateMemoSchema,
   UpdateMemoSchema,
   GetMemosQuerySchema,
   SearchMemoQuerySchema,
   RelatedMemoQuerySchema,
   UuidV7Schema,
+  type AiSearchRequestDto,
+  type AiSearchResponseDto,
   type CreateMemoDto,
   type UpdateMemoDto,
   type GetMemosQueryDto,
@@ -150,6 +153,52 @@ export class MemoController {
     return this.memoService.searchMemos(
       { userId: user.userId, guestToken: user.guestToken },
       query
+    );
+  }
+
+  /**
+   * 6-1. 내 메모 기반 AI 브레인 RAG 자연어 검색 엔드포인트 (`POST /api/v1/memos/ai-search`).
+   * 멀티 쿼리 분해 + 배치 임베딩 + RRF 랭킹으로 상위 3~5건 근거 메모를 추출하고 마크다운 브리핑을 반환합니다.
+   *
+   * @param user 인증 가드가 주입한 요청 주체
+   * @param dto 자연어 검색 질문 DTO(`query`, 1~500자)
+   * @returns 구조화 마크다운 브리핑(`answer`) 및 근거 메모 목록(`sources`)
+   */
+  @Post("ai-search")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "내 메모 기반 AI 브레인 RAG 검색",
+    description:
+      "자연어 질문을 서브쿼리 2~3개로 분해해 하이브리드 검색을 병렬 실행하고, RRF 가중치 합산으로 상위 3~5건 근거 메모와 1행 결론+불릿 마크다운 브리핑을 반환합니다.",
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["query"],
+      properties: {
+        query: {
+          type: "string",
+          example: "지난달 리액트 상태관리 관련해서 내가 메모해 둔 거 요약해줘",
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: "AI RAG 검색 및 브리핑 생성 성공" })
+  @ApiResponse({
+    status: 400,
+    description: "질문 누락 또는 500자 초과 (MEMO_FIELD_REQUIRED / SYSTEM_FIELD_BAD_REQUEST)",
+  })
+  @ApiResponse({
+    status: 401,
+    description: "세션/인증 토큰 누락 또는 만료 (AUTH_ALERT_SESSION_EXPIRED)",
+  })
+  async aiSearchMemos(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body(new ZodValidationPipe(AiSearchRequestSchema)) dto: AiSearchRequestDto
+  ): Promise<AiSearchResponseDto> {
+    return this.memoService.aiSearchMemos(
+      { userId: user.userId, guestToken: user.guestToken },
+      dto
     );
   }
 

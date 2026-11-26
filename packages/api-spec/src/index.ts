@@ -18,6 +18,9 @@ export * from "./schemas/ogp.schema";
 // 메모 도메인 스키마 및 타입
 export * from "./schemas/memo.schema";
 
+// AI 브레인 RAG 검색 도메인 스키마 및 타입
+export * from "./schemas/ai-search.dto";
+
 // 카테고리 도메인 스키마 및 타입
 export * from "./schemas/category.schema";
 
