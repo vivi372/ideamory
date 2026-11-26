@@ -314,3 +314,39 @@
   ```
   - DB에는 원문 키 대신 `key_hash`와 `key_prefix`만 저장되며, 재발급/폐기 시 이전 키에 `revoked_at`이 기록되는지 확인합니다.
 - **증적**: `screenshots/tc13-mcp-integration.png`
+
+---
+
+## Group H. 썸존 `[AI]` 토글 & 포커스 헤더 단일 브리핑 (RAG)
+
+### `TC-14`: 썸존 `[AI]` 모드 진입, RAG 단일 브리핑 & 중복 전송 차단/중단 ★ README 영상
+- **사전 조건**: 임베딩 생성이 완료된 메모 2건 이상 보유 (예: `@개발` 또는 유사 주제 메모)
+- **화면 수행 절차**:
+  1. 하단 썸존 입력 바 좌측 `[AI]` 토글 버튼을 클릭합니다.
+  2. 상단 헤더가 `[←]` 화살표 아이콘 + 중앙 `AI 검색` 미니멀 포커스 헤더(`FocusHeader`)로 전환되고, 중앙 타임라인이 비워지며 `"내 메모에 대해 무엇이든 물어보세요"` 안내 및 추천 예시 칩 3종(`AiSearchIdle`)이 노출되는지 확인합니다.
+  3. 입력창 플레이스홀더가 `"내 메모에 대해 무엇이든 물어보세요"`로 전환되고 우측 버튼이 `[🔍]`으로 변경되었는지 확인합니다.
+  4. 추천 예시 칩 또는 직접 질의를 입력해 전송하고, 응답 대기 중 우측 버튼이 `[■ 중단]`으로 바뀌며 `Enter`/중복 전송이 차단되는지 확인합니다. (1회는 `[■ 중단]` 버튼으로 명시 취소 후 재전송 검증)
+  5. AI 브리핑 완료 시 `**1행 결론**` + 불릿 포인트(`AiBriefingCard`)와 하단 1-Depth 근거 메모 카드(`AiSourceCardList`, 3~5건)가 렌더링되는지 확인합니다.
+  6. 연속으로 다른 질문을 전송했을 때 대화 스레드가 아래로 누적되지 않고 최신 1건 브리핑으로 100% 덮어쓰기(Single-Briefing Replace) 되는지 확인합니다.
+- **기대 결과 (UI)**:
+  - `390×844` 모바일 뷰포트에서 가로 스크롤 0건, 버튼 겹침 0건, 마크다운 줄바꿈 정상.
+  - 근거 메모 카드 본문 클릭 시 인라인 수정이 즉시 동작합니다.
+- **Supabase MCP DB 검증 (`execute_sql`)**:
+  ```sql
+  SELECT id, left(content, 40) AS preview, category_id, (embedding IS NOT NULL) AS has_embedding
+  FROM memos
+  WHERE guest_token = '<guest_token>' AND deleted_at IS NULL
+  ORDER BY created_at DESC;
+  ```
+  - 브리핑 하단 `sources`로 노출된 메모 ID·본문·카테고리가 DB 활성 메모와 100% 일치하는지 확인합니다.
+- **증적**: `screenshots/tc14-ai-rag-briefing.png`, `videos/04-ai-rag-briefing.webm`
+
+### `TC-15`: AI 모드 0ms 이탈 복귀 & 드로어 전환 시 상태 잔류 차단
+- **사전 조건**: `TC-14`에서 AI 검색 포커스 모드(`isAiMode: true`) 활성화 상태
+- **화면 수행 절차**:
+  1. 상단 `FocusHeader` 좌측 `[←]` 아이콘 클릭 시 `0ms`로 일반 타임라인과 기본 헤더로 복귀하는지 확인합니다.
+  2. 다시 `[AI]` 토글을 켠 뒤 `[AI]` 버튼을 재클릭해 해제할 때 동일하게 즉시 복귀하는지 확인합니다.
+  3. `[AI]` 토글 활성화 상태에서 사이드바 드로어(`☰`)를 열어 `휴지통`으로 이동한 뒤 다시 `전체 메모`로 복귀했을 때 AI 검색 포커스 화면이 재노출되지 않는지 확인합니다.
+- **기대 결과 (UI)**:
+  - 모든 이탈 경로에서 진행 중이던 AI 요청은 즉시 중단(`AbortController.abort()`)되고 에러 토스트가 노출되지 않으며, 드로어 전환 후에도 `isAiMode` 상태가 잔류하지 않습니다.
+- **증적**: `screenshots/tc15-ai-exit-and-drawer.png`
