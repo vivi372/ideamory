@@ -124,21 +124,6 @@ export default function HomePage() {
             onClick={() => setDrawerOpen(!drawerOpen)}
           >
             <Menu size={19} />
-            {suggestionCategoryIds.size > 0 ? (
-              <span
-                aria-label="유사 카테고리 병합 제안 알림"
-                style={{
-                  position: "absolute",
-                  top: 7,
-                  right: 7,
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: "#E9A14E",
-                  boxShadow: "0 0 8px rgba(233, 161, 78, 0.7)",
-                }}
-              />
-            ) : null}
           </button>
           <GraphThresholdPill />
           <ViewModeToggle />
