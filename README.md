@@ -9,7 +9,7 @@
 
 [![Web Production](https://img.shields.io/badge/Web_Production-ideamory.vercel.app-E5A95C?style=for-the-badge&logo=vercel&logoColor=1C1917)](https://ideamory.vercel.app)
 [![Quick Guide](https://img.shields.io/badge/Quick_Guide-사용_가이드-2A2520?style=for-the-badge&logo=bookstack&logoColor=F0BE78)](https://ideamory.vercel.app/guide)
-[![Android APK](https://img.shields.io/badge/Android_APK-v1.1.0_다운로드-3DDC84?style=for-the-badge&logo=android&logoColor=1C1917)](https://ideamory.vercel.app/download)
+[![Android APK](https://img.shields.io/badge/Android_APK-v1.1.1_다운로드-3DDC84?style=for-the-badge&logo=android&logoColor=1C1917)](https://ideamory.vercel.app/download)
 [![API Docs](https://img.shields.io/badge/API_Docs-Swagger_UI-85EA2D?style=for-the-badge&logo=swagger&logoColor=1C1917)](https://p01--ideamory--fyppwr9k8xfj.code.run/api/docs)
 [![Architecture Spec](https://img.shields.io/badge/Architecture_Spec-NotebookLM-4285F4?style=for-the-badge&logo=google&logoColor=FFFFFF)](https://notebook.google.com/notebook/427a06bb-7090-4f15-8360-4189ccdcee63)
 
