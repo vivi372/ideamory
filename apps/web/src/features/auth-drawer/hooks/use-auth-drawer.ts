@@ -169,7 +169,12 @@ export function useAuthDrawer() {
   };
 
   const categories = categoriesQuery.data ?? [];
-  const mergeSuggestions = mergeSuggestionsQuery.data ?? [];
+  const activeCategoryIds = new Set(categories.map((category) => category.id));
+  const mergeSuggestions = (mergeSuggestionsQuery.data ?? []).filter(
+    (item) =>
+      activeCategoryIds.has(item.sourceCategoryId) &&
+      activeCategoryIds.has(item.targetCategoryId)
+  );
   const suggestionCategoryIds = new Set<string>();
   mergeSuggestions.forEach((item) => {
     suggestionCategoryIds.add(item.sourceCategoryId);

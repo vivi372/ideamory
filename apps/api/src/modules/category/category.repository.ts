@@ -479,6 +479,9 @@ export class CategoryRepository {
     const ownerFilter = owner.userId
       ? sql`s.user_id = ${owner.userId}`
       : sql`s.guest_token = ${owner.guestToken!}`;
+    const memoOwnerFilter = owner.userId
+      ? sql`m.user_id = ${owner.userId}`
+      : sql`m.guest_token = ${owner.guestToken!}`;
 
     const result = await tx.execute(sql`
       SELECT
@@ -492,6 +495,22 @@ export class CategoryRepository {
       INNER JOIN public.categories src ON src.id = s.source_category_id
       INNER JOIN public.categories tgt ON tgt.id = s.target_category_id
       WHERE ${ownerFilter}
+        AND EXISTS (
+          SELECT 1
+          FROM public.memos m
+          WHERE m.category_id = src.id
+            AND ${memoOwnerFilter}
+            AND m.deleted_at IS NULL
+            AND m.ai_status != 'PENDING'
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM public.memos m
+          WHERE m.category_id = tgt.id
+            AND ${memoOwnerFilter}
+            AND m.deleted_at IS NULL
+            AND m.ai_status != 'PENDING'
+        )
       ORDER BY s.similarity DESC, s.created_at DESC
     `);
 

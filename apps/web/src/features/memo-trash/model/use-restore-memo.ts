@@ -60,6 +60,9 @@ export function useRestoreMemo() {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.categories.list(),
       });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.categories.mergeSuggestions(),
+      });
     },
   });
 }
